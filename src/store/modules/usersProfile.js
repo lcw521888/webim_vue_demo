@@ -86,6 +86,7 @@ const mutations = {
       baseInfo: {},
       contacts: {},
       groupInfos: new Map(),
+      _meta: { lastMessageHash: '', lastMessageTimestamp: 0 },
     };
 
     switch (sourceType) {
@@ -223,7 +224,7 @@ const getters = {
     // 专为群组场景优化的获取方式
     const user = state.userProfiles.get(userId);
     return (
-      user?.groupInfos.get(groupId)?.nickName ||
+      user?.groupInfos?.get(groupId)?.nickName ||
       user?.baseInfo?.remark ||
       user?.contacts?.nickname ||
       user?.messageExt?.nickname ||
@@ -232,7 +233,7 @@ const getters = {
   },
   getInTheGroupInfo: (state) => (userId, groupId) => {
     const user = state.userProfiles.get(userId);
-    return user?.groupInfos.get(groupId) || {};
+    return user?.groupInfos?.get(groupId) || {};
   },
 };
 

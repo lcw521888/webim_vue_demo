@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { EMClient } from '@/IM';
 import { CHAT_TYPE } from '@/IM/constant';
+import { DEFAULT_EASEMOB_REST_URL } from '@/IM/config';
 
 const route = useRoute();
 const router = useRouter();
@@ -215,17 +216,38 @@ const batchAttributeForm = ref({
 const getChatRoomAttributes = async () => {
   if (!checkLoginStatus()) return;
   
+  const roomId = route.query.roomId;
+  if (!roomId) {
+    ElMessage.error('聊天室ID不存在');
+    return;
+  }
+  
   try {
+    console.log('开始获取聊天室自定义属性，roomId:', roomId, '当前用户:', EMClient.user, 'REST URL:', DEFAULT_EASEMOB_REST_URL);
     const res = await EMClient.getChatRoomAttributes({ 
-      chatRoomId: route.query.roomId
+      chatRoomId: roomId
     });
+    console.log('获取聊天室自定义属性成功:', res);
     attributes.value = res.data || {};
   } catch (error) {
     console.error('获取聊天室自定义属性失败', error);
+    console.error('错误详情:', { 
+      type: error.type, 
+      message: error.message, 
+      errorType: error.errorType, 
+      xhr: error.xhr ? { 
+        status: error.xhr.status, 
+        readyState: error.xhr.readyState, 
+        responseURL: error.xhr.responseURL, 
+        responseText: error.xhr.responseText 
+      } : '无xhr信息'
+    });
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else if (error.type === 702) {
       ElMessage.error('获取聊天室自定义属性失败，请检查聊天室ID是否正确');
+    } else if (error.type === -2 || error.errorType === 'onerror') {
+      ElMessage.error('网络请求失败，请检查网络连接或服务器配置');
     } else {
       ElMessage.error('获取聊天室自定义属性失败');
     }
