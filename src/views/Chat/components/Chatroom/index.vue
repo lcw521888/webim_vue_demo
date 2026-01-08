@@ -177,52 +177,7 @@ const toChatroomDetails = (roomId) => {
   });
 };
 
-const showCreateDialog = ref(false);
-const createForm = ref({
-  name: '',
-  description: '',
-  maxusers: 200,
-  members: [],
-});
 
-const createChatroom = async () => {
-  if (!checkLoginStatus()) return;
-  
-  try {
-    const options = {
-      name: createForm.value.name,
-      description: createForm.value.description,
-      maxusers: createForm.value.maxusers,
-      members: createForm.value.members,
-    };
-    await EMClient.createChatRoom(options);
-    ElMessage.success('创建聊天室成功');
-    showCreateDialog.value = false;
-    createForm.value = {
-      name: '',
-      description: '',
-      maxusers: 200,
-      members: [],
-    };
-    getChatrooms();
-  } catch (error) {
-    console.error('创建聊天室失败 - 完整错误信息:', error);
-    console.error('错误类型:', error.type);
-    console.error('错误数据:', error.data);
-    console.error('错误消息:', error.message);
-    
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else if (error.type === 17 || error.data?.includes('group_authorization')) {
-      ElMessage.error('您没有创建聊天室的权限');
-    } else if (error.data?.includes('forbidden_op')) {
-      ElMessage.error('操作被禁止，您可能已被禁言或限制');
-    } else {
-      const errorMsg = error.data || error.message || '创建聊天室失败';
-      ElMessage.error(`创建聊天室失败: ${errorMsg}`);
-    }
-  }
-};
 
 const filteredChatroomList = computed(() => {
   if (!searchKeyword.value) return chatroomList.value;
@@ -364,9 +319,6 @@ onUnmounted(() => {
         </div>
 
         <div class="action_buttons">
-          <el-button type="primary" size="small" @click="showCreateDialog = true">
-            创建聊天室
-          </el-button>
           <el-button size="small" @click="getChatrooms">
             刷新列表
           </el-button>
@@ -495,43 +447,7 @@ onUnmounted(() => {
     </el-main>
   </el-container>
 
-  <el-dialog
-    v-model="showCreateDialog"
-    title="创建聊天室"
-    width="500px"
-  >
-    <el-form :model="createForm" label-width="100px">
-      <el-form-item label="聊天室名称">
-        <el-input v-model="createForm.name" placeholder="请输入聊天室名称" />
-      </el-form-item>
-      <el-form-item label="聊天室描述">
-        <el-input
-          v-model="createForm.description"
-          type="textarea"
-          placeholder="请输入聊天室描述"
-        />
-      </el-form-item>
-      <el-form-item label="最大成员数">
-        <el-input-number
-          v-model="createForm.maxusers"
-          :min="1"
-          :max="5000"
-        />
-      </el-form-item>
-      <el-form-item label="初始成员">
-        <el-input
-          v-model="createForm.members"
-          placeholder="请输入成员用户名，用逗号分隔"
-        />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" @click="createChatroom">创建</el-button>
-      </span>
-    </template>
-  </el-dialog>
+
 </template>
 
 <style lang="scss" scoped>

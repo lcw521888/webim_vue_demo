@@ -325,6 +325,10 @@ const {
   box-shadow: none;
 }
 
+:deep(.el-input__inner) {
+  border-radius: 0 !important;
+}
+
 .search_box {
   width: 100%;
   height: 60px;

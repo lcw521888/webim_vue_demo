@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { EMClient } from '@/IM';
@@ -37,7 +37,8 @@ const getChatroomDetails = async () => {
     console.log('开始获取聊天室详情，roomId:', roomId, '当前用户:', EMClient.user);
     const res = await EMClient.getChatRoomDetails({ chatRoomId: roomId });
     console.log('获取聊天室详情成功:', res);
-    chatroomDetails.value = res.data || {};
+    // 检查返回数据结构，可能是数组中的第一个元素
+    chatroomDetails.value = Array.isArray(res.data) ? res.data[0] || {} : res.data || {};
     getChatRoomAnnouncement();
     getChatRoomAttributes();
   } catch (error) {
@@ -153,7 +154,13 @@ const getChatRoomAnnouncement = async () => {
   
   try {
     const res = await EMClient.fetchChatRoomAnnouncement({ roomId: route.query.roomId });
-    announcement.value = res.data || '';
+    console.log('获取聊天室公告成功:', res);
+    // 处理不同的数据结构，可能是直接的字符串或包含 announcement 字段的对象
+    if (res.data && typeof res.data === 'object') {
+      announcement.value = res.data.announcement || '';
+    } else {
+      announcement.value = res.data || '';
+    }
   } catch (error) {
     console.error('获取聊天室公告失败', error);
     if (error.type === 52 || error.message?.includes('authenticate')) {
@@ -335,6 +342,17 @@ const removeChatRoomAttribute = async (key) => {
 onMounted(() => {
   getChatroomDetails();
 });
+
+// 监听路由参数变化，当roomId改变时重新获取聊天室详情
+watch(
+  () => route.query.roomId,
+  (newRoomId, oldRoomId) => {
+    if (newRoomId && newRoomId !== oldRoomId) {
+      getChatroomDetails();
+    }
+  },
+  { immediate: false }
+);
 </script>
 
 <template>
@@ -507,6 +525,7 @@ onMounted(() => {
             type="textarea"
             :rows="6"
             placeholder='请输入属性，例如：{"key1":"value1","key2":"value2"}'
+            class="square-textarea"
           />
         </el-form-item>
         <el-form-item label="退出时删除">
@@ -548,5 +567,50 @@ onMounted(() => {
       flex-wrap: wrap;
     }
   }
+}
+
+/* 将所有输入框改为长方形 - 使用更具体的选择器 */
+.chatroom_details_container :deep(.el-input__inner),
+.chatroom_details_container :deep(.el-input--textarea .el-textarea__inner) {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+}
+
+/* 确保批量添加自定义属性对话框中的textarea为长方形 - 最具体的选择器 */
+.chatroom_details_container :deep(.el-dialog[title="批量添加自定义属性"] .el-form-item .el-input.el-input--textarea .el-textarea__inner) {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  outline: none;
+}
+
+/* 直接针对square-textarea类的样式 - 最高优先级 */
+.chatroom_details_container :deep(.el-input.square-textarea.el-input--textarea .el-textarea__inner) {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  outline: none;
+}
+
+/* 最直接的选择器，确保覆盖所有其他样式 */
+.chatroom_details_container :deep(textarea) {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  outline: none;
+}
+</style>
+
+/* 非scoped样式，确保全局覆盖 */
+<style lang="scss">
+/* 直接针对批量添加自定义属性对话框的textarea */
+.el-dialog[title="批量添加自定义属性"] .el-form-item .el-input.el-input--textarea .el-textarea__inner {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  outline: none;
+}
+
+/* 全局覆盖所有Element Plus的textarea样式 */
+.el-textarea__inner {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+  outline: none;
 }
 </style>

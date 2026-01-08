@@ -267,15 +267,18 @@ const onMsgQuote = (msg) => emit('messageQuote', msg);
           <div class="message_item_time">
             {{ handleMsgTimeShow(msgBody.time, index) || '' }}
           </div>
-          <el-avatar
-            class="message_item_avatar"
-            :src="
-              isMyself(msgBody)
-                ? loginUserInfo.avatarurl
-                : handleOtherAvatar(msgBody)
-            "
-          >
-          </el-avatar>
+          <div class="message_avatar_container">
+            <el-avatar
+              class="message_item_avatar"
+              :src="
+                isMyself(msgBody)
+                  ? loginUserInfo.avatarurl
+                  : handleOtherAvatar(msgBody)
+              "
+            >
+            </el-avatar>
+            <span class="message_item_account">{{ msgBody.from }}</span>
+          </div>
           <!-- 普通消息内容 -->
           <div class="message_box_card">
             <span v-show="!isMyself(msgBody)" class="message_box_nickname">{{

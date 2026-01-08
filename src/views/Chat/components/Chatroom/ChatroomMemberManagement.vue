@@ -185,7 +185,7 @@ const getChatRoomMutelist = async () => {
   }
 };
 
-const getChatRoomAdmins = async () => {
+const getChatRoomAdmin = async () => {
   if (!checkLoginStatus()) return;
   if (!chatRoomId) return;
   loading.value = true;
@@ -225,7 +225,7 @@ const handleTabChange = (tab) => {
       getChatRoomMutelist();
       break;
     case 'admins':
-      getChatRoomAdmins();
+      getChatRoomAdmin();
       break;
   }
 };
@@ -436,7 +436,7 @@ const setAdmin = async (username) => {
     });
     ElMessage.success('设置管理员成功');
     adminInput.value = '';
-    getChatRoomAdmins();
+    getChatRoomAdmin();
   } catch (error) {
     console.error('设置管理员失败', error);
     ElMessage.error(`设置管理员失败: ${error.message || '未知错误'}`);
@@ -450,7 +450,7 @@ const removeAdmin = async (username) => {
       username 
     });
     ElMessage.success('移除管理员成功');
-    getChatRoomAdmins();
+    getChatRoomAdmin();
   } catch (error) {
     console.error('移除管理员失败', error);
     ElMessage.error('移除管理员失败');
@@ -655,5 +655,11 @@ onMounted(() => {
       min-height: 300px;
     }
   }
+}
+
+/* 将所有输入框改为长方形 */
+:deep(.el-input__inner),
+:deep(.el-input--textarea .el-textarea__inner) {
+  border-radius: 0 !important;
 }
 </style>
