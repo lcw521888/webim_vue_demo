@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { EMClient } from '@/IM';
@@ -446,16 +446,138 @@ const removeChatRoomAttribute = async (key) => {
   }
 };
 
+let chatroomEventHandler = null;
+
 onMounted(() => {
   getChatroomDetails();
+  
+  // 添加聊天室事件监听器
+  chatroomEventHandler = EMClient.addEventHandler('CHATROOM_DETAILS', {
+    onChatroomEvent: (e) => {
+      // 确保只更新当前查看的聊天室的成员人数
+      if (e.id === route.query.roomId) {
+         console.log(
+              `===== ChatroomDetails 监听事件 =====`,
+              `\n监听时间:`, new Date().toLocaleString(),
+              `\n目标聊天室ID:`, route.query.roomId,
+              `\n事件触发的聊天室ID:`, e.id,
+              `\n监听事件类型:`, e.operation,
+              `\n完整事件数据:`, e,
+              `===================`
+        );
+        
+        switch (e.operation) {
+          case 'memberPresence':
+            // 当前聊天室在线人数
+             console.log(
+                `【聊天室成员上线事件】:`,
+                `\n事件类型: memberPresence`,
+                `\n触发聊天室ID:`, e.chatRoomId,
+                `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
+                `\n事件返回在线人数:`, e?.memberCount || 0,
+                `\n更新后在线人数:`, e?.memberCount || 0
+            );
+            chatroomDetails.value.affiliations_count = e?.memberCount || 0;
+            break;
+          case 'memberAbsence':
+            // 当前聊天室在线人数
+             console.log(
+                `【聊天室成员离开事件】:`,
+                `\n事件类型: memberAbsence`,
+                `\n触发聊天室ID:`, e.chatRoomId,
+                `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
+                `\n事件返回在线人数:`, e?.memberCount || 0,
+                `\n更新后在线人数:`, e?.memberCount || 0
+            );
+            // 更新当前聊天室详情中的成员人数
+            chatroomDetails.value.affiliations_count = e?.memberCount || 0;
+            break;
+          default:
+            console.log(
+              `【聊天室未知监听事件】:`,
+              `\n未处理的事件类型:`, e.operation,
+              `\n触发聊天室ID:`, e.chatRoomId,
+              `\n完整事件数据:`, e
+            );
+            break;
+        }
+      }
+    }
+  });
 });
 
-// 监听路由参数变化，当roomId改变时重新获取聊天室详情
+// 在组件卸载时移除事件监听器
+onUnmounted(() => {
+  if (chatroomEventHandler) {
+    EMClient.removeEventHandler('CHATROOM_DETAILS');
+  }
+});
+
+// 监听路由参数变化，当roomId改变时重新获取聊天室详情并更新事件监听器
 watch(
   () => route.query.roomId,
   (newRoomId, oldRoomId) => {
     if (newRoomId && newRoomId !== oldRoomId) {
       getChatroomDetails();
+      
+      // 移除旧的事件监听器
+      if (chatroomEventHandler) {
+        EMClient.removeEventHandler('CHATROOM_DETAILS');
+      }
+      
+      // 重新注册事件监听器
+      chatroomEventHandler = EMClient.addEventHandler('CHATROOM_DETAILS', {
+        onChatroomEvent: (e) => {
+          // 确保只更新当前查看的聊天室的成员人数
+          if (e.id === route.query.roomId) {
+            console.log(
+              `===== ChatroomDetails 监听事件 =====`,
+              `\n监听时间:`, new Date().toLocaleString(),
+              `\n目标聊天室ID:`, route.query.roomId,
+              `\n事件触发的聊天室ID:`, e.id,
+              `\n监听事件类型:`, e.operation,
+              `\n完整事件数据:`, e,
+              `===================`
+            );
+            
+            switch (e.operation) {
+              case 'memberPresence':
+                // 当前聊天室在线人数
+                console.log(
+                  `【聊天室成员上线事件】:`,
+                  `\n事件类型: memberPresence`,
+                  `\n触发聊天室ID:`, e.chatRoomId,
+                  `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
+                  `\n事件返回在线人数:`, e?.memberCount || 0,
+                  `\n更新后在线人数:`, e?.memberCount || 0
+                );
+                chatroomDetails.value.affiliations_count = e?.memberCount || 0;
+                break;
+              case 'memberAbsence':
+                // 当前聊天室在线人数
+                console.log(
+                  `【聊天室成员离开事件】:`,
+                  `\n事件类型: memberAbsence`,
+                  `\n触发聊天室ID:`, e.chatRoomId,
+                  `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
+                  `\n事件返回在线人数:`, e?.memberCount || 0,
+                  `\n更新后在线人数:`, e?.memberCount || 0
+                );
+                // 更新当前聊天室详情中的成员人数
+                chatroomDetails.value.affiliations_count = e?.memberCount || 0;
+                break;
+              default:
+                console.log(
+                  `【聊天室未知监听事件】:`,
+                  `\n未处理的事件类型:`, e.operation,
+                  `\n触发聊天室ID:`, e.chatRoomId,
+                  `\n完整事件数据:`, e
+                );
+                break;
+            }
+          }
+        }
+      });
     }
   },
   { immediate: false }

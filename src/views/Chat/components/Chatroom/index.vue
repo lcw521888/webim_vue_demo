@@ -62,13 +62,16 @@ const getJoinedChatrooms = async () => {
   const GET_JOINED_CHAT_ROOMS_METHOD = 'getJoinedChatRooms';
   loading.value = true;
   try {
+    
     console.log(`获取当前用户${EMClient.user}加入的聊天室列表` );
     const res = await EMClient.getJoinedChatRooms(chatRoomParams);
+     ElMessage.success('获取已加入聊天室列表成功');
     console.log(`获取已加入聊天室列表成功:`, res, 
                 `\n调用方法: ${GET_JOINED_CHAT_ROOMS_METHOD}`,
                 `\n方法入参:`, chatRoomParams);
     joinedChatroomList.value = res.data || [];
   } catch (error) {
+    ElMessage.error('获取已加入聊天室列表失败');
     console.error(`获取已加入聊天室列表失败`, 
                   `\n调用方法: ${GET_JOINED_CHAT_ROOMS_METHOD}`,
                   `\n方法入参:`, chatRoomParams, 
@@ -100,6 +103,7 @@ const joinChatroom = async (roomId) => {
       `\n目标聊天室ID:`, roomId
     );
     const res =await EMClient.joinChatRoom(joinChatRoomParams);
+    ElMessage.success('加入聊天室成功');
     console.log(
       `加入聊天室成功:`,
       `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
@@ -109,6 +113,7 @@ const joinChatroom = async (roomId) => {
     );
     getJoinedChatrooms();
   } catch (error) {
+    ElMessage.error('加入聊天室失败');
     console.error(
       `加入聊天室失败:`,
       `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
@@ -192,6 +197,7 @@ const destroyChatroom = async (roomId) => {
     getJoinedChatrooms();
   } catch (error) {
     if (error !== 'cancel') {
+      ElMessage.error('解散聊天室失败');
       console.error(
         `解散聊天室失败:`,
         `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,

@@ -35,7 +35,7 @@ const checkLoginStatus = () => {
   }
   return true;
 };
-
+//获取聊天室成员
 const getChatRoomMembers = async () => {
   if (!checkLoginStatus()) return;
   
@@ -43,20 +43,32 @@ const getChatRoomMembers = async () => {
     console.error('chatRoomId 不存在:', chatRoomId);
     return;
   }
-  
+  const LIST_CHAT_ROOM_MEMBERS_METHOD = 'listChatRoomMembers';
+  const memberListParams = {
+    chatRoomId,
+    pageNum: 1,
+    pageSize: 50
+  };
   loading.value = true;
   try {
-    console.log('开始获取聊天室成员，chatRoomId:', chatRoomId);
-    console.log('当前用户:', EMClient.user);
-    const res = await EMClient.listChatRoomMembers({ 
-      chatRoomId,
-      pageNum: 1,
-      pageSize: 50 
-    });
-    console.log('获取聊天室成员成功 - 原始数据:', res);
-    console.log('获取聊天室成员成功 - res.data:', res.data);
-    console.log('获取聊天室成员成功 - res.data 类型:', typeof res.data);
-    console.log('获取聊天室成员成功 - res.data 是否为数组:', Array.isArray(res.data));
+ 
+    console.log(
+      `开始获取聊天室成员:`,
+      `\n调用方法: ${LIST_CHAT_ROOM_MEMBERS_METHOD}`,
+      `\n方法入参:`, memberListParams,
+      `\n目标聊天室ID:`, chatRoomId,
+      `\n当前用户:`, EMClient.user
+    );
+    const res = await EMClient.listChatRoomMembers(memberListParams);
+    console.log(
+      `获取聊天室成员成功:`,
+      `\n调用方法: ${LIST_CHAT_ROOM_MEMBERS_METHOD}`,
+      `\n方法入参:`, memberListParams,
+      `\n原始返回数据:`, res,
+      `\n返回数据 data 字段:`, res.data,
+      `\ndata 字段类型:`, typeof res.data,
+      `\ndata 字段是否为数组:`, Array.isArray(res.data)
+    );
     members.value = (res.data || []).map(item => {
       console.log('处理成员项:', item);
       return {
@@ -64,9 +76,26 @@ const getChatRoomMembers = async () => {
         userId: item.member || item.owner
       };
     });
-    console.log('处理后的成员列表:', members.value);
+    ElMessage.success('获取聊天室成员成功');
+    console.log(
+      `聊天室成员列表处理完成:`,
+      `\n调用方法: ${LIST_CHAT_ROOM_MEMBERS_METHOD}`,
+      `\n处理后的成员列表:`, members.value,
+      `\n成员总数:`, members.value.length
+    );
+
   } catch (error) {
-    console.error('获取聊天室成员失败', error);
+    ElMessage.error('获取聊天室成员失败');
+    console.error(
+      `获取聊天室成员失败:`,
+      `\n调用方法: ${LIST_CHAT_ROOM_MEMBERS_METHOD}`,
+      `\n方法入参:`, memberListParams,
+      `\n目标聊天室ID:`, chatRoomId,
+      `\n当前用户:`, EMClient.user,
+      `\n错误类型:`, error.type,
+      `\n错误消息:`, error.message,
+      `\n完整错误信息:`, error
+    );
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else {
