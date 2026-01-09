@@ -493,15 +493,34 @@ const removeMember = async (username) => {
       cancelButtonText: '取消',
       type: 'warning',
     });
-    await EMClient.removeChatRoomMember({ 
+    const res = await EMClient.removeChatRoomMember({ 
       chatRoomId, 
       username 
     });
+    console.log(
+      `移出聊天室成员成功:`,
+      `\n调用方法: ${REMOVE_CHAT_ROOM_MEMBER_METHOD}`,
+      `\n方法入参:`, removeMemberParams,
+      `\n接口返回结果:`, res,
+      `\n已移出成员:`, username,
+      `\n操作聊天室ID:`, chatRoomId,
+      `\n后续操作: 重新获取聊天室成员列表`
+    );
     ElMessage.success('移出聊天室成功');
     getChatRoomMembers();
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('移出聊天室失败', error);
+      console.error(
+        `移出聊天室成员失败:`,
+        `\n调用方法: ${REMOVE_CHAT_ROOM_MEMBER_METHOD}`,
+        `\n方法入参:`, removeMemberParams,
+        `\n待移出成员:`, username,
+        `\n操作聊天室ID:`, chatRoomId,
+        `\n操作执行用户:`, EMClient.user,
+        `\n错误类型:`, error.type,
+        `\n错误消息:`, error.message,
+        `\n完整错误信息:`, error
+      );
       ElMessage.error('移出聊天室失败');
     }
   }

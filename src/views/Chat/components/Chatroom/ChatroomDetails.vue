@@ -73,21 +73,49 @@ const getChatroomDetails = async () => {
     loading.value = false;
   }
 };
-
+//退出聊天室
 const leaveChatroom = async () => {
   if (!checkLoginStatus()) return;
-  
+   const LEAVE_CHAT_ROOM_METHOD = 'leaveChatRoom';
+  const targetRoomId = route.query.roomId;
+  const leaveChatRoomParams = { roomId: targetRoomId };
   try {
+    console.log(
+      `开始执行退出聊天室操作:`,
+      `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
+      `\n目标聊天室ID:`, targetRoomId,
+      `\n当前操作用户:`, EMClient.user
+    );
     await ElMessageBox.confirm('确定要退出该聊天室吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning',
     });
-    await EMClient.leaveChatRoom({ roomId: route.query.roomId });
+    const res = await EMClient.leaveChatRoom(leaveChatRoomParams);
+    console.log(
+      `退出聊天室成功:`,
+      `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`, leaveChatRoomParams,
+      `\n接口返回结果:`, res,
+      `\n已退出聊天室ID:`, targetRoomId,
+      `\n跳转页面: /chat/chatroom`
+    );
     ElMessage.success('退出聊天室成功');
     router.push('/chat/chatroom');
   } catch (error) {
+    
     if (error !== 'cancel') {
+      console.error(
+        `退出聊天室失败:`,
+        `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
+        `\n方法入参:`, leaveChatRoomParams,
+        `\n目标聊天室ID:`, targetRoomId,
+        `\n当前用户:`, EMClient.user,
+        `\n错误类型:`, error.type,
+        `\n错误消息:`, error.message,
+        `\n完整错误信息:`, error
+      );
+      ElMessage.error('退出聊天室失败');
       console.error('退出聊天室失败', error);
       if (error.type === 52 || error.message?.includes('authenticate')) {
         ElMessage.error('认证失败，请重新登录');
@@ -465,14 +493,13 @@ onMounted(() => {
               `\n完整事件数据:`, e,
               `===================`
         );
-        
         switch (e.operation) {
           case 'memberPresence':
             // 当前聊天室在线人数
              console.log(
                 `【聊天室成员上线事件】:`,
                 `\n事件类型: memberPresence`,
-                `\n触发聊天室ID:`, e.chatRoomId,
+                `\n触发聊天室ID:`, e.id,
                 `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
                 `\n事件返回在线人数:`, e?.memberCount || 0,
                 `\n更新后在线人数:`, e?.memberCount || 0
@@ -484,7 +511,7 @@ onMounted(() => {
              console.log(
                 `【聊天室成员离开事件】:`,
                 `\n事件类型: memberAbsence`,
-                `\n触发聊天室ID:`, e.chatRoomId,
+                `\n触发聊天室ID:`, e.id,
                 `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
                 `\n事件返回在线人数:`, e?.memberCount || 0,
                 `\n更新后在线人数:`, e?.memberCount || 0
@@ -492,11 +519,22 @@ onMounted(() => {
             // 更新当前聊天室详情中的成员人数
             chatroomDetails.value.affiliations_count = e?.memberCount || 0;
             break;
+            case 'removeMember':
+            // 有成员被移出聊天室。被踢出聊天室的成员会收到该事件。 
+             console.log(
+                `【聊天室成员被移除事件】:`,
+                `\n事件类型: removeMember`,
+                `\n触发聊天室ID:`, e.id,
+                `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
+    
+            );
+            chatroomDetails.value.affiliations_count = e?.memberCount || 0;
+            break;
           default:
             console.log(
               `【聊天室未知监听事件】:`,
               `\n未处理的事件类型:`, e.operation,
-              `\n触发聊天室ID:`, e.chatRoomId,
+              `\n触发聊天室ID:`, e.id,
               `\n完整事件数据:`, e
             );
             break;

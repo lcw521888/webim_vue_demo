@@ -138,22 +138,41 @@ const joinChatroom = async (roomId) => {
     }
   }
 };
-
+//退出聊天室
 const leaveChatroom = async (roomId) => {
   if (!checkLoginStatus()) return;
-  
+  const LEAVE_CHAT_ROOM_METHOD = 'leaveChatRoom';
+  const leaveChatRoomParams = { roomId };
   try {
     await ElMessageBox.confirm('确定要退出该聊天室吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning',
     });
-    await EMClient.leaveChatRoom({ roomId });
+    const res = await EMClient.leaveChatRoom(leaveChatRoomParams);
     ElMessage.success('退出聊天室成功');
+    console.log(
+      `退出聊天室成功:`,
+      `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`, leaveChatRoomParams,
+      `\n接口返回结果:`, res,
+      `\n已退出聊天室ID:`, roomId
+    );
     getJoinedChatrooms();
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('退出聊天室失败', error);
+      console.error(
+        `退出聊天室失败:`,
+        `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
+        `\n方法入参:`, leaveChatRoomParams,
+        `\n目标聊天室ID:`, roomId,
+        `\n当前用户:`, EMClient.user,
+        `\n错误类型:`, error.type,
+        `\n错误数据:`, error.data,
+        `\n错误消息:`, error.message,
+        `\n完整错误信息:`, error
+      );
+      ElMessage.error('退出聊天室失败');
       if (error.type === 52 || error.message?.includes('authenticate')) {
         ElMessage.error('认证失败，请重新登录');
       } else if (error.type === 17 || error.data?.includes('group_authorization')) {
