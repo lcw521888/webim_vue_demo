@@ -52,21 +52,27 @@ const getChatrooms = async () => {
     loading.value = false;
   }
 };
-
+//获取当前用户加入的聊天室列表
 const getJoinedChatrooms = async () => {
   if (!checkLoginStatus()) return;
-  
+  const chatRoomParams = {
+    pageNum: 1,
+    pageSize: 100,
+  };
+  const GET_JOINED_CHAT_ROOMS_METHOD = 'getJoinedChatRooms';
   loading.value = true;
   try {
-    console.log('开始获取已加入聊天室列表，当前用户:', EMClient.user);
-    const res = await EMClient.getJoinedChatRooms({
-      pageNum: 1,
-      pageSize: 100,
-    });
-    console.log('获取已加入聊天室列表成功:', res);
+    console.log(`获取当前用户${EMClient.user}加入的聊天室列表` );
+    const res = await EMClient.getJoinedChatRooms(chatRoomParams);
+    console.log(`获取已加入聊天室列表成功:`, res, 
+                `\n调用方法: ${GET_JOINED_CHAT_ROOMS_METHOD}`,
+                `\n方法入参:`, chatRoomParams);
     joinedChatroomList.value = res.data || [];
   } catch (error) {
-    console.error('获取已加入聊天室列表失败', error);
+    console.error(`获取已加入聊天室列表失败`, 
+                  `\n调用方法: ${GET_JOINED_CHAT_ROOMS_METHOD}`,
+                  `\n方法入参:`, chatRoomParams, 
+                  `错误详情:`, error);
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else {
@@ -76,23 +82,44 @@ const getJoinedChatrooms = async () => {
     loading.value = false;
   }
 };
-
+//加入聊天室
 const joinChatroom = async (roomId) => {
   if (!checkLoginStatus()) return;
-  
+  const JOIN_CHAT_ROOM_METHOD = 'joinChatRoom';
+  const joinChatRoomParams = {
+    roomId: roomId,
+    ext: '',
+    leaveOtherRooms: false,
+  };
   try {
-    await EMClient.joinChatRoom({
-      roomId: roomId,
-      ext: '',
-      leaveOtherRooms: false,
-    });
-    ElMessage.success('加入聊天室成功');
+    console.log(
+      `开始加入聊天室:`,
+      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`, joinChatRoomParams,
+      `\n当前用户:`, EMClient.user,
+      `\n目标聊天室ID:`, roomId
+    );
+    const res =await EMClient.joinChatRoom(joinChatRoomParams);
+    console.log(
+      `加入聊天室成功:`,
+      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`, joinChatRoomParams,
+      `\n返回结果:`, res,
+      `\n成功加入的聊天室ID:`, roomId
+    );
     getJoinedChatrooms();
   } catch (error) {
-    console.error('加入聊天室失败 - 完整错误信息:', error);
-    console.error('错误类型:', error.type);
-    console.error('错误数据:', error.data);
-    console.error('错误消息:', error.message);
+    console.error(
+      `加入聊天室失败:`,
+      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`, joinChatRoomParams,
+      `\n目标聊天室ID:`, roomId,
+      `\n当前用户:`, EMClient.user,
+      `\n完整错误信息:`, error,
+      `\n错误类型:`, error.type,
+      `\n错误数据:`, error.data,
+      `\n错误消息:`, error.message
+    );
     
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
@@ -135,20 +162,47 @@ const leaveChatroom = async (roomId) => {
 
 const destroyChatroom = async (roomId) => {
   if (!checkLoginStatus()) return;
-  
+  const DESTROY_CHAT_ROOM_METHOD = 'destroyChatRoom';
+  const destroyChatRoomParams = { chatRoomId: roomId };
   try {
     await ElMessageBox.confirm('确定要解散该聊天室吗？此操作不可恢复！', '警告', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning',
     });
-    await EMClient.destroyChatRoom({ chatRoomId: roomId });
+  
+    console.log(
+      `用户确认解散聊天室，开始调用接口:`,
+      `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`, destroyChatRoomParams,
+      `\n待解散聊天室ID:`, roomId
+    );
+
+    // 调用解散接口（复用入参变量，保留await）
+    const res = await EMClient.destroyChatRoom(destroyChatRoomParams);
+    console.log(
+      `解散聊天室成功:`,
+      `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`, destroyChatRoomParams,
+      `\n接口返回结果:`, res,
+      `\n已解散聊天室ID:`, roomId
+    );
     ElMessage.success('解散聊天室成功');
     getChatrooms();
     getJoinedChatrooms();
   } catch (error) {
     if (error !== 'cancel') {
-      console.error('解散聊天室失败', error);
+      console.error(
+        `解散聊天室失败:`,
+        `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
+        `\n方法入参:`, destroyChatRoomParams,
+        `\n目标聊天室ID:`, roomId,
+        `\n当前用户:`, EMClient.user,
+        `\n错误类型:`, error.type,
+        `\n错误数据:`, error.data,
+        `\n错误消息:`, error.message,
+        `\n完整错误信息:`, error
+      );
       if (error.type === 52 || error.message?.includes('authenticate')) {
         ElMessage.error('认证失败，请重新登录');
       } else if (error.type === 17 || error.data?.includes('group_authorization')) {
