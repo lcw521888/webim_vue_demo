@@ -130,18 +130,31 @@ const getChatRoomMembers = async () => {
 const getChatRoomBlocklist = async () => {
   if (!checkLoginStatus()) return;
   if (!chatRoomId.value) return;
+  const GET_CHAT_ROOM_BLOCKLIST_METHOD = 'getChatRoomBlocklist';
+  const targetRoomId = chatRoomId.value;
   loading.value = true;
   try {
-    console.log('开始获取聊天室黑名单，chatRoomId:', chatRoomId.value);
+     console.log(
+      `开始获取聊天室黑名单:`,
+      `\n调用方法: ${GET_CHAT_ROOM_BLOCKLIST_METHOD}`,
+      `\n目标聊天室ID:`, targetRoomId,
+      `\n当前操作用户:`, EMClient.user
+    );
     const res = await EMClient.getChatRoomBlocklist({ chatRoomId: chatRoomId.value });
-    console.log('获取聊天室黑名单成功 - 原始数据:', res);
-    console.log('获取聊天室黑名单成功 - res.data:', res.data);
-    console.log('获取聊天室黑名单成功 - res.data 类型:', typeof res.data);
-    console.log('获取聊天室黑名单成功 - res.data 是否为数组:', Array.isArray(res.data));
+    console.log(
+      `获取聊天室黑名单成功:`,
+      `\n调用方法: ${GET_CHAT_ROOM_BLOCKLIST_METHOD}`,
+      `\n方法入参:`, blocklistParams,
+      `\n原始返回数据:`, res,
+      `\n返回数据 data 字段:`, res.data,
+      `\ndata 字段类型:`, typeof res.data,
+      `\ndata 字段是否为数组:`, Array.isArray(res.data)
+    );
     
     if (Array.isArray(res.data)) {
       blocklist.value = res.data.map(userId => {
         console.log('处理黑名单项:', userId);
+        EMClient.success(`用户 ${userId} 已被成功添加到黑名单`);
         return { userId };
       });
     } else {
@@ -150,7 +163,15 @@ const getChatRoomBlocklist = async () => {
     }
     console.log('处理后的黑名单列表:', blocklist.value);
   } catch (error) {
-    console.error('获取聊天室黑名单失败', error);
+    console.error(
+      EMClient.error(`获取聊天室黑名单失败: 用户 ${userId} 未成功添加到黑名单`),
+      `\n调用方法: ${GET_CHAT_ROOM_BLOCKLIST_METHOD}`,
+      `\n目标聊天室ID:`, targetRoomId,
+      `\n当前用户:`, EMClient.user,
+      `\n错误类型:`, error.type,
+      `\n错误消息:`, error.message,
+      `\n完整错误信息:`, error
+    );
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else {
@@ -170,9 +191,7 @@ const getChatRoomAllowlist = async () => {
     console.log('开始获取聊天室白名单，chatRoomId:', chatRoomId.value);
     const res = await EMClient.getChatRoomAllowlist({ chatRoomId: chatRoomId.value });
     console.log('获取聊天室白名单成功 - 原始数据:', res);
-    console.log('获取聊天室白名单成功 - res.data:', res.data);
-    console.log('获取聊天室白名单成功 - res.data 类型:', typeof res.data);
-    console.log('获取聊天室白名单成功 - res.data 是否为数组:', Array.isArray(res.data));
+
     
     if (Array.isArray(res.data)) {
       allowlist.value = res.data.map(userId => {
@@ -205,9 +224,6 @@ const getChatRoomMutelist = async () => {
     console.log('开始获取聊天室禁言列表，chatRoomId:', chatRoomId.value);
     const res = await EMClient.getChatRoomMutelist({ chatRoomId: chatRoomId.value });
     console.log('获取聊天室禁言列表成功 - 原始数据:', res);
-    console.log('获取聊天室禁言列表成功 - res.data:', res.data);
-    console.log('获取聊天室禁言列表成功 - res.data 类型:', typeof res.data);
-    console.log('获取聊天室禁言列表成功 - res.data 是否为数组:', Array.isArray(res.data));
     
     // 获取单独禁言的用户列表
     let 单独禁言用户列表 = [];
