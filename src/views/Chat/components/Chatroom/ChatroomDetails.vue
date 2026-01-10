@@ -530,6 +530,30 @@ onMounted(() => {
             );
             chatroomDetails.value.affiliations_count = e?.memberCount || 0;
             break;
+          case 'setAdmin':
+            // 有成员被设置为管理员
+            console.log(
+                `【聊天室设置管理员事件】:`,
+                `\n事件类型: setAdmin`,
+                `\n触发聊天室ID:`, e.id,
+                `\n被设置管理员的用户:`, e?.userId || e?.username,
+                `\n完整事件数据:`, e
+            );
+            // 刷新聊天室详情，确保管理员信息最新
+            getChatroomDetails();
+            break;
+          case 'removeAdmin':
+            // 有成员被移除管理员身份
+            console.log(
+                `【聊天室移除管理员事件】:`,
+                `\n事件类型: removeAdmin`,
+                `\n触发聊天室ID:`, e.id,
+                `\n被移除管理员的用户:`, e?.userId || e?.username,
+                `\n完整事件数据:`, e
+            );
+            // 刷新聊天室详情，确保管理员信息最新
+            getChatroomDetails();
+            break;
           default:
             console.log(
               `【聊天室未知监听事件】:`,
@@ -603,6 +627,30 @@ watch(
                 );
                 // 更新当前聊天室详情中的成员人数
                 chatroomDetails.value.affiliations_count = e?.memberCount || 0;
+                break;
+              case 'setAdmin':
+                // 有成员被设置为管理员
+                console.log(
+                    `【聊天室设置管理员事件】:`,
+                    `\n事件类型: setAdmin`,
+                    `\n触发聊天室ID:`, e.chatRoomId,
+                    `\n被设置管理员的用户:`, e?.userId || e?.username,
+                    `\n完整事件数据:`, e
+                );
+                // 刷新聊天室详情，确保管理员信息最新
+                getChatroomDetails();
+                break;
+              case 'removeAdmin':
+                // 有成员被移除管理员身份
+                console.log(
+                    `【聊天室移除管理员事件】:`,
+                    `\n事件类型: removeAdmin`,
+                    `\n触发聊天室ID:`, e.chatRoomId,
+                    `\n被移除管理员的用户:`, e?.userId || e?.username,
+                    `\n完整事件数据:`, e
+                );
+                // 刷新聊天室详情，确保管理员信息最新
+                getChatroomDetails();
                 break;
               default:
                 console.log(

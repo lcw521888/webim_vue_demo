@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { EMClient } from '@/IM';
@@ -9,7 +9,7 @@ const router = useRouter();
 
 const activeTab = ref('members');
 const loading = ref(false);
-const chatRoomId = route.query.roomId;
+const chatRoomId = ref(route.query.roomId);
 
 const members = ref([]);
 const blocklist = ref([]);
@@ -24,8 +24,11 @@ const allowlistInput = ref('');
 const adminInput = ref('');
 
 const isOwner = computed(() => {
-  return chatRoomId && EMClient.user;
+  return chatRoomId.value && chatroomDetails.value?.owner === EMClient.user;
 });
+
+// 定义聊天室详情响应式变量
+const chatroomDetails = ref({});
 
 const checkLoginStatus = () => {
   if (!EMClient.user) {
@@ -39,24 +42,26 @@ const checkLoginStatus = () => {
 const getChatRoomMembers = async () => {
   if (!checkLoginStatus()) return;
   
-  if (!chatRoomId) {
-    console.error('chatRoomId 不存在:', chatRoomId);
+  if (!chatRoomId.value) {
+    console.error('chatRoomId 不存在:', chatRoomId.value);
     return;
   }
   const LIST_CHAT_ROOM_MEMBERS_METHOD = 'listChatRoomMembers';
   const memberListParams = {
-    chatRoomId,
+    chatRoomId: chatRoomId.value,
     pageNum: 1,
     pageSize: 50
   };
   loading.value = true;
   try {
- 
+    // 先获取聊天室详情和管理员列表
+    await Promise.all([getChatroomDetails(), getChatRoomAdmin()]);
+    
     console.log(
       `开始获取聊天室成员:`,
       `\n调用方法: ${LIST_CHAT_ROOM_MEMBERS_METHOD}`,
       `\n方法入参:`, memberListParams,
-      `\n目标聊天室ID:`, chatRoomId,
+      `\n目标聊天室ID:`, chatRoomId.value,
       `\n当前用户:`, EMClient.user
     );
     const res = await EMClient.listChatRoomMembers(memberListParams);
@@ -69,13 +74,29 @@ const getChatRoomMembers = async () => {
       `\ndata 字段类型:`, typeof res.data,
       `\ndata 字段是否为数组:`, Array.isArray(res.data)
     );
+    
+    // 获取所有者ID和管理员列表
+    const ownerId = chatroomDetails.value?.owner;
+    const adminIds = admins.value.map(admin => admin.userId);
+    
     members.value = (res.data || []).map(item => {
       console.log('处理成员项:', item);
+      const userId = item.member || item.owner;
+      // 确定用户角色
+      let role = 'member'; // 默认是普通成员
+      if (userId === ownerId) {
+        role = 'owner'; // 所有者
+      } else if (adminIds.includes(userId)) {
+        role = 'admin'; // 管理员
+      }
+      
       return {
         ...item,
-        userId: item.member || item.owner
+        userId,
+        role // 添加角色信息
       };
     });
+    
     ElMessage.success('获取聊天室成员成功');
     console.log(
       `聊天室成员列表处理完成:`,
@@ -90,7 +111,7 @@ const getChatRoomMembers = async () => {
       `获取聊天室成员失败:`,
       `\n调用方法: ${LIST_CHAT_ROOM_MEMBERS_METHOD}`,
       `\n方法入参:`, memberListParams,
-      `\n目标聊天室ID:`, chatRoomId,
+      `\n目标聊天室ID:`, chatRoomId.value,
       `\n当前用户:`, EMClient.user,
       `\n错误类型:`, error.type,
       `\n错误消息:`, error.message,
@@ -108,11 +129,11 @@ const getChatRoomMembers = async () => {
 
 const getChatRoomBlocklist = async () => {
   if (!checkLoginStatus()) return;
-  if (!chatRoomId) return;
+  if (!chatRoomId.value) return;
   loading.value = true;
   try {
-    console.log('开始获取聊天室黑名单，chatRoomId:', chatRoomId);
-    const res = await EMClient.getChatRoomBlocklist({ chatRoomId });
+    console.log('开始获取聊天室黑名单，chatRoomId:', chatRoomId.value);
+    const res = await EMClient.getChatRoomBlocklist({ chatRoomId: chatRoomId.value });
     console.log('获取聊天室黑名单成功 - 原始数据:', res);
     console.log('获取聊天室黑名单成功 - res.data:', res.data);
     console.log('获取聊天室黑名单成功 - res.data 类型:', typeof res.data);
@@ -143,11 +164,11 @@ const getChatRoomBlocklist = async () => {
 
 const getChatRoomAllowlist = async () => {
   if (!checkLoginStatus()) return;
-  if (!chatRoomId) return;
+  if (!chatRoomId.value) return;
   loading.value = true;
   try {
-    console.log('开始获取聊天室白名单，chatRoomId:', chatRoomId);
-    const res = await EMClient.getChatRoomAllowlist({ chatRoomId });
+    console.log('开始获取聊天室白名单，chatRoomId:', chatRoomId.value);
+    const res = await EMClient.getChatRoomAllowlist({ chatRoomId: chatRoomId.value });
     console.log('获取聊天室白名单成功 - 原始数据:', res);
     console.log('获取聊天室白名单成功 - res.data:', res.data);
     console.log('获取聊天室白名单成功 - res.data 类型:', typeof res.data);
@@ -178,28 +199,61 @@ const getChatRoomAllowlist = async () => {
 
 const getChatRoomMutelist = async () => {
   if (!checkLoginStatus()) return;
-  if (!chatRoomId) return;
+  if (!chatRoomId.value) return;
   loading.value = true;
   try {
-    console.log('开始获取聊天室禁言列表，chatRoomId:', chatRoomId);
-    const res = await EMClient.getChatRoomMutelist({ chatRoomId });
+    console.log('开始获取聊天室禁言列表，chatRoomId:', chatRoomId.value);
+    const res = await EMClient.getChatRoomMutelist({ chatRoomId: chatRoomId.value });
     console.log('获取聊天室禁言列表成功 - 原始数据:', res);
     console.log('获取聊天室禁言列表成功 - res.data:', res.data);
     console.log('获取聊天室禁言列表成功 - res.data 类型:', typeof res.data);
     console.log('获取聊天室禁言列表成功 - res.data 是否为数组:', Array.isArray(res.data));
     
+    // 获取单独禁言的用户列表
+    let 单独禁言用户列表 = [];
     if (Array.isArray(res.data)) {
-      mutelist.value = res.data.map(item => {
-        console.log('处理禁言项:', item);
-        return {
-          userId: item.user || item.userId,
-          expire: item.expire
-        };
-      });
-    } else {
-      console.warn('res.data 不是数组，使用空数组');
-      mutelist.value = [];
+      单独禁言用户列表 = res.data.map(item => ({
+        userId: item.user || item.userId,
+        expire: item.expire,
+        type: 'single' // 标记为单独禁言
+      }));
     }
+    
+    // 如果开启了全员禁言，将所有普通成员添加到禁言列表中
+    if (isMuteAll.value && members.value.length > 0) {
+      console.log('全员禁言开启，将所有普通成员添加到禁言列表中');
+      
+      // 获取管理员列表
+      const adminList = admins.value.map(admin => admin.userId);
+      
+      // 获取所有者ID
+      const ownerId = chatroomDetails.value?.owner;
+      
+      // 将成员列表中的普通成员（非管理员、非所有者）添加到禁言列表
+      const 全员禁言用户列表 = members.value
+        .filter(member => member.userId !== ownerId && !adminList.includes(member.userId))
+        .map(member => ({
+          userId: member.userId,
+          expire: -1, // 表示全员禁言状态，没有具体的过期时间
+          type: 'all' // 标记为全员禁言
+        }));
+      
+      // 合并单独禁言和全员禁言的用户列表，去重（优先保留单独禁言的记录）
+      const 合并后的禁言列表 = [...单独禁言用户列表];
+      const 单独禁言用户ID集合 = new Set(单独禁言用户列表.map(user => user.userId));
+      
+      全员禁言用户列表.forEach(user => {
+        if (!单独禁言用户ID集合.has(user.userId)) {
+          合并后的禁言列表.push(user);
+        }
+      });
+      
+      mutelist.value = 合并后的禁言列表;
+    } else {
+      // 如果没有开启全员禁言或成员列表为空，只显示单独禁言的用户
+      mutelist.value = 单独禁言用户列表;
+    }
+    
     console.log('处理后的禁言列表:', mutelist.value);
   } catch (error) {
     console.error('获取聊天室禁言列表失败', error);
@@ -216,11 +270,11 @@ const getChatRoomMutelist = async () => {
 
 const getChatRoomAdmin = async () => {
   if (!checkLoginStatus()) return;
-  if (!chatRoomId) return;
+  if (!chatRoomId.value) return;
   loading.value = true;
   try {
-    console.log('开始获取聊天室管理员，chatRoomId:', chatRoomId);
-    const res = await EMClient.getChatRoomAdmin({ chatRoomId });
+    console.log('开始获取聊天室管理员，chatRoomId:', chatRoomId.value);
+    const res = await EMClient.getChatRoomAdmin({ chatRoomId: chatRoomId.value });
     console.log('获取聊天室管理员成功 - 原始数据:', res);
     console.log('获取聊天室管理员成功 - res.data:', res.data);
     console.log('获取聊天室管理员成功 - res.data 类型:', typeof res.data);
@@ -266,15 +320,15 @@ const addToBlocklist = async (username) => {
     ElMessage.warning('请输入用户ID');
     return;
   }
-  if (!chatRoomId) {
+  if (!chatRoomId.value) {
     ElMessage.error('聊天室ID不存在');
     return;
   }
   const trimmedUsername = username.trim();
-  console.log('添加到黑名单 - chatRoomId:', chatRoomId, 'username:', trimmedUsername);
+  console.log('添加到黑名单 - chatRoomId:', chatRoomId.value, 'username:', trimmedUsername);
   try {
     await EMClient.blockChatRoomMember({ 
-      chatRoomId, 
+      chatRoomId: chatRoomId.value, 
       username: trimmedUsername 
     });
     ElMessage.success('添加到黑名单成功');
@@ -295,7 +349,7 @@ const removeFromBlocklist = async (username) => {
   
   try {
     await EMClient.unblockChatRoomMember({ 
-      chatRoomId, 
+      chatRoomId: chatRoomId.value, 
       username 
     });
     ElMessage.success('从黑名单移除成功');
@@ -317,15 +371,15 @@ const addToAllowlist = async (username) => {
     ElMessage.warning('请输入用户ID');
     return;
   }
-  if (!chatRoomId) {
+  if (!chatRoomId.value) {
     ElMessage.error('聊天室ID不存在');
     return;
   }
   const trimmedUsername = username.trim();
-  console.log('添加到白名单 - chatRoomId:', chatRoomId, 'users:', [trimmedUsername]);
+  console.log('添加到白名单 - chatRoomId:', chatRoomId.value, 'users:', [trimmedUsername]);
   try {
     await EMClient.addUsersToChatRoomAllowlist({ 
-      chatRoomId, 
+      chatRoomId: chatRoomId.value, 
       users: [trimmedUsername] 
     });
     ElMessage.success('添加到白名单成功');
@@ -346,7 +400,7 @@ const removeFromAllowlist = async (username) => {
   
   try {
     await EMClient.removeUserFromChatRoomAllowlist({ 
-      chatRoomId, 
+      chatRoomId: chatRoomId.value, 
       username 
     });
     ElMessage.success('从白名单移除成功');
@@ -371,7 +425,7 @@ const muteMember = async (username, duration = -1000) => {
   const trimmedUsername = username.trim();
   try {
     await EMClient.muteChatRoomMember({ 
-      chatRoomId, 
+      chatRoomId: chatRoomId.value, 
       username: trimmedUsername,
       muteDuration: duration 
     });
@@ -397,7 +451,7 @@ const muteMember = async (username, duration = -1000) => {
 const unmuteMember = async (username) => {
   try {
     await EMClient.unmuteChatRoomMember({ 
-      chatRoomId, 
+      chatRoomId: chatRoomId.value, 
       username 
     });
     ElMessage.success('解除禁言成功');
@@ -409,10 +463,18 @@ const unmuteMember = async (username) => {
 };
 
 const muteAllMembers = async () => {
+  if (!isOwner.value) {
+    ElMessage.error('只有聊天室所有者才能执行全员禁言操作');
+    return;
+  }
+  
   try {
-    await EMClient.disableSendChatRoomMsg({ chatRoomId });
+    await EMClient.disableSendChatRoomMsg({ chatRoomId: chatRoomId.value });
     isMuteAll.value = true;
     ElMessage.success('全员禁言成功');
+    
+    // 先获取最新的成员列表和管理员列表，然后再更新禁言列表
+    await Promise.all([getChatRoomMembers(), getChatRoomAdmin()]);
     getChatRoomMutelist();
   } catch (error) {
     console.error('全员禁言失败', error);
@@ -421,8 +483,13 @@ const muteAllMembers = async () => {
 };
 
 const unmuteAllMembers = async () => {
+  if (!isOwner.value) {
+    ElMessage.error('只有聊天室所有者才能执行取消全员禁言操作');
+    return;
+  }
+  
   try {
-    await EMClient.enableSendChatRoomMsg({ chatRoomId });
+    await EMClient.enableSendChatRoomMsg({ chatRoomId: chatRoomId.value });
     isMuteAll.value = false;
     ElMessage.success('取消全员禁言成功');
     getChatRoomMutelist();
@@ -437,14 +504,14 @@ const setAdmin = async (username) => {
     ElMessage.warning('请输入用户ID');
     return;
   }
-  if (!chatRoomId) {
+  if (!chatRoomId.value) {
     ElMessage.error('聊天室ID不存在');
     return;
   }
   const trimmedUsername = username.trim();
   
   try {
-    const res = await EMClient.getChatRoomDetails({ chatRoomId });
+    const res = await EMClient.getChatRoomDetails({ chatRoomId: chatRoomId.value });
     const owner = res.data?.[0]?.owner;
     console.log('聊天室所有者:', owner);
     
@@ -457,15 +524,17 @@ const setAdmin = async (username) => {
     console.error('获取聊天室详情失败', error);
   }
   
-  console.log('设置管理员 - chatRoomId:', chatRoomId, 'username:', trimmedUsername);
+  console.log('设置管理员 - chatRoomId:', chatRoomId.value, 'username:', trimmedUsername);
   try {
     await EMClient.setChatRoomAdmin({ 
-      chatRoomId, 
+      chatRoomId: chatRoomId.value, 
       username: trimmedUsername 
     });
     ElMessage.success('设置管理员成功');
     adminInput.value = '';
-    getChatRoomAdmin();
+    // 更新管理员列表和成员列表中的角色信息
+    await getChatRoomAdmin();
+    await getChatRoomMembers();
   } catch (error) {
     console.error('设置管理员失败', error);
     ElMessage.error(`设置管理员失败: ${error.message || '未知错误'}`);
@@ -475,11 +544,13 @@ const setAdmin = async (username) => {
 const removeAdmin = async (username) => {
   try {
     await EMClient.removeChatRoomAdmin({ 
-      chatRoomId, 
+      chatRoomId: chatRoomId.value, 
       username 
     });
     ElMessage.success('移除管理员成功');
-    getChatRoomAdmin();
+    // 更新管理员列表和成员列表中的角色信息
+    await getChatRoomAdmin();
+    await getChatRoomMembers();
   } catch (error) {
     console.error('移除管理员失败', error);
     ElMessage.error('移除管理员失败');
@@ -493,29 +564,36 @@ const removeMember = async (username) => {
       cancelButtonText: '取消',
       type: 'warning',
     });
-    const res = await EMClient.removeChatRoomMember({ 
-      chatRoomId, 
+    const REMOVE_CHAT_ROOM_MEMBER_METHOD = 'removeChatRoomMember';
+    const removeMemberParams = { 
+      chatRoomId: chatRoomId.value, 
       username 
-    });
+    };
+    const res = await EMClient.removeChatRoomMember(removeMemberParams);
     console.log(
       `移出聊天室成员成功:`,
       `\n调用方法: ${REMOVE_CHAT_ROOM_MEMBER_METHOD}`,
       `\n方法入参:`, removeMemberParams,
       `\n接口返回结果:`, res,
       `\n已移出成员:`, username,
-      `\n操作聊天室ID:`, chatRoomId,
+      `\n操作聊天室ID:`, chatRoomId.value,
       `\n后续操作: 重新获取聊天室成员列表`
     );
     ElMessage.success('移出聊天室成功');
     getChatRoomMembers();
   } catch (error) {
     if (error !== 'cancel') {
+      const REMOVE_CHAT_ROOM_MEMBER_METHOD = 'removeChatRoomMember';
+      const removeMemberParams = { 
+        chatRoomId: chatRoomId.value, 
+        username 
+      };
       console.error(
         `移出聊天室成员失败:`,
         `\n调用方法: ${REMOVE_CHAT_ROOM_MEMBER_METHOD}`,
         `\n方法入参:`, removeMemberParams,
         `\n待移出成员:`, username,
-        `\n操作聊天室ID:`, chatRoomId,
+        `\n操作聊天室ID:`, chatRoomId.value,
         `\n操作执行用户:`, EMClient.user,
         `\n错误类型:`, error.type,
         `\n错误消息:`, error.message,
@@ -526,9 +604,115 @@ const removeMember = async (username) => {
   }
 };
 
+let chatroomEventHandler;
+
+const getChatroomDetails = async () => {
+  if (!checkLoginStatus()) return;
+  if (!chatRoomId.value) return;
+  try {
+    console.log('开始获取聊天室详情，chatRoomId:', chatRoomId.value);
+    const res = await EMClient.getChatRoomDetails({ chatRoomId: chatRoomId.value });
+    const chatroomDetail = Array.isArray(res.data) ? res.data[0] || {} : res.data || {};
+    chatroomDetails.value = chatroomDetail; // 保存聊天室详情，包括所有者信息
+    isMuteAll.value = chatroomDetail.mute === true; // 同步全员禁言状态
+    console.log('更新全员禁言状态为:', isMuteAll.value);
+    console.log('聊天室所有者:', chatroomDetail.owner);
+  } catch (error) {
+    console.error('获取聊天室详情失败', error);
+  }
+};
+
 onMounted(() => {
   getChatRoomMembers();
+  getChatroomDetails();
+  
+  // 添加聊天室事件监听器
+  chatroomEventHandler = EMClient.addEventHandler('CHATROOM_MEMBER_MANAGEMENT', {
+    onChatroomEvent: (e) => {
+      console.log(`【聊天室事件】:`, e);
+      if (e.id === chatRoomId.value) {
+        switch (e.operation) {
+          case 'unmuteAllMembers':
+            isMuteAll.value = false;
+            getChatRoomMutelist();
+            break;
+          case 'muteAllMembers':
+            isMuteAll.value = true;
+            getChatRoomMutelist();
+            break;
+          case 'setAdmin':
+            console.log('收到设置管理员事件，更新管理员列表');
+            getChatRoomAdmin();
+            break;
+          case 'removeAdmin':
+            getChatRoomAdmin();
+            break;
+          case 'muteMember':
+            getChatRoomMutelist();
+            break;
+          case 'unmuteMember':
+            getChatRoomMutelist();
+            break;
+        }
+      }
+    }
+  });
 });
+
+onUnmounted(() => {
+  // 在组件卸载时移除事件监听器
+  if (chatroomEventHandler) {
+    EMClient.removeEventHandler('CHATROOM_MEMBER_MANAGEMENT');
+  }
+});
+
+// 监听路由参数变化
+watch(
+  () => route.query.roomId,
+  (newRoomId, oldRoomId) => {
+    if (newRoomId && newRoomId !== oldRoomId) {
+      chatRoomId.value = newRoomId;
+      // 重新初始化数据
+      getChatRoomMembers();
+      getChatroomDetails();
+      
+      // 重新注册事件监听器
+      if (chatroomEventHandler) {
+        EMClient.removeEventHandler('CHATROOM_MEMBER_MANAGEMENT');
+      }
+      chatroomEventHandler = EMClient.addEventHandler('CHATROOM_MEMBER_MANAGEMENT', {
+        onChatroomEvent: (e) => {
+          console.log(`【聊天室事件】:`, e);
+          if (e.id === chatRoomId.value) {
+            switch (e.operation) {
+              case 'unmuteAllMembers':
+                isMuteAll.value = false;
+                getChatRoomMutelist();
+                break;
+              case 'muteAllMembers':
+                isMuteAll.value = true;
+                getChatRoomMutelist();
+                break;
+              case 'setAdmin':
+                console.log('收到设置管理员事件，更新管理员列表');
+                getChatRoomAdmin();
+                break;
+              case 'removeAdmin':
+                getChatRoomAdmin();
+                break;
+              case 'muteMember':
+                getChatRoomMutelist();
+                break;
+              case 'unmuteMember':
+                getChatRoomMutelist();
+                break;
+            }
+          }
+        }
+      });
+    }
+  }
+);
 </script>
 
 <template>
@@ -628,8 +812,20 @@ onMounted(() => {
               clearable
             />
             <el-button type="primary" @click="muteMember(muteInput)">禁言用户</el-button>
-            <el-button type="warning" @click="muteAllMembers">全员禁言</el-button>
-            <el-button type="success" @click="unmuteAllMembers">取消全员禁言</el-button>
+            <el-button 
+              type="warning" 
+              @click="muteAllMembers"
+              :disabled="!isOwner"
+            >
+              全员禁言
+            </el-button>
+            <el-button 
+              type="success" 
+              @click="unmuteAllMembers"
+              :disabled="!isOwner"
+            >
+              取消全员禁言
+            </el-button>
           </div>
           
           <el-alert
@@ -638,20 +834,51 @@ onMounted(() => {
             type="warning"
             :closable="false"
             style="margin-bottom: 20px;"
-          />
+          >
+            全员禁言状态下，所有普通成员将被禁止发言（管理员和所有者不受影响）。
+            禁言列表仅显示被单独禁言的用户，全员禁言不会自动将所有用户添加到禁言列表中。
+          </el-alert>
+          
+          <el-alert
+            v-else-if="mutelist.length === 0"
+            title="当前没有被单独禁言的用户"
+            type="info"
+            :closable="false"
+            style="margin-bottom: 20px;"
+          >
+            禁言列表仅显示被单独禁言的用户。要禁止所有用户发言，请使用"全员禁言"功能。
+          </el-alert>
           
           <el-table :data="mutelist" stripe>
             <el-table-column prop="userId" label="用户ID" />
-            <el-table-column prop="expire" label="禁言时长(ms)">
+            <el-table-column label="禁言类型">
               <template #default="{ row }">
-                {{ row.expire === -1 ? '永久' : row.expire + 'ms' }}
+                <el-tag v-if="row.type === 'single'" type="warning">单独禁言</el-tag>
+                <el-tag v-else-if="row.type === 'all'" type="danger">全员禁言</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="expire" label="禁言时长">
+              <template #default="{ row }">
+                <template v-if="row.type === 'all'">
+                  全员禁言生效中
+                </template>
+                <template v-else>
+                  {{ row.expire === -1 ? '永久' : row.expire + 'ms' }}
+                </template>
               </template>
             </el-table-column>
             <el-table-column label="操作">
               <template #default="{ row }">
-                <el-button type="primary" size="small" @click="unmuteMember(row.userId)">
-                  解除禁言
-                </el-button>
+                <template v-if="row.type === 'single'">
+                  <el-button type="primary" size="small" @click="unmuteMember(row.userId)">
+                    解除禁言
+                  </el-button>
+                </template>
+                <template v-else-if="row.type === 'all'">
+                  <el-button type="info" size="small" disabled>
+                    全员禁言统一控制
+                  </el-button>
+                </template>
               </template>
             </el-table-column>
           </el-table>
