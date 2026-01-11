@@ -39,10 +39,41 @@ const initEMClient = () => {
   } else {
     Object.assign(configOptions, {
       appKey: DEFAULT_EASEMOB_APPKEY,
+      isHttpDNS: true,
+      url: DEFAULT_EASEMOB_SOCKET_URL,
+      apiUrl: DEFAULT_EASEMOB_REST_URL,
     });
     console.log('configOptions', configOptions);
   }
   miniCore = new MiniCore({ ...configOptions });
+  
+  // 添加连接错误处理
+  miniCore.addEventHandler('connectionError', {
+    onConnected: () => {
+      console.log('IM SDK 连接成功');
+    },
+    onDisconnected: () => {
+      console.log('IM SDK 断开连接');
+    },
+    onConnectError: (error) => {
+      console.error('IM SDK 连接错误:', error);
+      // 处理401未授权错误
+      if (error.type === 401 || error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+        console.error('连接错误: 未授权，请重新登录');
+        // 清除本地存储的登录信息
+        localStorage.removeItem('EASEIM_loginUser');
+        // 跳转到登录页面
+        window.location.href = '/login';
+      }
+    },
+    onWillReconnect: (retryTimes) => {
+      console.log(`IM SDK 即将重试连接，第${retryTimes}次`);
+    },
+    onReconnected: () => {
+      console.log('IM SDK 重新连接成功');
+    }
+  });
+  
   return miniCore;
 };
 initEMClient();

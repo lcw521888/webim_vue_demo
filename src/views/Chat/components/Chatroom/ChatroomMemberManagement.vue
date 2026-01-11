@@ -132,6 +132,8 @@ const getChatRoomBlocklist = async () => {
   if (!chatRoomId.value) return;
   const GET_CHAT_ROOM_BLOCKLIST_METHOD = 'getChatRoomBlocklist';
   const targetRoomId = chatRoomId.value;
+  // 定义获取黑名单的参数
+  const blocklistParams = { chatRoomId: chatRoomId.value };
   loading.value = true;
   try {
      console.log(
@@ -140,7 +142,7 @@ const getChatRoomBlocklist = async () => {
       `\n目标聊天室ID:`, targetRoomId,
       `\n当前操作用户:`, EMClient.user
     );
-    const res = await EMClient.getChatRoomBlocklist({ chatRoomId: chatRoomId.value });
+    const res = await EMClient.getChatRoomBlocklist(blocklistParams);
     console.log(
       `获取聊天室黑名单成功:`,
       `\n调用方法: ${GET_CHAT_ROOM_BLOCKLIST_METHOD}`,
@@ -154,7 +156,6 @@ const getChatRoomBlocklist = async () => {
     if (Array.isArray(res.data)) {
       blocklist.value = res.data.map(userId => {
         console.log('处理黑名单项:', userId);
-        EMClient.success(`用户 ${userId} 已被成功添加到黑名单`);
         return { userId };
       });
     } else {
@@ -164,7 +165,7 @@ const getChatRoomBlocklist = async () => {
     console.log('处理后的黑名单列表:', blocklist.value);
   } catch (error) {
     console.error(
-      EMClient.error(`获取聊天室黑名单失败: 用户 ${userId} 未成功添加到黑名单`),
+      `获取聊天室黑名单失败`,
       `\n调用方法: ${GET_CHAT_ROOM_BLOCKLIST_METHOD}`,
       `\n目标聊天室ID:`, targetRoomId,
       `\n当前用户:`, EMClient.user,
@@ -341,11 +342,11 @@ const addToBlocklist = async (username) => {
     return;
   }
   const trimmedUsername = username.trim();
-  console.log('添加到黑名单 - chatRoomId:', chatRoomId.value, 'username:', trimmedUsername);
+  console.log('添加到黑名单 - chatRoomId:', chatRoomId.value, 'usernames:', [trimmedUsername]);
   try {
-    await EMClient.blockChatRoomMember({ 
+    await EMClient.blockChatRoomMembers({ 
       chatRoomId: chatRoomId.value, 
-      username: trimmedUsername 
+      usernames: [trimmedUsername] 
     });
     ElMessage.success('添加到黑名单成功');
     blocklistInput.value = '';
@@ -364,9 +365,9 @@ const removeFromBlocklist = async (username) => {
   if (!checkLoginStatus()) return;
   
   try {
-    await EMClient.unblockChatRoomMember({ 
+    await EMClient.unblockChatRoomMembers({ 
       chatRoomId: chatRoomId.value, 
-      username 
+      usernames: [username] 
     });
     ElMessage.success('从黑名单移除成功');
     getChatRoomBlocklist();
@@ -415,9 +416,9 @@ const removeFromAllowlist = async (username) => {
   if (!checkLoginStatus()) return;
   
   try {
-    await EMClient.removeUserFromChatRoomAllowlist({ 
+    await EMClient.removeChatRoomAllowlistMember({ 
       chatRoomId: chatRoomId.value, 
-      username 
+      userName: username 
     });
     ElMessage.success('从白名单移除成功');
     getChatRoomAllowlist();
