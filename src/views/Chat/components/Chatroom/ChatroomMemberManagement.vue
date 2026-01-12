@@ -360,16 +360,36 @@ const addToBlocklist = async (username) => {
 
 const removeFromBlocklist = async (username) => {
   if (!checkLoginStatus()) return;
-  
+  const UNBLOCK_CHAT_ROOM_MEMBERS_METHOD = 'unblockChatRoomMembers';
+  const targetRoomId = chatRoomId.value;
+  const unblockParams = {
+    chatRoomId: targetRoomId,
+    usernames: [username]
+  };
   try {
-    await EMClient.unblockChatRoomMembers({ 
-      chatRoomId: chatRoomId.value, 
-      usernames: [username] 
-    });
+    const res = await EMClient.unblockChatRoomMembers(unblockParams);
+    console.log(
+      `从黑名单移除成员成功:`,
+      `\n调用方法: ${UNBLOCK_CHAT_ROOM_MEMBERS_METHOD}`,
+      `\n方法入参:`, unblockParams,
+      `\n接口返回结果:`, res,
+      `\n已移除黑名单的成员:`, username,
+      `\n操作聊天室ID:`, targetRoomId,
+      `\n后续操作: 重新获取聊天室黑名单列表`
+    );
     ElMessage.success('从黑名单移除成功');
     getChatRoomBlocklist();
   } catch (error) {
-    console.error('从黑名单移除失败', error);
+    console.error(
+      `从黑名单移除失败:`,
+      `\n调用方法: ${UNBLOCK_CHAT_ROOM_MEMBERS_METHOD}`,
+      `\n方法入参:`, unblockParams,
+      `\n当前用户:`, EMClient.user,
+      `\n错误类型:`, error.type,
+      `\n错误消息:`, error.message,
+      `\n完整错误信息:`, error
+    );
+    EMClient.error('从黑名单移除失败');
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else {

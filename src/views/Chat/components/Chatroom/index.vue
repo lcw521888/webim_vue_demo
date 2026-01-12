@@ -33,16 +33,36 @@ const checkLoginStatus = () => {
 
 const getChatrooms = async () => {
   if (!checkLoginStatus()) return;
-  
+  const GET_CHAT_ROOMS_METHOD = 'getChatRooms';
+  const chatRoomListParams = {
+    pagenum: 1,
+    pagesize: 100
+  };
   loading.value = true;
   try {
-    const res = await EMClient.getChatRooms({
-      pagenum: 1,
-      pagesize: 100,
-    });
+    const res = await EMClient.getChatRooms(chatRoomListParams);
+    console.log(
+      `获取聊天室列表成功:`,
+      `\n调用方法: ${GET_CHAT_ROOMS_METHOD}`,
+      `\n方法入参:`, chatRoomListParams,
+      `\n原始返回数据:`, res,
+      `\n返回的聊天室数据:`, res.data,
+      `\n聊天室总数:`, (res.data || []).length,
+      `\n当前用户:`, EMClient.user
+    );
+    ElMessage.success('获取聊天室列表成功');
     chatroomList.value = res.data || [];
   } catch (error) {
-    console.error('获取聊天室列表失败', error);
+    console.error(
+      `获取聊天室列表失败:`,
+      `\n调用方法: ${GET_CHAT_ROOMS_METHOD}`,
+      `\n方法入参:`, chatRoomListParams,
+      `\n当前用户:`, EMClient.user,
+      `\n错误类型:`, error.type,
+      `\n错误消息:`, error.message,
+      `\n完整错误信息:`, error
+    );
+    EMClient.error('获取聊天室列表失败');
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else {
