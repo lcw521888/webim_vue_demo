@@ -3,6 +3,7 @@ import App from './App.vue';
 import router from './router';
 import store from './store';
 import { EMClient } from './IM';
+import { CHANGE_MESSAGE_BODAY_TYPE } from './constant';
 
 import ElementPlus from 'element-plus';
 import './styles/element/index.scss';
@@ -13,16 +14,28 @@ const app = createApp(App)
   .use(router)
   .use(ElementPlus, { locale: zhCn });
 
-// 添加消息撤回监听
-EMClient.addEventHandler('messageRecall', {
-  onRecallMessage: (msg) => {
-    console.log('收到消息撤回通知:', msg);
-    // 更新本地消息状态为撤回
+// 监听自定义消息撤回事件
+window.addEventListener('hx:messageRecall', (event) => {
+  const msg = event.detail;
+  console.log('[Vue App] Received Custom Message Recall Event (hx:messageRecall)');
+  console.log('Event Details:', {
+    messageId: msg.id,
+    from: msg.from,
+    to: msg.to,
+    chatType: msg.chatType
+  });
+  
+  // Update local message status to recalled
+  console.log('[Vue App] Updating local message status...');
+  try {
     store.commit('Message/CHANGE_MESSAGE_BODAY', {
-      type: 'recall',
+      type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
       key: msg.to,
       mid: msg.id
     });
+    console.log('[Vue App] Local message status updated successfully!');
+  } catch (error) {
+    console.error('[Vue App] Failed to update local message status:', error);
   }
 });
 

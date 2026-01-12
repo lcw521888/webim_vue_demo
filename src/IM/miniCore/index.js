@@ -74,7 +74,25 @@ const initEMClient = () => {
     }
   });
 
-  // 消息撤回监听将在main.js中设置，以便访问全局store
+  // 添加消息撤回监听
+  miniCore.addEventHandler('messageRecall', {
+    onRecallMessage: (msg) => {
+      console.log('[IM SDK Event] Message Recall Event (onRecallMessage) Triggered');
+      console.log('Event Details:', {
+        messageId: msg.id,
+        from: msg.from,
+        to: msg.to,
+        chatType: msg.chatType,
+        messageType: msg.type,
+        ext: msg.ext,
+        originalMessage: msg
+      });
+      // 发送自定义事件，让Vue应用能够监听并更新状态
+      const event = new CustomEvent('hx:messageRecall', { detail: msg });
+      window.dispatchEvent(event);
+      console.log('[IM SDK Event] Custom Event hx:messageRecall Sent');
+    }
+  });
   
   return miniCore;
 };

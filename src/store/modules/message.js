@@ -253,21 +253,44 @@ const Message = {
     //撤回消息
     recallMessage: async ({ dispatch, commit }, params) => {
       const { mid, to, chatType } = params;
+      console.log('[Vuex Action] Starting Message Recall (recallMessage)');
+      console.log('Request Params:', {
+        messageId: mid,
+        conversationId: to,
+        chatType: chatType
+      });
+      
       return new Promise((resolve, reject) => {
+        console.log('[IM SDK] Calling recallMessage method...');
         EMClient.recallMessage({ mid, to, chatType })
-          .then(() => {
+          .then((result) => {
+            console.log('[IM SDK] recallMessage method called successfully');
+            console.log('SDK Result:', result || 'No return value');
+            
+            console.log('[Vuex Mutation] Updating message status to recalled...');
             commit('CHANGE_MESSAGE_BODAY', {
               type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
               key: to,
               mid,
             });
+            
+            console.log('[Vuex Action] Updating conversation list...');
             dispatch('updateConversationList', {
               conversationId: to,
               chatType,
             });
+            
+            console.log('[Vuex Action] Message recall process completed');
             resolve('OK');
           })
           .catch((error) => {
+            console.error('[IM SDK] recallMessage method call failed');
+            console.error('Error Details:', {
+              errorType: error.type,
+              errorMessage: error.message,
+              errorData: error.data,
+              originalError: error
+            });
             reject(error);
           });
       });
