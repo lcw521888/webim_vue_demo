@@ -293,9 +293,6 @@ const getChatRoomAdmin = async () => {
     console.log('开始获取聊天室管理员，chatRoomId:', chatRoomId.value);
     const res = await EMClient.getChatRoomAdmin({ chatRoomId: chatRoomId.value });
     console.log('获取聊天室管理员成功 - 原始数据:', res);
-    console.log('获取聊天室管理员成功 - res.data:', res.data);
-    console.log('获取聊天室管理员成功 - res.data 类型:', typeof res.data);
-    console.log('获取聊天室管理员成功 - res.data 是否为数组:', Array.isArray(res.data));
     admins.value = (res.data || []).map(userId => ({ userId }));
     console.log('处理后的管理员列表:', admins.value);
   } catch (error) {
