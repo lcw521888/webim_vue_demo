@@ -73,6 +73,8 @@ const initEMClient = () => {
       console.log('IM SDK 重新连接成功');
     }
   });
+
+  // 消息撤回监听将在main.js中设置，以便访问全局store
   
   return miniCore;
 };

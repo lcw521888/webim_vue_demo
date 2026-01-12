@@ -55,6 +55,16 @@ const isMyself = computed(() => {
     return msgBody.from === loginUserId;
   };
 });
+
+/* computed-- 是否有撤回权限 */
+const canRecallMessage = computed(() => {
+  return (msgBody) => {
+    if (isMyself.value(msgBody)) return true;
+    if (msgBody.chatType === CHAT_TYPE.SINGLE) return false;
+    const conversation = store.state.conversationList[msgBody.to];
+    return conversation?.isOwner || conversation?.isAdmin;
+  };
+});
 /* 获取消息id集合 */
 const getMessageIdsCollectionMap = computed(() => {
   if (routeQueryData.value.id) {
@@ -423,7 +433,7 @@ const onMsgQuote = (msg) => emit('messageQuote', msg);
                     复制
                   </el-dropdown-item>
                   <el-dropdown-item
-                    v-if="isMyself(msgBody)"
+                    v-if="canRecallMessage(msgBody)"
                     @click="recallMessage(msgBody)"
                   >
                     撤回
