@@ -162,18 +162,6 @@ watch(
   { immediate: true, deep: true }
 );
 
-// 监听messageData变化，确保有消息时滚动到底部
-watch(
-  () => messageData.value.length,
-  (newLength, oldLength) => {
-    if (newLength > oldLength && !notScrollBottom.value) {
-      nextTick(() => {
-        scrollMessageList('bottom');
-      });
-    }
-  }
-);
-
 const messageContainer = ref(null);
 //控制消息滚动
 const scrollMessageList = (direction) => {
@@ -192,27 +180,25 @@ const scrollMessageList = (direction) => {
     }
   });
 };
-// const scroll = ({ scrollTop }) => {
-//
-// }
+
+// 合并消息滚动监听，减少不必要的组件更新
 watch(
-  () => messageData,
-  (newMsg, oldMsg) => {
+  () => messageData.value.length,
+  (newLength, oldLength) => {
     nextTick(() => {
-      //判断拉取漫游导致的消息变化不需要执行滚动置底
+      // 判断拉取漫游导致的消息变化不需要执行滚动置底
       if (notScrollBottom.value) {
         return;
-      } else {
-        setTimeout(() => {
-          scrollMessageList('bottom');
-        }, 300);
+      } 
+      // 新消息到达或首次加载时滚动到底部
+      if (newLength > oldLength || oldLength === undefined) {
+        scrollMessageList('bottom');
       }
     });
   },
   {
-    deep: true,
-    immediate: true,
-  },
+    immediate: true
+  }
 );
 watch(
   () => route.query,

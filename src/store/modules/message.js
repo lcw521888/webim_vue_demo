@@ -331,9 +331,7 @@ const Message = {
     },
   },
   getters: {
-    getMessageIdsCollectionMap: (state) => (messageIdsCollectionKey) => {
-      return state.messageIdsCollection[messageIdsCollectionKey];
-    },
+    getMessageIdsCollectionMap: (state) => state.messageIdsCollection,
   },
 };
 export default Message;
