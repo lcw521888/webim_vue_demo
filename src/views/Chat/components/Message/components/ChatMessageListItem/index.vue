@@ -385,6 +385,25 @@ const onMsgQuote = (msg) => emit('messageQuote', msg);
                 </div>
                 <span class="iconfont icon-wenjian"></span>
               </div>
+              <!-- 合并消息 -->
+              <div
+                v-if="msgBody.type === MESSAGE_TYPE.COMBINE"
+                class="message_box_content_combine"
+              >
+                <div class="combine_title">
+                  <span class="iconfont icon-hebing"></span>
+                  {{ msgBody.title || '聊天记录' }}
+                </div>
+                <div class="combine_summary">
+                  {{ msgBody.summary || '' }}
+                </div>
+                <div class="combine_count">
+                  共{{ msgBody.messageList?.length || 0 }}条消息
+                </div>
+                <div class="combine_compatible" v-if="msgBody.compatibleText">
+                  {{ msgBody.compatibleText }}
+                </div>
+              </div>
               <!-- 自定义类型消息 -->
               <div
                 v-if="msgBody.type === MESSAGE_TYPE.CUSTOM"

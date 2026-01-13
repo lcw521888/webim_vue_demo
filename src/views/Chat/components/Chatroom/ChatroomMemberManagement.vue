@@ -27,6 +27,16 @@ const isOwner = computed(() => {
   return chatRoomId.value && chatroomDetails.value?.owner === EMClient.user;
 });
 
+// 检查当前用户是否是聊天室管理员
+const isAdmin = computed(() => {
+  return chatRoomId.value && admins.value.some(admin => admin.userId === EMClient.user);
+});
+
+// 检查当前用户是否有管理员权限（所有者或管理员）
+const hasAdminPermission = computed(() => {
+  return isOwner.value || isAdmin.value;
+});
+
 // 定义聊天室详情响应式变量
 const chatroomDetails = ref({});
 
@@ -592,6 +602,12 @@ const removeAdmin = async (username) => {
 };
 
 const removeMember = async (username) => {
+  // 检查当前用户是否有管理员权限
+  if (!hasAdminPermission.value) {
+    ElMessage.error('只有聊天室所有者或管理员才能执行该操作');
+    return;
+  }
+  
   try {
     await ElMessageBox.confirm(`确定要将 ${username} 移出聊天室吗？`, '提示', {
       confirmButtonText: '确定',
@@ -611,6 +627,7 @@ const removeMember = async (username) => {
       `\n接口返回结果:`, res,
       `\n已移出成员:`, username,
       `\n操作聊天室ID:`, chatRoomId.value,
+      `\n操作执行用户:`, EMClient.user,
       `\n后续操作: 重新获取聊天室成员列表`
     );
     ElMessage.success('移出聊天室成功');
@@ -633,7 +650,13 @@ const removeMember = async (username) => {
         `\n错误消息:`, error.message,
         `\n完整错误信息:`, error
       );
-      ElMessage.error('移出聊天室失败');
+      
+      // 根据错误类型提供更友好的提示
+      if (error.type === 17 && error.message?.includes('group_authorization')) {
+        ElMessage.error('权限不足：只有聊天室所有者或管理员才能执行该操作');
+      } else {
+        ElMessage.error('移出聊天室失败');
+      }
     }
   }
 };

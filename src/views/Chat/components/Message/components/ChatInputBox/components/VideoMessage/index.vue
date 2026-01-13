@@ -15,6 +15,7 @@ import { EMClient } from '@/IM';
 import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
 import { useUserInfoExt } from '@/hooks';
 import store from '@/store';
+import { ElMessage } from 'element-plus';
 const props = defineProps({
   chatType: {
     type: String,
@@ -38,6 +39,15 @@ const sendVideoMessage = async (event) => {
   console.log('>>>>>>执行上传发送视频消息');
   const videoFile = uploadVideo.value?.files[0];
   if (!videoFile) return;
+  
+  // 增加文件大小检查，避免发送过大文件
+  const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
+  if (videoFile.size > MAX_VIDEO_SIZE) {
+    ElMessage.error('视频大小不能超过50MB');
+    uploadVideo.value.value = null;
+    return;
+  }
+  
   const messageFileBody = {
     data: videoFile,
     filetype: videoFile.type,
@@ -52,9 +62,15 @@ const sendVideoMessage = async (event) => {
     from: EMClient.user,
     // 会话类型：单聊、群聊和聊天室分别为 `singleChat`、`groupChat` 和 `chatRoom`。
     chatType: chatType.value,
-    onFileUploadError: () => {
-      // 视频文件上传失败。
-      console.log('onFileUploadError');
+    onFileUploadError: (error) => {
+      // 视频文件上传失败
+      console.error('视频上传失败:', error);
+      // 避免递归调用，直接处理错误
+      if (error?.type === 413 || error?.data?.error === 'Request Entity Too Large') {
+        ElMessage.error('视频大小超过服务器限制');
+      } else {
+        ElMessage.error('视频上传失败');
+      }
       emit('onLoadending');
     },
     onFileUploadProgress: (e) => {

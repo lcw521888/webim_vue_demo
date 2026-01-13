@@ -16,6 +16,7 @@ import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
 import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
 import { useUserInfoExt } from '@/hooks';
 import store from '@/store';
+import { ElMessage } from 'element-plus';
 const props = defineProps({
   chatType: {
     type: String,
@@ -52,9 +53,15 @@ const sendImagesMessage = async (type, fileObj) => {
     width: 0,
     height: 0,
     from: EMClient.user,
-    onFileUploadError: () => {
-      // 图片文件上传失败。
-      console.log('onFileUploadError');
+    onFileUploadError: (error) => {
+      // 图片文件上传失败
+      console.error('图片上传失败:', error);
+      // 避免递归调用，直接处理错误
+      if (error?.type === 413 || error?.data?.error === 'Request Entity Too Large') {
+        ElMessage.error('图片大小超过服务器限制');
+      } else {
+        ElMessage.error('图片上传失败');
+      }
       emit('onLoadending');
     },
     onFileUploadProgress: (e) => {
@@ -74,6 +81,15 @@ const sendImagesMessage = async (type, fileObj) => {
   if (!imgFile) {
     return;
   }
+  
+  // 增加文件大小检查，避免发送过大文件
+  const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
+  if (imgFile.size > MAX_IMAGE_SIZE) {
+    ElMessage.error('图片大小不能超过20MB');
+    uploadImgs.value.value = null;
+    return;
+  }
+  
   file.data = imgFile;
   file.filename = imgFile.name;
   file.filetype = imgFile.type;

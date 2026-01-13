@@ -207,6 +207,56 @@
         }
       }
 
+      /* 合并消息样式 */
+      .message_box_content_combine {
+        padding: 12px;
+        background-color: #f5f7fa;
+        border-radius: 8px;
+        min-width: 200px;
+        max-width: 400px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover {
+          background-color: #eef2f7;
+        }
+
+        .combine_title {
+          font-weight: bold;
+          font-size: 14px;
+          color: #333;
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+
+          .iconfont {
+            margin-right: 6px;
+            color: #2454ff;
+          }
+        }
+
+        .combine_summary {
+          font-size: 13px;
+          color: #666;
+          margin-bottom: 8px;
+          line-height: 1.4;
+        }
+
+        .combine_count {
+          font-size: 12px;
+          color: #999;
+          margin-bottom: 4px;
+        }
+
+        .combine_compatible {
+          font-size: 11px;
+          color: #ff6b6b;
+          border-top: 1px dashed #eee;
+          padding-top: 4px;
+          margin-top: 8px;
+        }
+      }
+
       /* 自定义消息 */
       .message_box_content_custom {
         display: flex;

@@ -15,6 +15,7 @@ import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
 import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
 import { useUserInfoExt } from '@/hooks';
 import store from '@/store';
+import { ElMessage } from 'element-plus';
 const props = defineProps({
   chatType: {
     type: String,
@@ -41,6 +42,15 @@ const sendFilesMessages = async () => {
   if (!commonFile) {
     return;
   }
+  
+  // 增加文件大小检查，避免发送过大文件触发服务器413错误
+  const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+  if (commonFile.size > MAX_FILE_SIZE) {
+    ElMessage.error('文件大小不能超过100MB');
+    uploadFiles.value.value = null;
+    return;
+  }
+  
   const file = {
     data: commonFile, // file 对象。
     filename: commonFile.name, //文件名称。
@@ -54,14 +64,20 @@ const sendFilesMessages = async () => {
     to: targetId.value,
     chatType: chatType.value,
     file: file,
-    onFileUploadError: () => {
-      // 图片文件上传失败。
-      console.log('onFileUploadError');
+    onFileUploadError: (error) => {
+      // 文件上传失败
+      console.error('文件上传失败:', error);
+      // 避免递归调用，直接处理错误
+      if (error?.type === 413 || error?.data?.error === 'Request Entity Too Large') {
+        ElMessage.error('文件大小超过服务器限制');
+      } else {
+        ElMessage.error('文件上传失败');
+      }
       emit('onLoadending');
     },
     onFileUploadProgress: (e) => {
       // 图片文件上传进度。
-      console.log(e);
+      console.log('上传进度:', e);
       emit('onStartLoading');
     },
     onFileUploadComplete: () => {

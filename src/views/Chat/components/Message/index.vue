@@ -84,16 +84,20 @@ const loadingHistoryMsg = ref(false); //是否正在加载中
 const isMoreHistoryMsg = ref(true); //加载文案展示为加载更多还是已无更多。
 const notScrollBottom = ref(false); //是否滚动置底
 //获取历史记录
-const fechHistoryMessage = (loadType) => {
+const fechHistoryMessage = async (loadType) => {
   if (!routeQueryData.value) return [];
-  return async () => {
-    loadingHistoryMsg.value = true;
-    notScrollBottom.value = true;
+  loadingHistoryMsg.value = true;
+  notScrollBottom.value = true;
+  
+  try {
+    let messages = [];
     if (loadType == 'fistLoad') {
-      const { messages } = await store.dispatch('getHistoryMessage', {
+      const result = await store.dispatch('getHistoryMessage', {
         ...routeQueryData.value,
         cursor: -1,
       });
+      messages = result.messages || [];
+      
       if (messages.length > 0) {
         //返回数组有数据显示加载更多
         isMoreHistoryMsg.value = true;
@@ -106,10 +110,14 @@ const fechHistoryMessage = (loadType) => {
       }, 500);
     } else {
       const fistMessageId = messageData.value[0] && messageData.value[0].id;
-      const { messages } = await store.dispatch('getHistoryMessage', {
+      if (!fistMessageId) return;
+      
+      const result = await store.dispatch('getHistoryMessage', {
         ...routeQueryData.value,
         cursor: fistMessageId,
       });
+      messages = result.messages || [];
+      
       if (messages.length > 0) {
         //返回数组有数据显示加载更多
         isMoreHistoryMsg.value = true;
@@ -119,21 +127,52 @@ const fechHistoryMessage = (loadType) => {
       }
       scrollMessageList('normal');
     }
+    
+    return messages;
+  } catch (error) {
+    console.error('获取历史消息失败:', error);
+    isMoreHistoryMsg.value = false;
+    return [];
+  } finally {
     loadingHistoryMsg.value = false;
     notScrollBottom.value = false;
-  };
+  }
 };
 //获取其id对应的消息内容
 const messageData = computed(() => {
-  //如果Message.messageList中不存在的话调用拉取漫游取一下历史消息
-  if (loginState.value) {
-    return (
-      (routeQueryData.value.id &&
-        store.state.Message.messageList[routeQueryData.value.id]) ||
-      fechHistoryMessage('fistLoad')()
-    );
+  // 只返回本地缓存的消息列表，异步获取通过watch处理
+  if (loginState.value && routeQueryData.value.id) {
+    return store.state.Message.messageList[routeQueryData.value.id] || [];
   }
+  return [];
 });
+
+// 监听路由变化，当切换到新的聊天会话时获取历史消息
+watch(
+  () => routeQueryData.value,
+  async (newRouteQuery, oldRouteQuery) => {
+    if (loginState.value && newRouteQuery.id && newRouteQuery.chatType) {
+      // 只有当会话ID变化或者是首次加载时才获取历史消息
+      // 首次加载时oldRouteQuery是undefined，需要特殊处理
+      if (!oldRouteQuery || !oldRouteQuery.id || newRouteQuery.id !== oldRouteQuery.id) {
+        await fechHistoryMessage('fistLoad');
+      }
+    }
+  },
+  { immediate: true, deep: true }
+);
+
+// 监听messageData变化，确保有消息时滚动到底部
+watch(
+  () => messageData.value.length,
+  (newLength, oldLength) => {
+    if (newLength > oldLength && !notScrollBottom.value) {
+      nextTick(() => {
+        scrollMessageList('bottom');
+      });
+    }
+  }
+);
 
 const messageContainer = ref(null);
 //控制消息滚动
@@ -279,7 +318,7 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
                 v-show="!loadingHistoryMsg"
                 :disabled="!isMoreHistoryMsg"
                 underline="never"
-                @click="fechHistoryMessage()()"
+                @click="fechHistoryMessage()"
               >
                 加载更多
               </el-link>

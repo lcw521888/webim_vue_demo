@@ -44,7 +44,6 @@ const getChatroomDetails = async () => {
       `\n聊天室ID:`, roomId
     );
     const res = await EMClient.getChatRoomDetails(chatRoomDetailParams);
-    ElMessage.success('获取聊天室详情成功');
     console.log(
       `获取聊天室详情成功:`,
       `\n调用方法: ${GET_CHAT_ROOM_DETAILS_METHOD}`,
@@ -53,8 +52,17 @@ const getChatroomDetails = async () => {
     );
     // 检查返回数据结构，可能是数组中的第一个元素
     chatroomDetails.value = Array.isArray(res.data) ? res.data[0] || {} : res.data || {};
+    
+    // 获取聊天室公告
     getChatRoomAnnouncement();
-    getChatRoomAttributes();
+    
+    // 获取聊天室属性 - 使用try-catch包裹，避免失败影响其他功能
+    try {
+      await getChatRoomAttributes();
+    } catch (error) {
+      console.error('获取聊天室属性失败，但不影响其他功能:', error.message);
+      // 不显示错误消息，避免用户体验受影响
+    }
   } catch (error) {
     ElMessage.error('获取聊天室详情失败');
     console.error(
@@ -294,76 +302,37 @@ const getChatRoomAttributes = async () => {
   
   const roomId = route.query.roomId;
   if (!roomId) {
-    ElMessage.error('聊天室ID不存在');
+    console.error('聊天室ID不存在，无法获取自定义属性');
     return;
   }
   
   try {
     // 检查EMClient对象是否存在并且getChatRoomAttributes方法可用
-    console.log('EMClient对象:', typeof EMClient);
-    console.log('getChatRoomAttributes方法:', typeof EMClient.getChatRoomAttributes);
-    console.log('开始获取聊天室自定义属性，roomId:', roomId, '当前用户:', EMClient.user, 'REST URL:', DEFAULT_EASEMOB_REST_URL);
+    if (!EMClient || typeof EMClient.getChatRoomAttributes !== 'function') {
+      console.error('EMClient.getChatRoomAttributes方法不可用');
+      return;
+    }
     
     // 准备请求参数
     const requestParams = { chatRoomId: roomId };
-    console.log('请求参数:', requestParams);
     
     const res = await EMClient.getChatRoomAttributes(requestParams);
-    console.log('获取聊天室自定义属性成功:', JSON.stringify(res, null, 2));
+    console.log('获取聊天室自定义属性成功:', res);
     attributes.value = res.data || {};
+    return res;
   } catch (error) {
-    console.error('=== 获取聊天室自定义属性失败 ===');
+    console.error('获取聊天室自定义属性失败:', error.message);
     
-    // 使用更可靠的方式记录错误信息，避免循环引用问题
-    console.error('原始错误对象:', error);
-    
-    // 尝试获取所有可能的错误信息
-    console.error('错误类型:', typeof error);
-    console.error('错误构造函数:', error.constructor ? error.constructor.name : '未知');
-    
-    try {
-      console.error('错误属性列表:', Object.keys(error));
-    } catch (e) {
-      console.error('获取错误属性列表失败:', e);
-    }
-    
-    // 分别记录错误的各个属性
-    console.error('错误type:', error.type);
-    console.error('错误message:', error.message);
-    console.error('错误errorType:', error.errorType);
-    console.error('错误code:', error.code);
-    console.error('错误status:', error.status);
-    
-    // 记录xhr信息
-    if (error.xhr) {
-      try {
-        console.error('xhr状态:', error.xhr.status);
-        console.error('xhr readyState:', error.xhr.readyState);
-        console.error('xhr responseURL:', error.xhr.responseURL);
-        console.error('xhr responseText:', error.xhr.responseText);
-        console.error('xhr statusText:', error.xhr.statusText);
-      } catch (e) {
-        console.error('获取xhr信息失败:', e);
-      }
-    } else {
-      console.error('无xhr信息');
-    }
-    
-    // 记录堆栈信息
-    console.error('错误堆栈:', error.stack || '无堆栈信息');
-    
-    // 根据错误类型显示不同的提示信息
+    // 只处理关键错误，其他错误静默处理
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else if (error.type === 702) {
-      ElMessage.error('获取聊天室自定义属性失败，请检查聊天室ID是否正确');
-    } else if (error.type === -2 || error.errorType === 'onerror') {
-      ElMessage.error('网络请求失败，请检查网络连接或服务器配置');
-    } else if (error instanceof TypeError) {
-      ElMessage.error('SDK方法调用错误，请检查SDK是否正确初始化');
-    } else {
-      ElMessage.error('获取聊天室自定义属性失败');
+      console.error('获取聊天室自定义属性失败: 聊天室不存在或无权限');
     }
+    
+    // 返回默认空对象，避免后续处理出错
+    attributes.value = {};
+    return { data: {} };
   }
 };
 

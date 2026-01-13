@@ -246,6 +246,50 @@ const clearScreen = () => {
 //   store.dispatch('createInformMessage', params);
 // };
 //func 对应事件 icon class样式等
+// 发送合并消息
+const sendCombineMessage = async () => {
+  try {
+    // 模拟获取最近5条消息作为合并内容
+    const currentChatMessages = store.state.Message.messageList[routeQueryData.value.id] || [];
+    const recentMessages = currentChatMessages.slice(-5).map(msg => ({
+      type: msg.type,
+      chatType: msg.chatType,
+      from: msg.from,
+      to: msg.to,
+      msg: msg.msg,
+      time: msg.time,
+      id: msg.id
+    }));
+
+    if (recentMessages.length === 0) {
+      ElMessage.warning('暂无消息可合并');
+      return;
+    }
+
+    // 准备合并消息参数
+    const combineMsgOptions = {
+      chatType: routeQueryData.value.chatType,
+      type: MESSAGE_TYPE.COMBINE,
+      to: routeQueryData.value.id,
+      compatibleText: 'SDK 版本低，请升级',
+      title: '聊天记录',
+      summary: `共${recentMessages.length}条消息`,
+      messageList: recentMessages,
+      onFileUploadComplete: (data) => {
+        combineMsgOptions.url = data.url;
+      },
+    };
+
+    // 发送合并消息
+    const msg = EMClient.Message.create(combineMsgOptions);
+    await EMClient.send(msg);
+    ElMessage.success('合并消息发送成功');
+  } catch (error) {
+    console.error('发送合并消息失败:', error);
+    handleSDKErrorNotifi(error.type, error.message);
+  }
+};
+
 const all_func = [
   {
     className: 'icon-icon_emoji',
@@ -282,6 +326,12 @@ const all_func = [
     style: 'font-size: 23px;',
     title: '个人名片',
     methodName: onShowContactsModal,
+  },
+  {
+    className: 'icon-hebing',
+    style: 'font-size: 20px;',
+    title: '发送合并消息',
+    methodName: sendCombineMessage,
   },
   {
     className: 'icon-lajitong',

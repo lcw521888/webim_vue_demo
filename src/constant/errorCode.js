@@ -68,6 +68,11 @@ export const ERROR_MAP_DESCRIPTION = {
   508: {
     moderation: '内容审核不通过！请检查发送内容。',
   },
+  /* 超时相关 */
+  512: {
+    'send message timeout': '消息发送超时，请检查网络连接后重试！',
+    none: '网络连接超时，请稍后重试！',
+  },
   // e.type === '603' 被拉黑
   // e.type === '605' 群组不存在
   // e.type === '602' 不在群组或聊天室中
