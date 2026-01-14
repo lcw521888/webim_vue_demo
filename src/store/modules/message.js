@@ -20,7 +20,7 @@ const Message = {
   mutations: {
     UPDATE_MESSAGE_LIST: (state, msgBody) => {
       // 确保msgBody有基本属性
-      if (!msgBody || !msgBody.to || !msgBody.chatType) {
+      if (!msgBody) {
         return;
       }
       
@@ -201,11 +201,13 @@ const Message = {
               });
             resolve({ messages, cursor });
             const reversedMessages = _.reverse(_.cloneDeep(messages));
+            // 为历史消息生成正确的listKey
+            const listKey = setMessageKey({ to: id, chatType });
             commit('UPDATE_HISTORY_MESSAGE', {
-              listKey: id,
+              listKey: listKey,
               historyMessageList: reversedMessages,
             });
-            if (!state.messageList[id]) {
+            if (!state.messageList[listKey]) {
               //提示会话列表更新
               dispatch('updateConversationList', {
                 conversationId: id,

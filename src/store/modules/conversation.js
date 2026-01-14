@@ -3,6 +3,7 @@ import { useLocalStorage } from '@vueuse/core';
 import {
   createInform,
   checkLastMsgIsHasMention,
+  setMessageKey,
 } from '@/utils/handleSomeData/index';
 import messageStore from '@/store/modules/message';
 import { EMClient } from '@/IM';
@@ -10,8 +11,10 @@ import { INFORM_FROM } from '@/constant';
 import { GROUP_OPERATION_TYPE, CHAT_TYPE } from '@/IM/constant';
 
 //获取messageList数组中的最新一条消息
-const getLatestMessageBodyFromMessageStore = (conversationId) => {
-  const messageList = messageStore.state.messageList[conversationId];
+const getLatestMessageBodyFromMessageStore = (conversationId, chatType) => {
+  // 生成正确的消息列表键
+  const listKey = setMessageKey({ to: conversationId, chatType });
+  const messageList = messageStore.state.messageList[listKey];
   if (messageList && messageList.length) {
     const latestMessage = messageList[messageList.length - 1];
     return latestMessage;
@@ -318,7 +321,7 @@ const Conversation = {
       const { conversationId, chatType } = params;
       
       //从messageStore中获取最新一条消息
-      const latestMessage = getLatestMessageBodyFromMessageStore(conversationId);
+      const latestMessage = getLatestMessageBodyFromMessageStore(conversationId, chatType);
       
       if (!latestMessage) return;
       
