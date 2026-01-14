@@ -19,17 +19,40 @@ const Message = {
   },
   mutations: {
     UPDATE_MESSAGE_LIST: (state, msgBody) => {
-      const { id: serverMsgId } = msgBody;
+      // 确保msgBody有基本属性
+      if (!msgBody || !msgBody.to || !msgBody.chatType) {
+        return;
+      }
+      
+      const serverMsgId = msgBody.id || Date.now() + Math.random().toString(36).substring(2);
       const listKey = setMessageKey(msgBody);
+      
       if (!state.messageList[listKey]) {
         state.messageList[listKey] = [];
       }
 
-      state.messageList[listKey] = _.unionBy(
-        state.messageList[listKey],
-        [msgBody],
-        (m) => m.id,
-      );
+      // 为聊天室消息生成临时ID（如果没有）
+      if (msgBody.chatType === CHAT_TYPE.CHATROOM && !msgBody.id) {
+        msgBody.id = serverMsgId;
+      }
+
+      // 先检查是否已存在相同ID的消息，仅在不存在时添加
+      if (msgBody.id) {
+        const exists = state.messageList[listKey].some(m => m.id === msgBody.id);
+        if (!exists) {
+          state.messageList[listKey].push(msgBody);
+        } else {
+          // 如果存在相同ID的消息，更新它而不是忽略
+          const index = state.messageList[listKey].findIndex(m => m.id === msgBody.id);
+          if (index !== -1) {
+            state.messageList[listKey][index] = msgBody;
+          }
+        }
+      } else {
+        // 如果没有ID，直接添加
+        state.messageList[listKey].push(msgBody);
+      }
+      
       // 限制数组的长度为 MAX_MESSAGE_LIST_COUNT
       if (state.messageList[listKey].length > MAX_MESSAGE_LIST_COUNT) {
         state.messageList[listKey] = state.messageList[listKey].slice(
@@ -168,6 +191,13 @@ const Message = {
             messages.length > 0 &&
               messages.forEach((item) => {
                 item.read = true;
+                // 确保历史消息有正确的chatType和to字段
+                if (!item.chatType) {
+                  item.chatType = chatType;
+                }
+                if (!item.to) {
+                  item.to = id;
+                }
               });
             resolve({ messages, cursor });
             const reversedMessages = _.reverse(_.cloneDeep(messages));
@@ -182,8 +212,6 @@ const Message = {
                 chatType: chatType,
               });
             }
-            // console.log('>>>>>获取历史消息', reversedMessages);
-            // debugger;
             dispatch('UsersProfile/processMessageExt', reversedMessages, {
               root: true,
             });

@@ -12,10 +12,11 @@ import { GROUP_OPERATION_TYPE, CHAT_TYPE } from '@/IM/constant';
 //获取messageList数组中的最新一条消息
 const getLatestMessageBodyFromMessageStore = (conversationId) => {
   const messageList = messageStore.state.messageList[conversationId];
-  if (messageList.length) {
+  if (messageList && messageList.length) {
     const latestMessage = messageList[messageList.length - 1];
     return latestMessage;
   }
+  return null;
 };
 const Conversation = {
   state: {
@@ -57,10 +58,26 @@ const Conversation = {
       const _index = list.findIndex(
         (c) => c.conversationId === conversationItem.conversationId,
       );
-      if (_index > -1) {
-        list.splice(_index, 1);
+      
+      // 确保会话对象的lastMessage存在
+      if (!conversationItem.lastMessage) {
+        conversationItem.lastMessage = {};
       }
-      list.unshift(conversationItem);
+      
+      if (_index > -1) {
+        // 更新现有会话
+        // 保留现有会话的属性，只更新需要更新的属性
+        const existing = list[_index];
+        existing.lastMessage = conversationItem.lastMessage;
+        existing.customField = conversationItem.customField;
+        // 只有当新消息不是自己发送的时，才更新未读计数
+        if (conversationItem.lastMessage.from !== EMClient.user) {
+          existing.unReadCount += 1;
+        }
+      } else {
+        // 添加新会话到列表开头
+        list.unshift(conversationItem);
+      }
     },
     //删除某条会话
     DELETE_CONVERSATION_ITEM: (state, conversationId) => {
@@ -299,53 +316,37 @@ const Conversation = {
     //更新Store中的会话列表（远端会话会在环信服务自动更新。）
     updateConversationWithServer: async ({ state, commit }, params) => {
       const { conversationId, chatType } = params;
+      
       //从messageStore中获取最新一条消息
-      const latestMessage =
-        getLatestMessageBodyFromMessageStore(conversationId);
-      let toBeUpdateConversationItem = {};
+      const latestMessage = getLatestMessageBodyFromMessageStore(conversationId);
+      
+      if (!latestMessage) return;
+      
       const conversationItem = state.conversationListFromServer.find(
         (c) => c.conversationId === conversationId,
       );
+      
       //如果缓存中存在会话则直接更新
       if (conversationItem) {
         conversationItem.lastMessage = latestMessage;
-        toBeUpdateConversationItem = { ...conversationItem };
+        //更新会话未读数（消息来源不为自己则累加）
+        if (latestMessage.from !== EMClient.user) {
+          conversationItem.unReadCount += 1;
+        }
+        commit('UPDATE_CONVERSATION_LIST', conversationItem);
       } //如果本地没有则手动创建一个同结构的会话数据
       else {
-        toBeUpdateConversationItem = {
+        const toBeUpdateConversationItem = {
           conversationId,
           conversationType: chatType,
-          unReadCount: 0,
-          lastMessage: {
-            ...latestMessage,
-          },
+          unReadCount: latestMessage.from !== EMClient.user ? 1 : 0,
+          lastMessage: latestMessage,
           customField: {
-            mention: false,
+            mention: checkLastMsgIsHasMention(latestMessage),
           },
         };
+        commit('UPDATE_CONVERSATION_LIST', toBeUpdateConversationItem);
       }
-      /* 更新会话列表数据(lastestMessage以及会话未读数) */
-      //更新会话未读数（消息来源不为自己则累加）
-      if (latestMessage?.from !== EMClient.user) {
-        toBeUpdateConversationItem.unReadCount =
-          toBeUpdateConversationItem.unReadCount + 1;
-      }
-      //更新会话lastMessage
-      toBeUpdateConversationItem.lastMessage = {
-        ...toBeUpdateConversationItem.lastMessage,
-        ...latestMessage,
-      };
-      //检查更新的lastmsg中是否包含提及
-      const isMention = toBeUpdateConversationItem?.customField?.mention
-        ? true
-        : checkLastMsgIsHasMention(toBeUpdateConversationItem.lastMessage);
-      const customField = (toBeUpdateConversationItem.customField && {
-        ...toBeUpdateConversationItem.customField,
-        mention: isMention,
-      }) || { mention: isMention };
-      //设置会话级别提及状态clear
-      toBeUpdateConversationItem.customField = { ...customField };
-      commit('UPDATE_CONVERSATION_LIST', toBeUpdateConversationItem);
     },
     //更新缓存中的会话列表
     updateConversationList: async ({ state, dispatch, commit }, params) => {
@@ -438,14 +439,14 @@ const Conversation = {
         });
       } catch (error) { }
     },
-    //通过会话Id调用群组详情用于会话列表数据展示
+    //通过会话Id调用群组或聊天室详情用于会话列表数据展示
     callGroupDetailWithConversationId: async (
       { dispatch },
       conversationList,
     ) => {
       //挑出为群组的会话id，用于获取群组详情
       const groupConversationIds = _.chain(conversationList)
-        .filter({ conversationType: CHAT_TYPE.GROUP })
+        .filter(item => item.conversationType === CHAT_TYPE.GROUP || item.conversationType === CHAT_TYPE.CHATROOM)
         .map('conversationId')
         .value();
       try {

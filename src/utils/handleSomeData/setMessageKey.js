@@ -3,7 +3,7 @@ import { EMClient } from '@/IM';
 import { CHAT_TYPE } from '@/IM/constant';
 export default function (msgBody) {
   const loginUserId = EMClient.user;
-  const listKey =
+  const listKey = 
     msgBody.chatType === CHAT_TYPE.SINGLE
       ? msgBody.to === loginUserId
         ? msgBody.from

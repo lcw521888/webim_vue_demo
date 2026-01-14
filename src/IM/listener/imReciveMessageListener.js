@@ -3,19 +3,39 @@ import { CHAT_TYPE } from '../constant';
 import { CHANGE_MESSAGE_BODAY_TYPE } from '@/constant';
 import { setMessageKey } from '@/utils/handleSomeData';
 import store from '@/store';
+
 export const imReviceMessageListener = () => {
   //接收的消息往store中push
   const pushNewMessage = (message) => {
+    // 确保消息有基本属性
+    if (!message || !message.to || !message.chatType) {
+      console.error('收到无效消息:', message);
+      return;
+    }
+    
+    // 确保聊天室消息能被正确处理
+    if (message.chatType === CHAT_TYPE.CHATROOM) {
+      console.log('=== 收到聊天室消息 ===', {
+        from: message.from,
+        to: message.to,
+        chatType: message.chatType,
+        msg: message.msg || message.content,
+        id: message.id
+      });
+    }
+    
     store.dispatch('createNewMessage', message);
     store.dispatch('UsersProfile/processMessageExt', message, { root: true });
   };
   //收到他人的撤回指令
   const otherRecallMessage = (message) => {
-    const { from, to, mid } = message;
-    //单对单的撤回to必然为登陆的用户id，群组发起撤回to必然为群组id 所以key可以这样来区分群组或者单人。
+    const { from, to, mid, chatType: messageChatType } = message;
+    //单对单的撤回to必然为登陆的用户id，群组/聊天室发起撤回to必然为群组/聊天室id 所以key可以这样来区分群组/聊天室或者单人。
     const key = to === EMClient.user ? from : to;
 
-    const chatType = to === EMClient.user ? CHAT_TYPE.SINGLE : CHAT_TYPE.GROUP;
+    // 根据消息中的chatType确定聊天类型
+    const chatType = to === EMClient.user ? CHAT_TYPE.SINGLE : 
+                    messageChatType === CHAT_TYPE.CHATROOM ? CHAT_TYPE.CHATROOM : CHAT_TYPE.GROUP;
     store.commit('CHANGE_MESSAGE_BODAY', {
       type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
       key,
@@ -47,6 +67,7 @@ export const imReviceMessageListener = () => {
     /* message 相关监听 */
     EMClient.addEventHandler('messageListen', {
       onTextMessage: function (message) {
+        console.log('=== onTextMessage 触发 ===', message);
         pushNewMessage(message);
       }, // 收到文本消息。
       onEmojiMessage: function (message) {
@@ -55,7 +76,14 @@ export const imReviceMessageListener = () => {
       onImageMessage: function (message) {
         pushNewMessage(message);
       }, // 收到图片消息。
-      onCmdMessage: function (message) {}, // 收到命令消息。
+      onCmdMessage: function (message) {
+        console.log('=== onCmdMessage 触发 ===', message);
+        // 命令消息可能包含聊天室相关的指令，需要处理
+        if (message.chatType === CHAT_TYPE.CHATROOM) {
+          // 确保聊天室消息能被正确处理
+          pushNewMessage(message);
+        }
+      }, // 收到命令消息。
       onAudioMessage: function (message) {
         pushNewMessage(message);
       }, // 收到音频消息。
@@ -78,6 +106,8 @@ export const imReviceMessageListener = () => {
         otherModifyMessage(message);
       },
     });
+    
+    console.log('=== 消息监听器已挂载 ===');
   };
   return {
     mountReviceMessageEventListener,
