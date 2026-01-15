@@ -13,17 +13,25 @@ export const imReviceMessageListener = () => {
       return;
     }
     
-    // 确保聊天室消息能被正确处理
-    if (message.chatType === CHAT_TYPE.CHATROOM) {
-      console.log('事件名称：收到聊天室消息');
-      console.log('请求参数：', {
-        from: message.from,
-        to: message.to,
-        chatType: message.chatType,
-        msg: message.msg || message.content,
-        id: message.id
-      });
-      console.log('返回值：无');
+    // 为所有消息添加日志，包括群组消息
+    console.log(`事件名称：收到${message.chatType === CHAT_TYPE.CHATROOM ? '聊天室' : message.chatType === CHAT_TYPE.GROUP ? '群组' : message.chatType === CHAT_TYPE.SINGLE ? '单聊' : '未知类型'}消息`);
+    console.log('请求参数：', {
+      from: message.from,
+      to: message.to,
+      chatType: message.chatType,
+      msg: message.msg || message.content,
+      id: message.id
+    });
+    console.log('返回值：无');
+    
+    // 确保消息有正确的chatType和to字段
+    if (!message.chatType) {
+      console.error('消息缺少chatType字段:', message);
+      return;
+    }
+    if (!message.to) {
+      console.error('消息缺少to字段:', message);
+      return;
     }
     
     store.dispatch('createNewMessage', message);
@@ -71,56 +79,100 @@ export const imReviceMessageListener = () => {
       onTextMessage: function (message) {
         console.log('事件名称：onTextMessage');
         console.log('请求参数：', message);
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到文本消息。
       onEmojiMessage: function (message) {
         console.log('事件名称：onEmojiMessage');
         console.log('请求参数：', message);
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到表情消息。
       onImageMessage: function (message) {
         console.log('事件名称：onImageMessage');
         console.log('请求参数：', message);
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到图片消息。
       onCmdMessage: function (message) {
         console.log('事件名称：onCmdMessage');
         console.log('请求参数：', message);
-        // 处理所有命令消息，包括其他成员的通知
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到命令消息。
       onAudioMessage: function (message) {
         console.log('事件名称：onAudioMessage');
         console.log('请求参数：', message);
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到音频消息。
       onLocationMessage: function (message) {
         console.log('事件名称：onLocationMessage');
         console.log('请求参数：', message);
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到位置消息。
       onFileMessage: function (message) {
         console.log('事件名称：onFileMessage');
         console.log('请求参数：', message);
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到文件消息。
       onCustomMessage: function (message) {
         console.log('事件名称：onCustomMessage');
         console.log('请求参数：', message);
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到自定义消息。
       onVideoMessage: function (message) {
         console.log('事件名称：onVideoMessage');
         console.log('请求参数：', message);
-        pushNewMessage(message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach(msg => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
         console.log('返回值：无');
       }, // 收到视频消息。
       onRecallMessage: function (message) {

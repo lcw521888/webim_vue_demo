@@ -9,6 +9,7 @@ import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
 //vue at
 import VueAt from 'vue-at/dist/vue-at-textarea'; // for textarea
 import { EMClient } from '@/IM';
+import { ElMessage } from 'element-plus';
 const props = defineProps({
   chatType: {
     type: String,
@@ -131,6 +132,12 @@ const { setUserInfoExt } = useUserInfoExt();
 const sendTextMessage = _.debounce(async () => {
   //如果输入框全部为空格同样拒绝发送
   if (textContent.value.match(/^\s*$/)) return;
+  //验证targetId是否有效
+  if (!targetId.value || targetId.value === '') {
+    console.error('发送文本消息失败: 缺少目标ID');
+    ElMessage.error('发送文本消息失败: 请先选择聊天对象');
+    return;
+  }
   checkAtMembers(textContent.value);
   const msgOptions = {
     type: MESSAGE_TYPE.TEXT,

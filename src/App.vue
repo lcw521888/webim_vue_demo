@@ -7,6 +7,12 @@ import ring from '@/assets/ring.mp3';
 // import EaseCallKit from '@/components/EaseCallKit';
 // import InviteCallMembers from '@/components/InviteCallMembers';
 import { ElMessage } from 'element-plus';
+// 导入调试工具
+import { enableEMClientDebug } from '@/utils/debugSDK';
+// 导入全局错误处理程序
+import '@/utils/globalErrorHandler';
+// 启用EMClient调试
+enableEMClientDebug();
 /* 【重要】挂载IM相关监听回调。 */
 mountAllEMListener();
 /* 重新登陆 */

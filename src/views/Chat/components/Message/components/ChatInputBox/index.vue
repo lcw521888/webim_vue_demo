@@ -1,8 +1,8 @@
 <script setup>
 import { ref, toRefs } from 'vue';
 import { useStore } from 'vuex';
-import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
-import { ElLoading, ElMessageBox } from 'element-plus';
+import { handleSDKErrorNotifi, setMessageKey } from '@/utils/handleSomeData';
+import { ElLoading, ElMessageBox, ElMessage } from 'element-plus';
 import { onClickOutside } from '@vueuse/core';
 import { useUserInfoExt } from '@/hooks';
 import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
@@ -137,6 +137,14 @@ const showRecordBox = () => {
 };
 const { setUserInfoExt } = useUserInfoExt();
 const sendAudioMessages = async (audioData) => {
+  //验证targetId是否有效
+  if (!routeQueryData.value.id || routeQueryData.value.id === '') {
+    console.error('发送语音消息失败: 缺少目标ID');
+    ElMessage.error('发送语音消息失败: 请先选择聊天对象');
+    isShowRecordBox.value = false;
+    return;
+  }
+  
   const file = {
     url: parseDownloadResponse(audioData.src),
     filename: '录音',
@@ -248,9 +256,17 @@ const clearScreen = () => {
 //func 对应事件 icon class样式等
 // 发送合并消息
 const sendCombineMessage = async () => {
+  //验证targetId是否有效
+  if (!routeQueryData.value.id || routeQueryData.value.id === '') {
+    console.error('发送合并消息失败: 缺少目标ID');
+    ElMessage.error('发送合并消息失败: 请先选择聊天对象');
+    return;
+  }
+  
   try {
     // 模拟获取最近5条消息作为合并内容
-    const currentChatMessages = store.state.Message.messageList[routeQueryData.value.id] || [];
+    const listKey = setMessageKey({ to: routeQueryData.value.id, chatType: routeQueryData.value.chatType });
+    const currentChatMessages = store.state.Message.messageList[listKey] || [];
     const recentMessages = currentChatMessages.slice(-5).map(msg => ({
       type: msg.type,
       chatType: msg.chatType,

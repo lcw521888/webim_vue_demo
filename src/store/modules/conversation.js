@@ -387,6 +387,11 @@ const Conversation = {
     },
     //设置会话已读（发送会话已读回执。）
     clearConversationUnreadCount: async ({ state, commit }, params) => {
+      if (!params || !params.conversationId || !params.chatType) {
+        console.error('clearConversationUnreadCount 参数错误:', params);
+        return;
+      }
+      
       const { conversationId, chatType } = params;
       const option = {
         chatType: chatType, // 会话类型，设置为单聊。

@@ -316,6 +316,11 @@ const startplayAudio = (msgBody) => {
     if (isMounted.value && !audioPlayStatus.isPlaying) {
       armRec.play();
     }
+  }).catch((error) => {
+    // 处理音频解码失败错误
+    console.error('音频解码失败:', error);
+    audioPlayStatus.playMsgId = '';
+    ElMessage.error('音频解码失败，请检查音频文件格式');
   });
   //播放开始监听
   armRec.onPlay(() => {
@@ -330,6 +335,13 @@ const startplayAudio = (msgBody) => {
       audioPlayStatus.isPlaying = false;
       audioPlayStatus.playMsgId = '';
     }
+  });
+  //添加错误监听
+  armRec.onError((error) => {
+    console.error('音频播放错误:', error);
+    audioPlayStatus.playMsgId = '';
+    audioPlayStatus.isPlaying = false;
+    ElMessage.error('音频播放失败');
   });
 };
 

@@ -38,6 +38,13 @@ const openChooseImages = () => {
 //发送图片
 const { setUserInfoExt } = useUserInfoExt();
 const sendImagesMessage = async (type, fileObj) => {
+  //验证targetId是否有效
+  if (!targetId.value || targetId.value === '') {
+    console.error('发送图片消息失败: 缺少目标ID');
+    ElMessage.error('发送图片消息失败: 请先选择聊天对象');
+    return;
+  }
+  
   const file = {
     data: null, // file 对象。
     filename: '', //文件名称。

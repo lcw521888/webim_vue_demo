@@ -80,15 +80,20 @@ const save = () => {
     "
     :width="diffModal[modalType] && diffModal[modalType].width"
   >
-    <component
-      ref="groupModalComp"
-      :is="diffModal[modalType] && diffModal[modalType].components"
-      :groupModalTitle="groupModalTitle"
-      :memberRole="memberRole"
-      :groupId="groupId"
-      @save="save"
-    >
-    </component>
+    <div v-if="diffModal[modalType] && diffModal[modalType].components">
+      <component
+        ref="groupModalComp"
+        :is="diffModal[modalType].components"
+        :groupModalTitle="groupModalTitle"
+        :memberRole="memberRole"
+        :groupId="groupId"
+        @save="save"
+      >
+      </component>
+    </div>
+    <div v-else>
+      <el-empty description="无法加载指定的组件" />
+    </div>
     <template #footer>
       <span class="dialog-footer">
         <el-button @click="dialogVisible = false">取消</el-button>

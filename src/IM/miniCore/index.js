@@ -98,7 +98,64 @@ const initEMClient = () => {
 };
 initEMClient();
 
+// 包装 Message.create 方法，添加参数验证
 if (Object.keys(miniCore).length) {
+  // 保存原始方法
+  const originalCreateMessage = miniCore.Message.create;
+  
+  // 包装方法
+  miniCore.Message.create = function(options) {
+    console.log('调用 EMClient.Message.create，options:', options);
+    
+    // 验证参数
+    if (!options) {
+      console.error('EMClient.Message.create: 缺少options参数');
+      throw new Error('EMClient.Message.create: 缺少options参数');
+    }
+    
+    if (!options.to || options.to === '') {
+      console.error('EMClient.Message.create: options.to 为空', options);
+      throw new Error('EMClient.Message.create: options.to 为空');
+    }
+    
+    // 调用原始方法
+    try {
+      const message = originalCreateMessage.call(this, options);
+      console.log('创建的消息对象:', message);
+      return message;
+    } catch (error) {
+      console.error('EMClient.Message.create 内部错误:', error);
+      throw error;
+    }
+  };
+  
+  // 包装 send 方法，添加参数验证
+  const originalSendMessage = miniCore.send;
+  miniCore.send = function(message) {
+    console.log('调用 EMClient.send，message:', message);
+    
+    // 验证参数
+    if (!message) {
+      console.error('EMClient.send: 缺少message参数');
+      throw new Error('EMClient.send: 缺少message参数');
+    }
+    
+    if (!message.to || message.to === '') {
+      console.error('EMClient.send: message.to 为空', message);
+      throw new Error('EMClient.send: message.to 为空');
+    }
+    
+    // 调用原始方法
+    try {
+      const result = originalSendMessage.call(this, message);
+      console.log('EMClient.send 返回结果:', result);
+      return result;
+    } catch (error) {
+      console.error('EMClient.send 内部错误:', error);
+      throw error;
+    }
+  };
+  
   miniCore.usePlugin(contactPlugin);
   miniCore.usePlugin(groupPlugin);
   miniCore.usePlugin(presencePlugin);

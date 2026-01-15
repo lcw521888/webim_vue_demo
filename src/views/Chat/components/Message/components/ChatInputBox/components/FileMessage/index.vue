@@ -38,6 +38,13 @@ const openChooseFiles = () => {
 //发送文件
 const { setUserInfoExt } = useUserInfoExt();
 const sendFilesMessages = async () => {
+  //验证targetId是否有效
+  if (!targetId.value || targetId.value === '') {
+    console.error('发送文件消息失败: 缺少目标ID');
+    ElMessage.error('发送文件消息失败: 请先选择聊天对象');
+    return;
+  }
+  
   const commonFile = uploadFiles.value.files[0];
   if (!commonFile) {
     return;

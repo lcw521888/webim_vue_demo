@@ -36,6 +36,13 @@ const openChooseVideo = () => {
 };
 const { setUserInfoExt } = useUserInfoExt();
 const sendVideoMessage = async (event) => {
+  //验证targetId是否有效
+  if (!targetId.value || targetId.value === '') {
+    console.error('发送视频消息失败: 缺少目标ID');
+    ElMessage.error('发送视频消息失败: 请先选择聊天对象');
+    return;
+  }
+  
   console.log('>>>>>>执行上传发送视频消息');
   const videoFile = uploadVideo.value?.files[0];
   if (!videoFile) return;
