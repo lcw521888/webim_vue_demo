@@ -45,7 +45,6 @@ const chatroomDetails = ref({});
 
 const checkLoginStatus = () => {
   if (!EMClient.user) {
-    ElMessage.error('用户未登录，请先登录');
     router.push('/login');
     return false;
   }
@@ -641,7 +640,15 @@ const setAdmin = async (username) => {
     await getChatRoomMembers();
   } catch (error) {
     console.error('设置管理员失败', error);
-    ElMessage.error(`设置管理员失败: ${error.message || '未知错误'}`);
+    // 处理权限错误
+    let errorMsg = '设置管理员失败';
+    if (error?.data) {
+      const errorData = typeof error.data === 'string' ? error.data : JSON.stringify(error.data);
+      if (errorData.includes('group_authorization') || errorData.includes('group owner permission')) {
+        errorMsg = '没有权限设置管理员，只有聊天室所有者才能执行此操作';
+      }
+    }
+    ElMessage.error(errorMsg);
   }
 };
 
@@ -657,7 +664,15 @@ const removeAdmin = async (username) => {
     await getChatRoomMembers();
   } catch (error) {
     console.error('移除管理员失败', error);
-    ElMessage.error('移除管理员失败');
+    // 处理权限错误
+    let errorMsg = '移除管理员失败';
+    if (error?.data) {
+      const errorData = typeof error.data === 'string' ? error.data : JSON.stringify(error.data);
+      if (errorData.includes('group_authorization') || errorData.includes('group owner permission')) {
+        errorMsg = '没有权限移除管理员，只有聊天室所有者才能执行此操作';
+      }
+    }
+    ElMessage.error(errorMsg);
   }
 };
 

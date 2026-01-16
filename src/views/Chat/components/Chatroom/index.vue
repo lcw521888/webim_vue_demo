@@ -448,7 +448,7 @@ onMounted(() => {
             realMemberCount,
           );
           // 使用本地缓存的真实人数
-          ElMessage.info(`有成员加入聊天室，当前人数：${realMemberCount}`);
+    
           getChatrooms();
           getJoinedChatrooms();
           break;

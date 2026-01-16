@@ -400,7 +400,14 @@ const Groups = {
           mutelist: data,
         });
       } catch (error) {
-        console.error(error);
+        if (error?.data) {
+          const errorData = typeof error.data === 'string' ? error.data : JSON.stringify(error.data);
+          if (errorData.includes('group_authorization') || errorData.includes('group owner permission')) {
+            errorMsg = '没有权限获取禁言列表，只有聊天室所有者才能执行此操作';
+          }
+      }
+      ElMessage.error(errorMsg);
+
       }
     },
     // 修改群名或者群描述

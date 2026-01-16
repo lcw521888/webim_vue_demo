@@ -17,7 +17,6 @@ const isOwner = computed(() => {
 
 const checkLoginStatus = () => {
   if (!EMClient.user) {
-    ElMessage.error('用户未登录，请先登录');
     router.push('/login');
     return false;
   }

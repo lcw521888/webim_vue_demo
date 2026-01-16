@@ -557,142 +557,145 @@ const onMsgQuote = (msg) => {
               trigger="contextmenu"
               placement="bottom-end"
             >
-              <!-- 文本类型消息 -->
-              <p
-                style="padding: 10px; line-height: 20px"
-                v-if="msgBody.type === MESSAGE_TYPE.TEXT"
-              >
-                <template v-if="!isLink(msgBody.msg)">
-                  {{ msgBody.msg }}
-                  <!-- 已编辑 -->
-                  <sup
-                    style="font-size: 7px; color: #707784"
-                    v-show="msgBody?.modifiedInfo?.operationCount"
-                    >（已编辑）</sup
-                  >
-                </template>
-                <template v-else>
-                  <span v-html="paseLink(msgBody.msg).msg"> </span
-                ></template>
-              </p>
-              <!-- 图片类型消息 -->
-              <el-image
-                v-if="msgBody.type === MESSAGE_TYPE.IMAGE"
-                style="border-radius: 5px"
-                :src="msgBody.thumb"
-                :preview-src-list="[msgBody.url]"
-                :initial-index="1"
-                fit="cover"
-              />
-              <!-- 视频类型消息 -->
-              <video
-                v-if="msgBody.type === MESSAGE_TYPE.VIDEO"
-                :src="msgBody.url"
-                :poster="msgBody.thumb"
-                style="height: 100%; width: 100%; border-radius: 5px"
-                controls
-              ></video>
-              <!-- 语音类型消息 -->
-              <div
-                :class="[
-                  'message_box_content_audio',
-                  msgBody._isMyself
-                    ? 'message_box_content_audio_mine'
-                    : 'message_box_content_audio_other',
-                ]"
-                v-if="msgBody.type === MESSAGE_TYPE.AUDIO"
-                @click="startplayAudio(msgBody)"
-                :style="`width:${msgBody.length * 10}px`"
-              >
-                <span class="audio_length_text"> {{ msgBody.length }}′′ </span>
+              <!-- 将所有消息内容包裹在一个容器中，确保el-dropdown只有一个直接子元素 -->
+              <div class="message_content_wrapper">
+                <!-- 文本类型消息 -->
+                <p
+                  style="padding: 10px; line-height: 20px"
+                  v-if="msgBody.type === MESSAGE_TYPE.TEXT"
+                >
+                  <template v-if="!isLink(msgBody.msg)">
+                    {{ msgBody.msg }}
+                    <!-- 已编辑 -->
+                    <sup
+                      style="font-size: 7px; color: #707784"
+                      v-show="msgBody?.modifiedInfo?.operationCount"
+                      >（已编辑）</sup
+                    >
+                  </template>
+                  <template v-else>
+                    <span v-html="paseLink(msgBody.msg).msg"> </span
+                  ></template>
+                </p>
+                <!-- 图片类型消息 -->
+                <el-image
+                  v-if="msgBody.type === MESSAGE_TYPE.IMAGE"
+                  style="border-radius: 5px"
+                  :src="msgBody.thumb"
+                  :preview-src-list="[msgBody.url]"
+                  :initial-index="1"
+                  fit="cover"
+                />
+                <!-- 视频类型消息 -->
+                <video
+                  v-if="msgBody.type === MESSAGE_TYPE.VIDEO"
+                  :src="msgBody.url"
+                  :poster="msgBody.thumb"
+                  style="height: 100%; width: 100%; border-radius: 5px"
+                  controls
+                ></video>
+                <!-- 语音类型消息 -->
                 <div
                   :class="[
+                    'message_box_content_audio',
                     msgBody._isMyself
-                      ? 'play_audio_icon_mine'
-                      : 'play_audio_icon_other',
-                    audioPlayStatus.playMsgId === msgBody.id &&
-                      'start_play_audio',
+                      ? 'message_box_content_audio_mine'
+                      : 'message_box_content_audio_other',
                   ]"
-                  style="background-size: 100% 100%"
-                ></div>
-              </div>
-              <div v-if="msgBody.type === MESSAGE_TYPE.LOCAL">
-                <p style="padding: 10px">[暂不支持位置消息展示]</p>
-              </div>
-              <!-- 文件类型消息 -->
-              <div
-                v-if="msgBody.type === MESSAGE_TYPE.FILE"
-                class="message_box_content_file"
-              >
-                <div class="file_text_box">
-                  <div class="file_name">
-                    {{ msgBody.filename }}
-                  </div>
-                  <div class="file_size">
-                    {{ fileSizeFormat(msgBody.file_length) }}
-                  </div>
-                  <a class="file_download" :href="msgBody.url" download
-                    >点击下载</a
-                  >
-                </div>
-                <span class="iconfont icon-wenjian"></span>
-              </div>
-              <!-- 合并消息 -->
-              <div
-                v-if="msgBody.type === MESSAGE_TYPE.COMBINE"
-                class="message_box_content_combine"
-              >
-                <div class="combine_title">
-                  <span class="iconfont icon-hebing"></span>
-                  {{ msgBody.title || '聊天记录' }}
-                </div>
-                <div class="combine_summary">
-                  {{ msgBody.summary || '' }}
-                </div>
-                <div class="combine_count">
-                  共{{ msgBody.messageList?.length || 0 }}条消息
-                </div>
-                <div class="combine_compatible" v-if="msgBody.compatibleText">
-                  {{ msgBody.compatibleText }}
-                </div>
-              </div>
-              <!-- 自定义类型消息 -->
-              <div
-                v-if="msgBody.type === MESSAGE_TYPE.CUSTOM"
-                class="message_box_content_custom"
-              >
-                <template
-                  v-if="
-                    msgBody.customEvent &&
-                    CUSTOM_MSG_EVENT_TYPE[msgBody.customEvent]
-                  "
+                  v-if="msgBody.type === MESSAGE_TYPE.AUDIO"
+                  @click="startplayAudio(msgBody)"
+                  :style="`width:${msgBody.length * 10}px`"
                 >
-                  <div class="user_card">
-                    <div class="user_card_main">
-                      <!-- 头像 -->
-                      <el-avatar
-                        shape="circle"
-                        :size="50"
-                        :src="
-                          (msgBody.customExts &&
-                            msgBody.customExts.avatarurl) ||
-                          msgBody.customExts.avatar ||
-                          defaultAvatar
-                        "
-                        fit="cover"
-                      />
-                      <!-- 昵称 -->
-                      <span class="nickname">{{
-                        (msgBody.customExts && msgBody.customExts.nickname) ||
-                        msgBody.customExts.uid
-                      }}</span>
+                  <span class="audio_length_text"> {{ msgBody.length }}′′ </span>
+                  <div
+                    :class="[
+                      msgBody._isMyself
+                        ? 'play_audio_icon_mine'
+                        : 'play_audio_icon_other',
+                      audioPlayStatus.playMsgId === msgBody.id &&
+                        'start_play_audio',
+                    ]"
+                    style="background-size: 100% 100%"
+                  ></div>
+                </div>
+                <div v-if="msgBody.type === MESSAGE_TYPE.LOCAL">
+                  <p style="padding: 10px">[暂不支持位置消息展示]</p>
+                </div>
+                <!-- 文件类型消息 -->
+                <div
+                  v-if="msgBody.type === MESSAGE_TYPE.FILE"
+                  class="message_box_content_file"
+                >
+                  <div class="file_text_box">
+                    <div class="file_name">
+                      {{ msgBody.filename }}
                     </div>
-                    <el-divider
-                      style="margin: 5px 0; border-top: 1px solid black"
-                    />
-                    <p style="font-size: 8px">个人名片</p>
+                    <div class="file_size">
+                      {{ fileSizeFormat(msgBody.file_length) }}
+                    </div>
+                    <a class="file_download" :href="msgBody.url" download
+                      >点击下载</a
+                    >
                   </div>
-                </template>
+                  <span class="iconfont icon-wenjian"></span>
+                </div>
+                <!-- 合并消息 -->
+                <div
+                  v-if="msgBody.type === MESSAGE_TYPE.COMBINE"
+                  class="message_box_content_combine"
+                >
+                  <div class="combine_title">
+                    <span class="iconfont icon-hebing"></span>
+                    {{ msgBody.title || '聊天记录' }}
+                  </div>
+                  <div class="combine_summary">
+                    {{ msgBody.summary || '' }}
+                  </div>
+                  <div class="combine_count">
+                    共{{ msgBody.messageList?.length || 0 }}条消息
+                  </div>
+                  <div class="combine_compatible" v-if="msgBody.compatibleText">
+                    {{ msgBody.compatibleText }}
+                  </div>
+                </div>
+                <!-- 自定义类型消息 -->
+                <div
+                  v-if="msgBody.type === MESSAGE_TYPE.CUSTOM"
+                  class="message_box_content_custom"
+                >
+                  <template
+                    v-if="
+                      msgBody.customEvent &&
+                      CUSTOM_MSG_EVENT_TYPE[msgBody.customEvent]
+                    "
+                  >
+                    <div class="user_card">
+                      <div class="user_card_main">
+                        <!-- 头像 -->
+                        <el-avatar
+                          shape="circle"
+                          :size="50"
+                          :src="
+                            (msgBody.customExts &&
+                              msgBody.customExts.avatarurl) ||
+                            msgBody.customExts.avatar ||
+                            defaultAvatar
+                          "
+                          fit="cover"
+                        />
+                        <!-- 昵称 -->
+                        <span class="nickname">{{
+                          (msgBody.customExts && msgBody.customExts.nickname) ||
+                          msgBody.customExts.uid
+                        }}</span>
+                      </div>
+                      <el-divider
+                        style="margin: 5px 0; border-top: 1px solid black"
+                      />
+                      <p style="font-size: 8px">个人名片</p>
+                    </div>
+                  </template>
+                </div>
               </div>
               <!-- 右键点击弹起更多功能栏 -->
               <template #dropdown>

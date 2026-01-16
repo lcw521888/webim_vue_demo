@@ -101,6 +101,17 @@ export const imReviceMessageListener = () => {
         }
         console.log('返回值：无');
       }, // 收到文本消息。
+      onGroupMessage: function (message) {
+        console.log('事件名称：onGroupMessage');
+        console.log('请求参数：', message);
+        // 处理可能包含多条消息的情况
+        if (Array.isArray(message)) {
+          message.forEach((msg) => pushNewMessage(msg));
+        } else {
+          pushNewMessage(message);
+        }
+        console.log('返回值：无');
+      }, // 收到群组消息。
       onEmojiMessage: function (message) {
         console.log('事件名称：onEmojiMessage');
         console.log('请求参数：', message);
