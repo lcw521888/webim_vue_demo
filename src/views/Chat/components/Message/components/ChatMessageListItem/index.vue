@@ -330,29 +330,28 @@ const startplayAudio = (msgBody) => {
       // 处理音频解码失败错误
       console.error('音频解码失败:', error);
       audioPlayStatus.playMsgId = '';
+      audioPlayStatus.isPlaying = false;
       ElMessage.error('音频解码失败，请检查音频文件格式');
     });
   //播放开始监听
-  armRec.onPlay(() => {
-    if (isMounted.value) {
-      audioPlayStatus.isPlaying = true;
-      audioPlayStatus.playMsgId = msgBody.id;
-    }
-  });
+  if (armRec.onPlay) {
+    armRec.onPlay(() => {
+      if (isMounted.value) {
+        audioPlayStatus.isPlaying = true;
+        audioPlayStatus.playMsgId = msgBody.id;
+      }
+    });
+  }
   //播放结束监听
-  armRec.onStop(() => {
-    if (isMounted.value) {
-      audioPlayStatus.isPlaying = false;
-      audioPlayStatus.playMsgId = '';
-    }
-  });
-  //添加错误监听
-  armRec.onError((error) => {
-    console.error('音频播放错误:', error);
-    audioPlayStatus.playMsgId = '';
-    audioPlayStatus.isPlaying = false;
-    ElMessage.error('音频播放失败');
-  });
+  if (armRec.onStop) {
+    armRec.onStop(() => {
+      if (isMounted.value) {
+        audioPlayStatus.isPlaying = false;
+        audioPlayStatus.playMsgId = '';
+      }
+    });
+  }
+  // 注意：BenzAMRRecorder不支持onError方法，错误通过Promise的catch处理
 };
 
 // 组件销毁时清理所有资源

@@ -362,13 +362,17 @@ const getChatRoomAttributes = async () => {
     attributes.value = res.data || {};
     return res;
   } catch (error) {
-    console.error('获取聊天室自定义属性失败:', error.message);
+    console.error('获取聊天室自定义属性失败:', error);
 
-    // 只处理关键错误，其他错误静默处理
+    // 处理关键错误
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else if (error.type === 702) {
       console.error('获取聊天室自定义属性失败: 聊天室不存在或无权限');
+    } else if (error.message?.includes('CORS') || error.message?.includes('Access-Control-Allow-Origin')) {
+      // 处理CORS错误
+      console.error('CORS错误: 浏览器阻止了跨域请求，请检查服务器的CORS配置');
+      // 这里不显示用户提示，因为CORS错误通常需要服务器端解决，用户无法直接处理
     }
 
     // 返回默认空对象，避免后续处理出错

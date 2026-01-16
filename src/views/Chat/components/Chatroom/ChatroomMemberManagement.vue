@@ -320,7 +320,6 @@ const getChatRoomMutelist = async () => {
 
     console.log('处理后的禁言列表:', mutelist.value);
   } catch (error) {
-    console.error('获取聊天室禁言列表失败', error);
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else {

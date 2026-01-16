@@ -448,7 +448,6 @@ onMounted(() => {
             realMemberCount,
           );
           // 使用本地缓存的真实人数
-    
           getChatrooms();
           getJoinedChatrooms();
           break;
@@ -456,6 +455,7 @@ onMounted(() => {
           console.log(
             '成员离开事件 - 用户:',
             e.from,
+             e.chatRoomId,
             '当前人数(本地):',
             realMemberCount,
           );
