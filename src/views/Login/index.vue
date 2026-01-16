@@ -26,23 +26,23 @@ const toEasemob = () => {
 };
 
 //服务配置
-const isProd = process.env.NODE_ENV === 'production'
-const isShowDevWarning = ref(false)
+const isProd = process.env.NODE_ENV === 'production';
+const isShowDevWarning = ref(false);
 const isShowCustomServerConfig = useStorage(
   'IM_IS_OPEN_CUSTOM_SERVER_CONFIG',
   false,
 );
 const customImConfig = ref(null);
-const CUSTOM_CONFIG = JSON.parse(localStorage.getItem('webimConfig')) || {}
+const CUSTOM_CONFIG = JSON.parse(localStorage.getItem('webimConfig')) || {};
 onMounted(() => {
   if (!isProd && !CUSTOM_CONFIG?.appKey) {
     //非生产环境下，默认开启自定义服务器配置
-    isShowCustomServerConfig.value = true
-    isShowDevWarning.value = true
+    isShowCustomServerConfig.value = true;
+    isShowDevWarning.value = true;
   }
-})
+});
 const goToCustomImConfig = () => {
-  isShowDevWarning.value = false
+  isShowDevWarning.value = false;
   customImConfig.value.centerDialogVisible = true;
 };
 const showCustomImConfigModal = () => {
@@ -78,14 +78,23 @@ const IM_SDK_VERSION = EMClient.version;
   <el-container class="app_container">
     <el-main class="login_box">
       <div>
-        <el-row class="login_box_card out-drawer animate__animated animate__slideInLeft">
+        <el-row
+          class="login_box_card out-drawer animate__animated animate__slideInLeft"
+        >
           <el-col>
             <img class="logo" :src="logo" @click="toEasemob" alt="" />
           </el-col>
           <!-- <component :is="componType[showComponent]" @changeToLogin="changeToLogin"></component> -->
-          <component :is="componType[0]" @changeToLogin="changeToLogin"></component>
-          <el-link v-if="!isProd || isShowCustomServerConfig" class="custom_config"
-            @click="showCustomImConfigModal">服务器配置</el-link>
+          <component
+            :is="componType[0]"
+            @changeToLogin="changeToLogin"
+          ></component>
+          <el-link
+            v-if="!isProd || isShowCustomServerConfig"
+            class="custom_config"
+            @click="showCustomImConfigModal"
+            >服务器配置</el-link
+          >
           <el-col v-show="showComponent !== 2">
             <div class="function_button_extra">
               <!-- <el-link class="reset_password" @click="showComponent = 2">重置密码</el-link> -->
@@ -104,10 +113,16 @@ const IM_SDK_VERSION = EMClient.version;
     <el-footer>
       <div class="copyright">
         Copyright © easemob Web IM SDK版本号：<span @click="onClickVersion">
-          {{ IM_SDK_VERSION ? IM_SDK_VERSION : '4.x' }}</span>
+          {{ IM_SDK_VERSION ? IM_SDK_VERSION : '4.x' }}</span
+        >
       </div>
     </el-footer>
-    <el-dialog v-model="isShowDevWarning" title="配置提示" width="500" align-center>
+    <el-dialog
+      v-model="isShowDevWarning"
+      title="配置提示"
+      width="500"
+      align-center
+    >
       <span>当前为开发环境，如需登录点击服务器配置，配置对应appKey！</span>
       <template #footer>
         <div class="dialog-footer">

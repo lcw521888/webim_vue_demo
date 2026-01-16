@@ -1,5 +1,14 @@
 <script setup>
-import { reactive, ref, computed, toRefs, nextTick, onMounted, onUnmounted, watch } from 'vue';
+import {
+  reactive,
+  ref,
+  computed,
+  toRefs,
+  nextTick,
+  onMounted,
+  onUnmounted,
+  watch,
+} from 'vue';
 import { useStore } from 'vuex';
 import { useClipboard, usePermission } from '@vueuse/core';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -59,21 +68,21 @@ const processedMessageData = computed(() => {
   } else {
     rawData = [];
   }
-  
+
   // 过滤掉null/undefined项
-  const filtered = rawData.filter(item => item != null);
-  
+  const filtered = rawData.filter((item) => item != null);
+
   // 优化：避免不必要的对象创建，只在需要时创建新对象
   return filtered.map((msgBody, index) => {
     // 检查消息对象是否已经被处理过
     if (msgBody._isMyself !== undefined) {
       return msgBody;
     }
-    
+
     // 创建一个新对象，避免修改原始数据
     // 使用Object.assign确保正确复制所有属性
     const processed = Object.assign({}, msgBody);
-    
+
     // 确保所有必需的属性都存在且有效
     processed.id = processed.id || `temp_${index}_${Date.now()}`;
     processed.from = processed.from || '';
@@ -82,67 +91,70 @@ const processedMessageData = computed(() => {
     processed.type = processed.type || MESSAGE_TYPE.TEXT;
     processed.chatType = processed.chatType || CHAT_TYPE.SINGLE;
     processed.isRecall = processed.isRecall || false;
-    
+
     // 确保消息内容和扩展属性存在
     processed.msg = processed.msg || '';
     processed.ext = processed.ext || {};
     processed.ext.msgQuote = processed.ext.msgQuote || null;
-    
+
     // 确保自定义消息属性存在
     if (processed.type === MESSAGE_TYPE.CUSTOM) {
       processed.customEvent = processed.customEvent || '';
       processed.customExts = processed.customExts || {};
     }
-    
+
     // 确保文件消息属性存在
     if (processed.type === MESSAGE_TYPE.FILE) {
       processed.filename = processed.filename || 'unknown_file';
       processed.file_length = processed.file_length || 0;
       processed.url = processed.url || '';
     }
-    
+
     // 确保图片消息属性存在
     if (processed.type === MESSAGE_TYPE.IMAGE) {
       processed.thumb = processed.thumb || '';
       processed.url = processed.url || '';
     }
-    
+
     // 确保音频消息属性存在
     if (processed.type === MESSAGE_TYPE.AUDIO) {
       processed.length = processed.length || 0;
       processed.url = processed.url || '';
     }
-    
+
     // 确保视频消息属性存在
     if (processed.type === MESSAGE_TYPE.VIDEO) {
       processed.thumb = processed.thumb || '';
       processed.url = processed.url || '';
     }
-    
+
     // 确保合并消息属性存在
     if (processed.type === MESSAGE_TYPE.COMBINE) {
       processed.title = processed.title || '聊天记录';
       processed.summary = processed.summary || '';
       processed.messageList = processed.messageList || [];
     }
-    
+
     // 预先计算常用属性
     processed._isMyself = processed.from === loginUserId;
-    
+
     // 安全计算是否可以撤回消息
     let canRecall = processed._isMyself;
     if (!canRecall && processed.chatType !== CHAT_TYPE.SINGLE && processed.to) {
       // 确保conversationList存在且有对应的会话
-      if (store.state.conversationList && store.state.conversationList[processed.to]) {
+      if (
+        store.state.conversationList &&
+        store.state.conversationList[processed.to]
+      ) {
         const conversation = store.state.conversationList[processed.to];
         canRecall = conversation?.isOwner || conversation?.isAdmin;
       }
     }
     processed._canRecall = canRecall;
-    
+
     // 计算时间显示（但不在此处缓存，因为依赖于前后消息）
     processed._timeShow = null;
-    
+
     return processed;
   });
 });
@@ -157,7 +169,6 @@ const messageDataArray = computed(() => {
 onMounted(() => {
   isMounted.value = true;
 });
-
 
 /* login hxId */
 const loginUserId = EMClient.user;
@@ -209,7 +220,7 @@ watch(
       currentMessageIds.value = null;
     }
   },
-  { immediate: true }
+  { immediate: true },
 );
 
 // 监听messageIdsCollection变化，更新当前会话的消息ID集合
@@ -220,20 +231,15 @@ watch(
       currentMessageIds.value = newMap[currentSessionId.value] || null;
     }
   },
-  { deep: true }
+  { deep: true },
 );
 
 /* 消息已读未读逻辑 */
 //判断消息已读未读状态
 const msgReadStatus = (msgBody) => {
   const { id } = msgBody;
-  if (
-    currentMessageIds.value &&
-    currentMessageIds.value.has(id)
-  ) {
-    return currentMessageIds.value.get(id)[
-      MESSAGE_STATUS_TYPE.READ_STATUS
-    ];
+  if (currentMessageIds.value && currentMessageIds.value.has(id)) {
+    return currentMessageIds.value.get(id)[MESSAGE_STATUS_TYPE.READ_STATUS];
   }
   return false;
 };
@@ -245,7 +251,8 @@ const isLink = (msg) => {
 const loginUserInfo = computed(() => store.state.loginUserInfo);
 
 /* 获取他人的用户信息 */
-const { getUserDisplayNameById, getUserDisplayAvatarById } = useGetUserMapInfo();
+const { getUserDisplayNameById, getUserDisplayAvatarById } =
+  useGetUserMapInfo();
 //处理他人头像展示
 const handleOtherAvatar = (msgBody) => {
   return getUserDisplayAvatarById(msgBody.from);
@@ -268,12 +275,12 @@ const timeShowCache = ref(new Map());
 const handleMsgTimeShow = (time, index) => {
   // 使用时间戳和索引作为缓存键
   const cacheKey = `${time}-${index}`;
-  
+
   // 如果缓存中存在，直接返回
   if (timeShowCache.value.has(cacheKey)) {
     return timeShowCache.value.get(cacheKey);
   }
-  
+
   // 计算时间显示
   let result;
   if (index !== 0 && index < messageDataArray.value.length) {
@@ -282,7 +289,7 @@ const handleMsgTimeShow = (time, index) => {
   } else {
     result = dateFormat('MM/DD/HH:mm', time);
   }
-  
+
   // 缓存结果
   timeShowCache.value.set(cacheKey, result);
   return result;
@@ -293,7 +300,7 @@ watch(
   () => messageDataArray.value.length,
   () => {
     timeShowCache.value.clear();
-  }
+  },
 );
 //音频播放状态
 const audioPlayStatus = reactive({
@@ -307,21 +314,24 @@ const audioInstances = ref([]);
 const startplayAudio = (msgBody) => {
   const armRec = new BenzAMRRecorder();
   audioInstances.value.push(armRec);
-  
+
   const src = msgBody.url;
   audioPlayStatus.playMsgId = msgBody.id;
 
   //初始化音频源并调用播放
-  armRec.initWithUrl(src).then(() => {
-    if (isMounted.value && !audioPlayStatus.isPlaying) {
-      armRec.play();
-    }
-  }).catch((error) => {
-    // 处理音频解码失败错误
-    console.error('音频解码失败:', error);
-    audioPlayStatus.playMsgId = '';
-    ElMessage.error('音频解码失败，请检查音频文件格式');
-  });
+  armRec
+    .initWithUrl(src)
+    .then(() => {
+      if (isMounted.value && !audioPlayStatus.isPlaying) {
+        armRec.play();
+      }
+    })
+    .catch((error) => {
+      // 处理音频解码失败错误
+      console.error('音频解码失败:', error);
+      audioPlayStatus.playMsgId = '';
+      ElMessage.error('音频解码失败，请检查音频文件格式');
+    });
   //播放开始监听
   armRec.onPlay(() => {
     if (isMounted.value) {
@@ -349,9 +359,9 @@ const startplayAudio = (msgBody) => {
 onUnmounted(() => {
   // 设置组件为未挂载状态
   isMounted.value = false;
-  
+
   // 停止所有音频播放
-  audioInstances.value.forEach(armRec => {
+  audioInstances.value.forEach((armRec) => {
     if (armRec.stop) {
       armRec.stop();
     }
@@ -361,31 +371,30 @@ onUnmounted(() => {
     if (armRec.offError) armRec.offError();
   });
   audioInstances.value = [];
-  
+
   // 清理引用消息定时器
   if (quoteMsgTimer.value) {
     clearTimeout(quoteMsgTimer.value);
     quoteMsgTimer.value = null;
   }
-  
+
   // 清理时间显示缓存
   timeShowCache.value.clear();
-  
+
   // 清理当前会话ID和消息ID集合
   currentSessionId.value = '';
   currentMessageIds.value = null;
-  
+
   // 清理其他可能的定时器
   clearTimeout(window.__chatMessageTimer__);
-  
+
   // 移除所有可能的DOM事件监听器
   const messageBoxes = document.querySelectorAll('.messageList_box');
-  messageBoxes.forEach(box => {
+  messageBoxes.forEach((box) => {
     box.removeEventListener('click', startplayAudio);
     // 移除其他可能的事件监听器
   });
 });
-
 
 //复制文本
 // const permissionRead = usePermission('clipboard-read') //请求剪切板读的权限
@@ -750,11 +759,11 @@ const onMsgQuote = (msg) => {
       <!-- 撤回消息通知 -->
       <template v-if="msgBody.isRecall">
         <div class="recall_style">
-          {{ 
-            msgBody._isMyself 
-              ? '你' 
-              : `${getUserDisplayNameById(msgBody.from)}` 
-          }}撤回了一条消息<span 
+          {{
+            msgBody._isMyself
+              ? '你'
+              : `${getUserDisplayNameById(msgBody.from)}`
+          }}撤回了一条消息<span
             class="reEdit"
             v-show="msgBody._isMyself && msgBody.type === MESSAGE_TYPE.TEXT"
             @click="reEdit(msgBody.msg)"

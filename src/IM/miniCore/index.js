@@ -19,10 +19,7 @@ const CUSTOM_CONFIG = (webimConfig && JSON.parse(webimConfig)) || {};
 const initEMClient = () => {
   // 读取自定义配置（因demo需要自定义配置，非必须）
   const configOptions = {};
-  console.log(
-    'IM_IS_OPEN_CUSTOM_SERVER_CONFIG',
-    IM_IS_OPEN_CUSTOM_SERVER_CONFIG,
-  );
+  
   if (IM_IS_OPEN_CUSTOM_SERVER_CONFIG) {
     Object.assign(configOptions, {
       appKey: CUSTOM_CONFIG.appKey
@@ -43,10 +40,9 @@ const initEMClient = () => {
       url: DEFAULT_EASEMOB_SOCKET_URL,
       apiUrl: DEFAULT_EASEMOB_REST_URL,
     });
-    console.log('configOptions', configOptions);
   }
   miniCore = new MiniCore({ ...configOptions });
-  
+
   // 添加连接错误处理
   miniCore.addEventHandler('connectionError', {
     onConnected: () => {
@@ -58,7 +54,11 @@ const initEMClient = () => {
     onConnectError: (error) => {
       console.error('IM SDK 连接错误:', error);
       // 处理401未授权错误
-      if (error.type === 401 || error.message?.includes('401') || error.message?.includes('Unauthorized')) {
+      if (
+        error.type === 401 ||
+        error.message?.includes('401') ||
+        error.message?.includes('Unauthorized')
+      ) {
         console.error('连接错误: 未授权，请重新登录');
         // 清除本地存储的登录信息
         localStorage.removeItem('EASEIM_loginUser');
@@ -71,13 +71,15 @@ const initEMClient = () => {
     },
     onReconnected: () => {
       console.log('IM SDK 重新连接成功');
-    }
+    },
   });
 
   // 添加消息撤回监听
   miniCore.addEventHandler('messageRecall', {
     onRecallMessage: (msg) => {
-      console.log('[IM SDK Event] Message Recall Event (onRecallMessage) Triggered');
+      console.log(
+        '[IM SDK Event] Message Recall Event (onRecallMessage) Triggered',
+      );
       console.log('Event Details:', {
         messageId: msg.id,
         from: msg.from,
@@ -85,15 +87,15 @@ const initEMClient = () => {
         chatType: msg.chatType,
         messageType: msg.type,
         ext: msg.ext,
-        originalMessage: msg
+        originalMessage: msg,
       });
       // 发送自定义事件，让Vue应用能够监听并更新状态
       const event = new CustomEvent('hx:messageRecall', { detail: msg });
       window.dispatchEvent(event);
       console.log('[IM SDK Event] Custom Event hx:messageRecall Sent');
-    }
+    },
   });
-  
+
   return miniCore;
 };
 initEMClient();
@@ -102,22 +104,22 @@ initEMClient();
 if (Object.keys(miniCore).length) {
   // 保存原始方法
   const originalCreateMessage = miniCore.Message.create;
-  
+
   // 包装方法
-  miniCore.Message.create = function(options) {
+  miniCore.Message.create = function (options) {
     console.log('调用 EMClient.Message.create，options:', options);
-    
+
     // 验证参数
     if (!options) {
       console.error('EMClient.Message.create: 缺少options参数');
       throw new Error('EMClient.Message.create: 缺少options参数');
     }
-    
+
     if (!options.to || options.to === '') {
       console.error('EMClient.Message.create: options.to 为空', options);
       throw new Error('EMClient.Message.create: options.to 为空');
     }
-    
+
     // 调用原始方法
     try {
       const message = originalCreateMessage.call(this, options);
@@ -128,23 +130,23 @@ if (Object.keys(miniCore).length) {
       throw error;
     }
   };
-  
+
   // 包装 send 方法，添加参数验证
   const originalSendMessage = miniCore.send;
-  miniCore.send = function(message) {
+  miniCore.send = function (message) {
     console.log('调用 EMClient.send，message:', message);
-    
+
     // 验证参数
     if (!message) {
       console.error('EMClient.send: 缺少message参数');
       throw new Error('EMClient.send: 缺少message参数');
     }
-    
+
     if (!message.to || message.to === '') {
       console.error('EMClient.send: message.to 为空', message);
       throw new Error('EMClient.send: message.to 为空');
     }
-    
+
     // 调用原始方法
     try {
       const result = originalSendMessage.call(this, message);
@@ -155,7 +157,7 @@ if (Object.keys(miniCore).length) {
       throw error;
     }
   };
-  
+
   miniCore.usePlugin(contactPlugin);
   miniCore.usePlugin(groupPlugin);
   miniCore.usePlugin(presencePlugin);

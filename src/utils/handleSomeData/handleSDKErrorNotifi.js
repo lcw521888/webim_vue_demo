@@ -11,9 +11,13 @@ export default function (code, errorDesc = '') {
   if (code === 507) {
     errorDesc = 'muted';
   }
-  
+
   // 处理未授权错误（401）
-  if (code === 401 || errorDesc.includes('401') || errorDesc.includes('Unauthorized')) {
+  if (
+    code === 401 ||
+    errorDesc.includes('401') ||
+    errorDesc.includes('Unauthorized')
+  ) {
     ElMessage({
       title: '登录过期',
       message: '登录已过期或未授权，请重新登录',
@@ -26,7 +30,7 @@ export default function (code, errorDesc = '') {
     router.push('/login');
     return;
   }
-  
+
   // 特殊处理corrupt access token错误
   if (code === 17 && errorDesc.includes('corrupt access token')) {
     ElMessage({
@@ -41,8 +45,8 @@ export default function (code, errorDesc = '') {
     router.push('/login');
     return;
   }
-  
-  const message = 
+
+  const message =
     (ERROR_MAP_DESCRIPTION[code] && ERROR_MAP_DESCRIPTION[code][errorDesc]) ||
     errorDesc;
 

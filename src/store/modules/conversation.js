@@ -61,12 +61,12 @@ const Conversation = {
       const _index = list.findIndex(
         (c) => c.conversationId === conversationItem.conversationId,
       );
-      
+
       // 确保会话对象的lastMessage存在
       if (!conversationItem.lastMessage) {
         conversationItem.lastMessage = {};
       }
-      
+
       if (_index > -1) {
         // 更新现有会话
         // 保留现有会话的属性，只更新需要更新的属性
@@ -133,9 +133,9 @@ const Conversation = {
       const conversationList = isInit
         ? conversationListData
         : _.uniqBy(
-          [...conversationListData, ...state.conversationListFromServer],
-          'conversationId',
-        );
+            [...conversationListData, ...state.conversationListFromServer],
+            'conversationId',
+          );
       state.conversationListFromServer = conversationList;
     },
   },
@@ -171,10 +171,12 @@ const Conversation = {
             [GROUP_OPERATION_TYPE.UPDATE_ANNOUNCEMENT]: `${baseMsg.fromName}更新了群组公告，去看看更新的什么吧~`,
             [GROUP_OPERATION_TYPE.SET_ADMIN]: `${baseMsg.fromName}设定${baseMsg.toName}为管理员~`,
             [GROUP_OPERATION_TYPE.REMOVE_ADMIN]: `${baseMsg.fromName}移除了${baseMsg.toName}的管理员身份~`,
-            [GROUP_OPERATION_TYPE.MUTE_MEMBER]: `${baseMsg.fromName
-              }禁言了${config.getTargetName()}~`,
-            [GROUP_OPERATION_TYPE.UNMUTE_MEMBER]: `${baseMsg.fromName
-              }取消了${config.getTargetName()}的禁言~`,
+            [GROUP_OPERATION_TYPE.MUTE_MEMBER]: `${
+              baseMsg.fromName
+            }禁言了${config.getTargetName()}~`,
+            [GROUP_OPERATION_TYPE.UNMUTE_MEMBER]: `${
+              baseMsg.fromName
+            }取消了${config.getTargetName()}的禁言~`,
             [GROUP_OPERATION_TYPE.REMOVE_MEMBER]: `${baseMsg.fromName}将你移出了群组${baseMsg.toName}~`,
             [GROUP_OPERATION_TYPE.DESTROY]: `${baseMsg.fromName}解散了该群~`,
             [GROUP_OPERATION_TYPE.UPDATE_INFO]: `${baseMsg.fromName}更新了群组详情~`,
@@ -319,16 +321,19 @@ const Conversation = {
     //更新Store中的会话列表（远端会话会在环信服务自动更新。）
     updateConversationWithServer: async ({ state, commit }, params) => {
       const { conversationId, chatType } = params;
-      
+
       //从messageStore中获取最新一条消息
-      const latestMessage = getLatestMessageBodyFromMessageStore(conversationId, chatType);
-      
+      const latestMessage = getLatestMessageBodyFromMessageStore(
+        conversationId,
+        chatType,
+      );
+
       if (!latestMessage) return;
-      
+
       const conversationItem = state.conversationListFromServer.find(
         (c) => c.conversationId === conversationId,
       );
-      
+
       //如果缓存中存在会话则直接更新
       if (conversationItem) {
         conversationItem.lastMessage = latestMessage;
@@ -391,7 +396,7 @@ const Conversation = {
         console.error('clearConversationUnreadCount 参数错误:', params);
         return;
       }
-      
+
       const { conversationId, chatType } = params;
       const option = {
         chatType: chatType, // 会话类型，设置为单聊。
@@ -445,7 +450,7 @@ const Conversation = {
           conversationType,
           customField: { ...customField },
         });
-      } catch (error) { }
+      } catch (error) {}
     },
     //通过会话Id调用群组或聊天室详情用于会话列表数据展示
     callGroupDetailWithConversationId: async (
@@ -454,7 +459,11 @@ const Conversation = {
     ) => {
       //挑出为群组的会话id，用于获取群组详情
       const groupConversationIds = _.chain(conversationList)
-        .filter(item => item.conversationType === CHAT_TYPE.GROUP || item.conversationType === CHAT_TYPE.CHATROOM)
+        .filter(
+          (item) =>
+            item.conversationType === CHAT_TYPE.GROUP ||
+            item.conversationType === CHAT_TYPE.CHATROOM,
+        )
         .map('conversationId')
         .value();
       try {

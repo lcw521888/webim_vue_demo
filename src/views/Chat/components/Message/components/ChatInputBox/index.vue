@@ -144,7 +144,7 @@ const sendAudioMessages = async (audioData) => {
     isShowRecordBox.value = false;
     return;
   }
-  
+
   const file = {
     url: parseDownloadResponse(audioData.src),
     filename: '录音',
@@ -262,19 +262,22 @@ const sendCombineMessage = async () => {
     ElMessage.error('发送合并消息失败: 请先选择聊天对象');
     return;
   }
-  
+
   try {
     // 模拟获取最近5条消息作为合并内容
-    const listKey = setMessageKey({ to: routeQueryData.value.id, chatType: routeQueryData.value.chatType });
+    const listKey = setMessageKey({
+      to: routeQueryData.value.id,
+      chatType: routeQueryData.value.chatType,
+    });
     const currentChatMessages = store.state.Message.messageList[listKey] || [];
-    const recentMessages = currentChatMessages.slice(-5).map(msg => ({
+    const recentMessages = currentChatMessages.slice(-5).map((msg) => ({
       type: msg.type,
       chatType: msg.chatType,
       from: msg.from,
       to: msg.to,
       msg: msg.msg,
       time: msg.time,
-      id: msg.id
+      id: msg.id,
     }));
 
     if (recentMessages.length === 0) {
@@ -363,8 +366,14 @@ defineExpose({
 </script>
 <template>
   <div class="chat_func_box">
-    <span v-for="iconItem in all_func" :class="['iconfont', iconItem.className]" :key="iconItem.className"
-      :style="iconItem.style" :title="iconItem.title" @click.stop="iconItem.methodName"></span>
+    <span
+      v-for="iconItem in all_func"
+      :class="['iconfont', iconItem.className]"
+      :key="iconItem.className"
+      :style="iconItem.style"
+      :title="iconItem.title"
+      @click.stop="iconItem.methodName"
+    ></span>
     <!-- EaseCallKit 音视频邀请icon【不需要可移除】 -->
     <!-- 群组没有语音发起 -->
     <!-- <template v-if="isHttps">
@@ -385,16 +394,36 @@ defineExpose({
     <!-- 表情框 -->
     <emojiContainer ref="emojiContainerComp" @appendEmoji="appendEmoji" />
     <!-- 图片附件choose -->
-    <ImageMessage ref="ImageMessageComp" :targetId="routeQueryData.id" :chatType="routeQueryData.chatType"
-      @onStartLoading="onStartLoading" @onLoadending="onLoadending" />
+    <ImageMessage
+      ref="ImageMessageComp"
+      :targetId="routeQueryData.id"
+      :chatType="routeQueryData.chatType"
+      @onStartLoading="onStartLoading"
+      @onLoadending="onLoadending"
+    />
     <!-- 视频附件choose -->
-    <VideoMessage ref="videoMessageComp" :targetId="routeQueryData.id" :chatType="routeQueryData.chatType"
-      @onStartLoading="onStartLoading" @onLoadending="onLoadending" />
+    <VideoMessage
+      ref="videoMessageComp"
+      :targetId="routeQueryData.id"
+      :chatType="routeQueryData.chatType"
+      @onStartLoading="onStartLoading"
+      @onLoadending="onLoadending"
+    />
     <!-- 文件附件choose -->
-    <FileMessage ref="fileMessageComp" :targetId="routeQueryData.id" :chatType="routeQueryData.chatType"
-      @onStartLoading="onStartLoading" @onLoadending="onLoadending" />
+    <FileMessage
+      ref="fileMessageComp"
+      :targetId="routeQueryData.id"
+      :chatType="routeQueryData.chatType"
+      @onStartLoading="onStartLoading"
+      @onLoadending="onLoadending"
+    />
     <!-- 录音采集框 -->
-    <el-card ref="recordBox" v-if="isShowRecordBox" class="record_box" shadow="always">
+    <el-card
+      ref="recordBox"
+      v-if="isShowRecordBox"
+      class="record_box"
+      shadow="always"
+    >
       <p v-if="!isHttps">
         由于浏览器限制,录音功能必须为https环境或者为localhost环境下使用！
       </p>
@@ -403,14 +432,28 @@ defineExpose({
     <!-- 附件上传loading -->
     <div ref="loadingBox" class="loading_box"></div>
   </div>
-  <TextMessage ref="textMessageComp" :targetId="routeQueryData.id" :chatType="routeQueryData.chatType"
-    @getMessageQuoteContent="getMessageQuoteContent" @getImageFileFromClipboard="getImageFileFromClipboard"
-    @clearQuoteContent="clearQuoteContent" />
+  <TextMessage
+    ref="textMessageComp"
+    :targetId="routeQueryData.id"
+    :chatType="routeQueryData.chatType"
+    @getMessageQuoteContent="getMessageQuoteContent"
+    @getImageFileFromClipboard="getImageFileFromClipboard"
+    @clearQuoteContent="clearQuoteContent"
+  />
   <MsgQuote ref="messageQuoteRef" />
   <!-- <InviteCallMembers ref="inviteCallMembersComp" @sendMulitInviteMsg="sendMulitInviteMsg" /> -->
-  <PreviewSendImg ref="previewSendImg" :targetId="routeQueryData.id" :chatType="routeQueryData.chatType"
-    @onStartLoading="onStartLoading" @onLoadending="onLoadending" />
-  <ShareUserCard ref="personalCardMessageComp" :targetId="routeQueryData.id" :chatType="routeQueryData.chatType" />
+  <PreviewSendImg
+    ref="previewSendImg"
+    :targetId="routeQueryData.id"
+    :chatType="routeQueryData.chatType"
+    @onStartLoading="onStartLoading"
+    @onLoadending="onLoadending"
+  />
+  <ShareUserCard
+    ref="personalCardMessageComp"
+    :targetId="routeQueryData.id"
+    :chatType="routeQueryData.chatType"
+  />
 </template>
 
 <style lang="scss" scoped>

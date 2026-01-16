@@ -44,7 +44,7 @@ const sendImagesMessage = async (type, fileObj) => {
     ElMessage.error('发送图片消息失败: 请先选择聊天对象');
     return;
   }
-  
+
   const file = {
     data: null, // file 对象。
     filename: '', //文件名称。
@@ -64,7 +64,10 @@ const sendImagesMessage = async (type, fileObj) => {
       // 图片文件上传失败
       console.error('图片上传失败:', error);
       // 避免递归调用，直接处理错误
-      if (error?.type === 413 || error?.data?.error === 'Request Entity Too Large') {
+      if (
+        error?.type === 413 ||
+        error?.data?.error === 'Request Entity Too Large'
+      ) {
         ElMessage.error('图片大小超过服务器限制');
       } else {
         ElMessage.error('图片上传失败');
@@ -88,7 +91,7 @@ const sendImagesMessage = async (type, fileObj) => {
   if (!imgFile) {
     return;
   }
-  
+
   // 增加文件大小检查，避免发送过大文件
   const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB
   if (imgFile.size > MAX_IMAGE_SIZE) {
@@ -96,7 +99,7 @@ const sendImagesMessage = async (type, fileObj) => {
     uploadImgs.value.value = null;
     return;
   }
-  
+
   file.data = imgFile;
   file.filename = imgFile.name;
   file.filetype = imgFile.type;

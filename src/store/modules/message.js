@@ -19,61 +19,56 @@ const Message = {
   },
   mutations: {
     UPDATE_MESSAGE_LIST: (state, msgBody) => {
-      console.log('[Vuex Mutation] UPDATE_MESSAGE_LIST 被调用');
-      console.log('消息体:', msgBody);
-      
       // 确保msgBody有基本属性
       if (!msgBody) {
         console.error('msgBody为空，无法更新消息列表');
         return;
       }
-      
-      const serverMsgId = msgBody.id || Date.now() + Math.random().toString(36).substring(2);
+
+      const serverMsgId =
+        msgBody.id || Date.now() + Math.random().toString(36).substring(2);
       const listKey = setMessageKey(msgBody);
-      
-      console.log('生成的消息列表键:', listKey);
-      
+
       if (!state.messageList[listKey]) {
-        console.log('创建新的消息列表，键:', listKey);
         state.messageList[listKey] = [];
       }
 
       // 为聊天室和群组消息生成临时ID（如果没有）
-      if ((msgBody.chatType === CHAT_TYPE.CHATROOM || msgBody.chatType === CHAT_TYPE.GROUP) && !msgBody.id) {
-        console.log('为消息生成临时ID:', serverMsgId);
+      if (
+        (msgBody.chatType === CHAT_TYPE.CHATROOM ||
+          msgBody.chatType === CHAT_TYPE.GROUP) &&
+        !msgBody.id
+      ) {
         msgBody.id = serverMsgId;
       }
 
       // 先检查是否已存在相同ID的消息，仅在不存在时添加
       if (msgBody.id) {
-        const exists = state.messageList[listKey].some(m => m.id === msgBody.id);
+        const exists = state.messageList[listKey].some(
+          (m) => m.id === msgBody.id,
+        );
         if (!exists) {
-          console.log('添加新消息到列表，键:', listKey);
           state.messageList[listKey].push(msgBody);
         } else {
           // 如果存在相同ID的消息，更新它而不是忽略
-          const index = state.messageList[listKey].findIndex(m => m.id === msgBody.id);
+          const index = state.messageList[listKey].findIndex(
+            (m) => m.id === msgBody.id,
+          );
           if (index !== -1) {
-            console.log('更新已存在的消息，ID:', msgBody.id);
             state.messageList[listKey][index] = msgBody;
           }
         }
       } else {
         // 如果没有ID，直接添加
-        console.log('添加无ID的消息到列表，键:', listKey);
         state.messageList[listKey].push(msgBody);
       }
-      
+
       // 限制数组的长度为 MAX_MESSAGE_LIST_COUNT
       if (state.messageList[listKey].length > MAX_MESSAGE_LIST_COUNT) {
-        console.log('消息列表过长，截取为MAX_MESSAGE_LIST_COUNT:', MAX_MESSAGE_LIST_COUNT);
         state.messageList[listKey] = state.messageList[listKey].slice(
           -MAX_MESSAGE_LIST_COUNT,
         );
       }
-      
-      console.log('当前消息列表长度:', state.messageList[listKey].length);
-      console.log('[Vuex Mutation] UPDATE_MESSAGE_LIST 执行完成');
       /**
        * 暂只实现以单对单已读回执
        * 群组已读回执可通过Reaction方案实现
@@ -181,12 +176,12 @@ const Message = {
     createNewMessage: ({ dispatch, commit }, params) => {
       console.log('[Vuex Action] createNewMessage 被调用');
       console.log('消息参数:', params);
-      
+
       const { isOpenPlayRing, playRing } = usePlayRing();
       const key = setMessageKey(params);
-      
+
       console.log('生成的消息列表键:', key);
-      
+
       commit('UPDATE_MESSAGE_LIST', params);
       //目前根据全局配置进行新消息声音提示，后续计划根据会话级别可进行设置是否声音提示，比如设定免打扰。
       if (isOpenPlayRing.value) playRing();
@@ -194,7 +189,7 @@ const Message = {
         conversationId: key,
         chatType: params.chatType,
       });
-      
+
       console.log('[Vuex Action] createNewMessage 执行完成');
     },
     //获取历史消息
@@ -310,29 +305,31 @@ const Message = {
       console.log('Request Params:', {
         messageId: mid,
         conversationId: to,
-        chatType: chatType
+        chatType: chatType,
       });
-      
+
       return new Promise((resolve, reject) => {
         console.log('[IM SDK] Calling recallMessage method...');
         EMClient.recallMessage({ mid, to, chatType })
           .then((result) => {
             console.log('[IM SDK] recallMessage method called successfully');
             console.log('SDK Result:', result || 'No return value');
-            
-            console.log('[Vuex Mutation] Updating message status to recalled...');
+
+            console.log(
+              '[Vuex Mutation] Updating message status to recalled...',
+            );
             commit('CHANGE_MESSAGE_BODAY', {
               type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
               key: to,
               mid,
             });
-            
+
             console.log('[Vuex Action] Updating conversation list...');
             dispatch('updateConversationList', {
               conversationId: to,
               chatType,
             });
-            
+
             console.log('[Vuex Action] Message recall process completed');
             resolve('OK');
           })
@@ -342,7 +339,7 @@ const Message = {
               errorType: error.type,
               errorMessage: error.message,
               errorData: error.data,
-              originalError: error
+              originalError: error,
             });
             reject(error);
           });
@@ -350,11 +347,17 @@ const Message = {
     },
     //修改（编辑）消息
     modifyMessage: async ({ dispatch, commit }, params) => {
-      if (!params || !params.id || !params.to || !params.chatType || !params.msg) {
+      if (
+        !params ||
+        !params.id ||
+        !params.to ||
+        !params.chatType ||
+        !params.msg
+      ) {
         console.error('modifyMessage 参数错误:', params);
         return Promise.reject(new Error('参数错误'));
       }
-      
+
       const { id: mid, to, chatType, msg } = params;
       return new Promise((resolve, reject) => {
         const textMessage = EMClient.Message.create({

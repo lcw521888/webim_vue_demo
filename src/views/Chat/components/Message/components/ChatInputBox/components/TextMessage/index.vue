@@ -212,7 +212,9 @@ defineExpose({
     >
     </textarea>
   </template>
-  <template v-else-if="chatType === CHAT_TYPE.GROUP || chatType === CHAT_TYPE.CHATROOM">
+  <template
+    v-else-if="chatType === CHAT_TYPE.GROUP || chatType === CHAT_TYPE.CHATROOM"
+  >
     <vue-at :members="atMembersList" name-key="text" @insert="onInsert">
       <textarea
         ref="editable"

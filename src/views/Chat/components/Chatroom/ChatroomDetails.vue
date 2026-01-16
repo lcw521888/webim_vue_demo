@@ -26,7 +26,7 @@ const checkLoginStatus = () => {
 //获取聊天室详情
 const getChatroomDetails = async () => {
   if (!checkLoginStatus()) return;
-  
+
   const roomId = route.query.roomId;
   if (!roomId) {
     ElMessage.error('聊天室ID不存在');
@@ -39,23 +39,30 @@ const getChatroomDetails = async () => {
     console.log(
       `开始获取聊天室详情:`,
       `\n调用方法: ${GET_CHAT_ROOM_DETAILS_METHOD}`,
-      `\n方法入参:`, chatRoomDetailParams,
-      `\n当前用户:`, EMClient.user,
-      `\n聊天室ID:`, roomId
+      `\n方法入参:`,
+      chatRoomDetailParams,
+      `\n当前用户:`,
+      EMClient.user,
+      `\n聊天室ID:`,
+      roomId,
     );
     const res = await EMClient.getChatRoomDetails(chatRoomDetailParams);
     console.log(
       `获取聊天室详情成功:`,
       `\n调用方法: ${GET_CHAT_ROOM_DETAILS_METHOD}`,
-      `\n方法入参:`, chatRoomDetailParams,
-      `\n完整返回值:`, res
+      `\n方法入参:`,
+      chatRoomDetailParams,
+      `\n完整返回值:`,
+      res,
     );
     // 检查返回数据结构，可能是数组中的第一个元素
-    chatroomDetails.value = Array.isArray(res.data) ? res.data[0] || {} : res.data || {};
-    
+    chatroomDetails.value = Array.isArray(res.data)
+      ? res.data[0] || {}
+      : res.data || {};
+
     // 获取聊天室公告
     getChatRoomAnnouncement();
-    
+
     // 获取聊天室属性 - 使用try-catch包裹，避免失败影响其他功能
     try {
       await getChatRoomAttributes();
@@ -68,9 +75,12 @@ const getChatroomDetails = async () => {
     console.error(
       `获取聊天室详情失败:`,
       `\n调用方法: ${GET_CHAT_ROOM_DETAILS_METHOD}`,
-      `\n方法入参:`, chatRoomDetailParams,
-      `\n聊天室ID:`, roomId,
-      `\n错误详情:`, error
+      `\n方法入参:`,
+      chatRoomDetailParams,
+      `\n聊天室ID:`,
+      roomId,
+      `\n错误详情:`,
+      error,
     );
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
@@ -84,15 +94,17 @@ const getChatroomDetails = async () => {
 //退出聊天室
 const leaveChatroom = async () => {
   if (!checkLoginStatus()) return;
-   const LEAVE_CHAT_ROOM_METHOD = 'leaveChatRoom';
+  const LEAVE_CHAT_ROOM_METHOD = 'leaveChatRoom';
   const targetRoomId = route.query.roomId;
   const leaveChatRoomParams = { roomId: targetRoomId };
   try {
     console.log(
       `开始执行退出聊天室操作:`,
       `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
-      `\n目标聊天室ID:`, targetRoomId,
-      `\n当前操作用户:`, EMClient.user
+      `\n目标聊天室ID:`,
+      targetRoomId,
+      `\n当前操作用户:`,
+      EMClient.user,
     );
     await ElMessageBox.confirm('确定要退出该聊天室吗？', '提示', {
       confirmButtonText: '确定',
@@ -103,25 +115,33 @@ const leaveChatroom = async () => {
     console.log(
       `退出聊天室成功:`,
       `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`, leaveChatRoomParams,
-      `\n接口返回结果:`, res,
-      `\n已退出聊天室ID:`, targetRoomId,
-      `\n跳转页面: /chat/chatroom`
+      `\n方法入参:`,
+      leaveChatRoomParams,
+      `\n接口返回结果:`,
+      res,
+      `\n已退出聊天室ID:`,
+      targetRoomId,
+      `\n跳转页面: /chat/chatroom`,
     );
     ElMessage.success('退出聊天室成功');
     router.push('/chat/chatroom');
   } catch (error) {
-    
     if (error !== 'cancel') {
       console.error(
         `退出聊天室失败:`,
         `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
-        `\n方法入参:`, leaveChatRoomParams,
-        `\n目标聊天室ID:`, targetRoomId,
-        `\n当前用户:`, EMClient.user,
-        `\n错误类型:`, error.type,
-        `\n错误消息:`, error.message,
-        `\n完整错误信息:`, error
+        `\n方法入参:`,
+        leaveChatRoomParams,
+        `\n目标聊天室ID:`,
+        targetRoomId,
+        `\n当前用户:`,
+        EMClient.user,
+        `\n错误类型:`,
+        error.type,
+        `\n错误消息:`,
+        error.message,
+        `\n完整错误信息:`,
+        error,
       );
       ElMessage.error('退出聊天室失败');
       console.error('退出聊天室失败', error);
@@ -142,28 +162,39 @@ const destroyChatroom = async () => {
   try {
     console.log(
       `开始执行解散聊天室操作:`,
-      `\n目标聊天室ID:`, roomId,
-      `\n当前操作用户:`, EMClient.user
+      `\n目标聊天室ID:`,
+      roomId,
+      `\n当前操作用户:`,
+      EMClient.user,
     );
-    await ElMessageBox.confirm('确定要解散该聊天室吗？此操作不可恢复！', '警告', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
+    await ElMessageBox.confirm(
+      '确定要解散该聊天室吗？此操作不可恢复！',
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
     console.log(
       `用户确认解散聊天室，开始调用接口:`,
       `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`, destroyChatRoomParams,
-      `\n聊天室ID:`, roomId
+      `\n方法入参:`,
+      destroyChatRoomParams,
+      `\n聊天室ID:`,
+      roomId,
     );
     const res = await EMClient.destroyChatRoom(destroyChatRoomParams);
     ElMessage.success('解散聊天室成功');
     console.log(
       `解散聊天室成功:`,
       `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`, destroyChatRoomParams,
-      `\n接口返回结果:`, res,
-      `\n已解散的聊天室ID:`, roomId
+      `\n方法入参:`,
+      destroyChatRoomParams,
+      `\n接口返回结果:`,
+      res,
+      `\n已解散的聊天室ID:`,
+      roomId,
     );
     router.push('/chat/chatroom');
   } catch (error) {
@@ -171,9 +202,12 @@ const destroyChatroom = async () => {
     console.error(
       `解散聊天室失败:`,
       `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`, destroyChatRoomParams,
-      `\n聊天室ID:`, roomId,
-      `\n错误详情:`, error
+      `\n方法入参:`,
+      destroyChatRoomParams,
+      `\n聊天室ID:`,
+      roomId,
+      `\n错误详情:`,
+      error,
     );
     if (error !== 'cancel') {
       console.error('解散聊天室失败', error);
@@ -204,7 +238,7 @@ const openEditDialog = () => {
 
 const modifyChatRoom = async () => {
   if (!checkLoginStatus()) return;
-  
+
   try {
     const options = {
       chatRoomId: route.query.roomId,
@@ -220,7 +254,10 @@ const modifyChatRoom = async () => {
     console.error('修改聊天室信息失败', error);
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
-    } else if (error.type === 17 || error.data?.includes('group_authorization')) {
+    } else if (
+      error.type === 17 ||
+      error.data?.includes('group_authorization')
+    ) {
       ElMessage.error('您没有权限修改聊天室信息');
     } else {
       ElMessage.error('修改聊天室信息失败');
@@ -236,9 +273,11 @@ const announcementForm = ref({
 
 const getChatRoomAnnouncement = async () => {
   if (!checkLoginStatus()) return;
-  
+
   try {
-    const res = await EMClient.fetchChatRoomAnnouncement({ roomId: route.query.roomId });
+    const res = await EMClient.fetchChatRoomAnnouncement({
+      roomId: route.query.roomId,
+    });
     console.log('获取聊天室公告成功:', res);
     // 处理不同的数据结构，可能是直接的字符串或包含 announcement 字段的对象
     if (res.data && typeof res.data === 'object') {
@@ -261,7 +300,7 @@ const openAnnouncementDialog = () => {
 
 const updateChatRoomAnnouncement = async () => {
   if (!checkLoginStatus()) return;
-  
+
   try {
     await EMClient.updateChatRoomAnnouncement({
       roomId: route.query.roomId,
@@ -274,7 +313,10 @@ const updateChatRoomAnnouncement = async () => {
     console.error('更新聊天室公告失败', error);
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
-    } else if (error.type === 17 || error.data?.includes('group_authorization')) {
+    } else if (
+      error.type === 17 ||
+      error.data?.includes('group_authorization')
+    ) {
       ElMessage.error('您没有权限更新聊天室公告');
     } else {
       ElMessage.error('更新聊天室公告失败');
@@ -299,37 +341,37 @@ const batchAttributeForm = ref({
 
 const getChatRoomAttributes = async () => {
   if (!checkLoginStatus()) return;
-  
+
   const roomId = route.query.roomId;
   if (!roomId) {
     console.error('聊天室ID不存在，无法获取自定义属性');
     return;
   }
-  
+
   try {
     // 检查EMClient对象是否存在并且getChatRoomAttributes方法可用
     if (!EMClient || typeof EMClient.getChatRoomAttributes !== 'function') {
       console.error('EMClient.getChatRoomAttributes方法不可用');
       return;
     }
-    
+
     // 准备请求参数
     const requestParams = { chatRoomId: roomId };
-    
+
     const res = await EMClient.getChatRoomAttributes(requestParams);
     console.log('获取聊天室自定义属性成功:', res);
     attributes.value = res.data || {};
     return res;
   } catch (error) {
     console.error('获取聊天室自定义属性失败:', error.message);
-    
+
     // 只处理关键错误，其他错误静默处理
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else if (error.type === 702) {
       console.error('获取聊天室自定义属性失败: 聊天室不存在或无权限');
     }
-    
+
     // 返回默认空对象，避免后续处理出错
     attributes.value = {};
     return { data: {} };
@@ -348,12 +390,15 @@ const openAttributeDialog = () => {
 
 const setChatRoomAttribute = async () => {
   if (!checkLoginStatus()) return;
-  
-  if (!attributeForm.value.attributeKey || !attributeForm.value.attributeKey.trim()) {
+
+  if (
+    !attributeForm.value.attributeKey ||
+    !attributeForm.value.attributeKey.trim()
+  ) {
     ElMessage.warning('请输入属性键');
     return;
   }
-  
+
   try {
     await EMClient.setChatRoomAttribute({
       chatRoomId: route.query.roomId,
@@ -386,12 +431,15 @@ const openBatchAttributeDialog = () => {
 
 const setChatRoomAttributes = async () => {
   if (!checkLoginStatus()) return;
-  
-  if (!batchAttributeForm.value.attributes || !batchAttributeForm.value.attributes.trim()) {
+
+  if (
+    !batchAttributeForm.value.attributes ||
+    !batchAttributeForm.value.attributes.trim()
+  ) {
     ElMessage.warning('请输入属性');
     return;
   }
-  
+
   try {
     const attributesObj = JSON.parse(batchAttributeForm.value.attributes);
     await EMClient.setChatRoomAttributes({
@@ -417,7 +465,7 @@ const setChatRoomAttributes = async () => {
 
 const removeChatRoomAttribute = async (key) => {
   if (!checkLoginStatus()) return;
-  
+
   try {
     await ElMessageBox.confirm(`确定要删除属性 "${key}" 吗？`, '提示', {
       confirmButtonText: '确定',
@@ -447,66 +495,83 @@ let chatroomEventHandler = null;
 
 onMounted(() => {
   getChatroomDetails();
-  
+
   // 添加聊天室事件监听器
   chatroomEventHandler = EMClient.addEventHandler('CHATROOM_DETAILS', {
     onChatroomEvent: (e) => {
       // 确保只更新当前查看的聊天室的成员人数
       if (e.id === route.query.roomId) {
-         console.log(
-              `===== ChatroomDetails 监听事件 =====`,
-              `\n监听时间:`, new Date().toLocaleString(),
-              `\n目标聊天室ID:`, route.query.roomId,
-              `\n事件触发的聊天室ID:`, e.id,
-              `\n监听事件类型:`, e.operation,
-              `\n完整事件数据:`, e,
-              `===================`
+        console.log(
+          `===== ChatroomDetails 监听事件 =====`,
+          `\n监听时间:`,
+          new Date().toLocaleString(),
+          `\n目标聊天室ID:`,
+          route.query.roomId,
+          `\n事件触发的聊天室ID:`,
+          e.id,
+          `\n监听事件类型:`,
+          e.operation,
+          `\n完整事件数据:`,
+          e,
+          `===================`,
         );
         switch (e.operation) {
           case 'memberPresence':
             // 当前聊天室在线人数
-             console.log(
-                `【聊天室成员上线事件】:`,
-                `\n事件类型: memberPresence`,
-                `\n触发聊天室ID:`, e.id,
-                `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
-                `\n事件返回在线人数:`, e?.memberCount || 0,
-                `\n更新后在线人数:`, e?.memberCount || 0
+            console.log(
+              `【聊天室成员上线事件】:`,
+              `\n事件类型: memberPresence`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n更新前在线人数:`,
+              chatroomDetails.value.affiliations_count ?? '未定义',
+              `\n事件返回在线人数:`,
+              e?.memberCount || 0,
+              `\n更新后在线人数:`,
+              e?.memberCount || 0,
             );
             chatroomDetails.value.affiliations_count = e?.memberCount || 0;
             break;
           case 'memberAbsence':
             // 当前聊天室在线人数
-             console.log(
-                `【聊天室成员离开事件】:`,
-                `\n事件类型: memberAbsence`,
-                `\n触发聊天室ID:`, e.id,
-                `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
-                `\n事件返回在线人数:`, e?.memberCount || 0,
-                `\n更新后在线人数:`, e?.memberCount || 0
+            console.log(
+              `【聊天室成员离开事件】:`,
+              `\n事件类型: memberAbsence`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n更新前在线人数:`,
+              chatroomDetails.value.affiliations_count ?? '未定义',
+              `\n事件返回在线人数:`,
+              e?.memberCount || 0,
+              `\n更新后在线人数:`,
+              e?.memberCount || 0,
             );
             // 更新当前聊天室详情中的成员人数
             chatroomDetails.value.affiliations_count = e?.memberCount || 0;
             break;
           case 'removeMember':
-            // 有成员被移出聊天室。被踢出聊天室的成员会收到该事件。 
-             console.log(
-                `【聊天室成员被移除事件】:`,
-                `\n事件类型: removeMember`,
-                `\n触发聊天室ID:`, e.id,
-                `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
-    
+            // 有成员被移出聊天室。被踢出聊天室的成员会收到该事件。
+            console.log(
+              `【聊天室成员被移除事件】:`,
+              `\n事件类型: removeMember`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n更新前在线人数:`,
+              chatroomDetails.value.affiliations_count ?? '未定义',
             );
             chatroomDetails.value.affiliations_count = e?.memberCount || 0;
             break;
           case 'setAdmin':
             // 有成员被设置为管理员
             console.log(
-                `【聊天室设置管理员事件】:`,
-                `\n事件类型: setAdmin`,
-                `\n触发聊天室ID:`, e.id,
-                `\n被设置管理员的用户:`, e?.userId || e?.username,
-                `\n完整事件数据:`, e
+              `【聊天室设置管理员事件】:`,
+              `\n事件类型: setAdmin`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n被设置管理员的用户:`,
+              e?.userId || e?.username,
+              `\n完整事件数据:`,
+              e,
             );
             // 刷新聊天室详情，确保管理员信息最新
             getChatroomDetails();
@@ -514,11 +579,14 @@ onMounted(() => {
           case 'removeAdmin':
             // 有成员被移除管理员身份
             console.log(
-                `【聊天室移除管理员事件】:`,
-                `\n事件类型: removeAdmin`,
-                `\n触发聊天室ID:`, e.id,
-                `\n被移除管理员的用户:`, e?.userId || e?.username,
-                `\n完整事件数据:`, e
+              `【聊天室移除管理员事件】:`,
+              `\n事件类型: removeAdmin`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n被移除管理员的用户:`,
+              e?.userId || e?.username,
+              `\n完整事件数据:`,
+              e,
             );
             // 刷新聊天室详情，确保管理员信息最新
             getChatroomDetails();
@@ -526,10 +594,12 @@ onMounted(() => {
           case 'deleteAnnouncement':
             // 删除聊天室公告
             console.log(
-                `【聊天室删除公告事件】:`,
-                `\n事件类型: deleteAnnouncement`,
-                `\n触发聊天室ID:`, e.id,
-                `\n完整事件数据:`, e
+              `【聊天室删除公告事件】:`,
+              `\n事件类型: deleteAnnouncement`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n完整事件数据:`,
+              e,
             );
             // 刷新聊天室公告
             getChatRoomAnnouncement();
@@ -537,10 +607,12 @@ onMounted(() => {
           case 'updateAnnouncement':
             // 更新聊天室公告
             console.log(
-                `【聊天室更新公告事件】:`,
-                `\n事件类型: updateAnnouncement`,
-                `\n触发聊天室ID:`, e.id,
-                `\n完整事件数据:`, e
+              `【聊天室更新公告事件】:`,
+              `\n事件类型: updateAnnouncement`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n完整事件数据:`,
+              e,
             );
             // 刷新聊天室公告
             getChatRoomAnnouncement();
@@ -548,10 +620,12 @@ onMounted(() => {
           case 'updateInfo':
             // 更新聊天室详情
             console.log(
-                `【聊天室更新详情事件】:`,
-                `\n事件类型: updateInfo`,
-                `\n触发聊天室ID:`, e.id,
-                `\n完整事件数据:`, e
+              `【聊天室更新详情事件】:`,
+              `\n事件类型: updateInfo`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n完整事件数据:`,
+              e,
             );
             // 刷新聊天室详情
             getChatroomDetails();
@@ -559,11 +633,14 @@ onMounted(() => {
           case 'changeOwner':
             // 转让聊天室
             console.log(
-                `【聊天室转让事件】:`,
-                `\n事件类型: changeOwner`,
-                `\n触发聊天室ID:`, e.id,
-                `\n新所有者:`, e?.newOwner,
-                `\n完整事件数据:`, e
+              `【聊天室转让事件】:`,
+              `\n事件类型: changeOwner`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n新所有者:`,
+              e?.newOwner,
+              `\n完整事件数据:`,
+              e,
             );
             // 刷新聊天室详情
             getChatroomDetails();
@@ -571,10 +648,12 @@ onMounted(() => {
           case 'destroy':
             // 解散聊天室
             console.log(
-                `【聊天室解散事件】:`,
-                `\n事件类型: destroy`,
-                `\n触发聊天室ID:`, e.id,
-                `\n完整事件数据:`, e
+              `【聊天室解散事件】:`,
+              `\n事件类型: destroy`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n完整事件数据:`,
+              e,
             );
             // 显示提示并跳转到聊天室列表
             ElMessage.warning('当前聊天室已被解散');
@@ -583,11 +662,14 @@ onMounted(() => {
           case 'updateChatRoomAttributes':
             // 更新聊天室自定义属性
             console.log(
-                `【聊天室更新属性事件】:`,
-                `\n事件类型: updateChatRoomAttributes`,
-                `\n触发聊天室ID:`, e.id,
-                `\n更新的属性:`, e?.attributes,
-                `\n完整事件数据:`, e
+              `【聊天室更新属性事件】:`,
+              `\n事件类型: updateChatRoomAttributes`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n更新的属性:`,
+              e?.attributes,
+              `\n完整事件数据:`,
+              e,
             );
             // 刷新聊天室属性
             getChatRoomAttributes();
@@ -595,11 +677,14 @@ onMounted(() => {
           case 'removeChatRoomAttributes':
             // 删除聊天室自定义属性
             console.log(
-                `【聊天室删除属性事件】:`,
-                `\n事件类型: removeChatRoomAttributes`,
-                `\n触发聊天室ID:`, e.id,
-                `\n删除的属性键:`, e?.attributeKey,
-                `\n完整事件数据:`, e
+              `【聊天室删除属性事件】:`,
+              `\n事件类型: removeChatRoomAttributes`,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n删除的属性键:`,
+              e?.attributeKey,
+              `\n完整事件数据:`,
+              e,
             );
             // 刷新聊天室属性
             getChatRoomAttributes();
@@ -607,14 +692,17 @@ onMounted(() => {
           default:
             console.log(
               `【聊天室未知监听事件】:`,
-              `\n未处理的事件类型:`, e.operation,
-              `\n触发聊天室ID:`, e.id,
-              `\n完整事件数据:`, e
+              `\n未处理的事件类型:`,
+              e.operation,
+              `\n触发聊天室ID:`,
+              e.id,
+              `\n完整事件数据:`,
+              e,
             );
             break;
         }
       }
-    }
+    },
   });
 });
 
@@ -631,12 +719,12 @@ watch(
   (newRoomId, oldRoomId) => {
     if (newRoomId && newRoomId !== oldRoomId) {
       getChatroomDetails();
-      
+
       // 移除旧的事件监听器
       if (chatroomEventHandler) {
         EMClient.removeEventHandler('CHATROOM_DETAILS');
       }
-      
+
       // 重新注册事件监听器
       chatroomEventHandler = EMClient.addEventHandler('CHATROOM_DETAILS', {
         onChatroomEvent: (e) => {
@@ -644,24 +732,33 @@ watch(
           if (e.id === route.query.roomId) {
             console.log(
               `===== ChatroomDetails 监听事件 =====`,
-              `\n监听时间:`, new Date().toLocaleString(),
-              `\n目标聊天室ID:`, route.query.roomId,
-              `\n事件触发的聊天室ID:`, e.id,
-              `\n监听事件类型:`, e.operation,
-              `\n完整事件数据:`, e,
-              `===================`
+              `\n监听时间:`,
+              new Date().toLocaleString(),
+              `\n目标聊天室ID:`,
+              route.query.roomId,
+              `\n事件触发的聊天室ID:`,
+              e.id,
+              `\n监听事件类型:`,
+              e.operation,
+              `\n完整事件数据:`,
+              e,
+              `===================`,
             );
-            
+
             switch (e.operation) {
               case 'memberPresence':
                 // 当前聊天室在线人数
                 console.log(
                   `【聊天室成员上线事件】:`,
                   `\n事件类型: memberPresence`,
-                  `\n触发聊天室ID:`, e.id,
-                  `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
-                  `\n事件返回在线人数:`, e?.memberCount || 0,
-                  `\n更新后在线人数:`, e?.memberCount || 0
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n更新前在线人数:`,
+                  chatroomDetails.value.affiliations_count ?? '未定义',
+                  `\n事件返回在线人数:`,
+                  e?.memberCount || 0,
+                  `\n更新后在线人数:`,
+                  e?.memberCount || 0,
                 );
                 chatroomDetails.value.affiliations_count = e?.memberCount || 0;
                 break;
@@ -670,33 +767,43 @@ watch(
                 console.log(
                   `【聊天室成员离开事件】:`,
                   `\n事件类型: memberAbsence`,
-                  `\n触发聊天室ID:`, e.id,
-                  `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
-                  `\n事件返回在线人数:`, e?.memberCount || 0,
-                  `\n更新后在线人数:`, e?.memberCount || 0
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n更新前在线人数:`,
+                  chatroomDetails.value.affiliations_count ?? '未定义',
+                  `\n事件返回在线人数:`,
+                  e?.memberCount || 0,
+                  `\n更新后在线人数:`,
+                  e?.memberCount || 0,
                 );
                 // 更新当前聊天室详情中的成员人数
                 chatroomDetails.value.affiliations_count = e?.memberCount || 0;
                 break;
               case 'removeMember':
-                // 有成员被移出聊天室。被踢出聊天室的成员会收到该事件。 
+                // 有成员被移出聊天室。被踢出聊天室的成员会收到该事件。
                 console.log(
-                    `【聊天室成员被移除事件】:`,
-                    `\n事件类型: removeMember`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n更新前在线人数:`, chatroomDetails.value.affiliations_count ?? '未定义',
-                    `\n事件返回在线人数:`, e?.memberCount || 0
+                  `【聊天室成员被移除事件】:`,
+                  `\n事件类型: removeMember`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n更新前在线人数:`,
+                  chatroomDetails.value.affiliations_count ?? '未定义',
+                  `\n事件返回在线人数:`,
+                  e?.memberCount || 0,
                 );
                 chatroomDetails.value.affiliations_count = e?.memberCount || 0;
                 break;
               case 'setAdmin':
                 // 有成员被设置为管理员
                 console.log(
-                    `【聊天室设置管理员事件】:`,
-                    `\n事件类型: setAdmin`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n被设置管理员的用户:`, e?.userId || e?.username,
-                    `\n完整事件数据:`, e
+                  `【聊天室设置管理员事件】:`,
+                  `\n事件类型: setAdmin`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n被设置管理员的用户:`,
+                  e?.userId || e?.username,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 刷新聊天室详情，确保管理员信息最新
                 getChatroomDetails();
@@ -704,11 +811,14 @@ watch(
               case 'removeAdmin':
                 // 有成员被移除管理员身份
                 console.log(
-                    `【聊天室移除管理员事件】:`,
-                    `\n事件类型: removeAdmin`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n被移除管理员的用户:`, e?.userId || e?.username,
-                    `\n完整事件数据:`, e
+                  `【聊天室移除管理员事件】:`,
+                  `\n事件类型: removeAdmin`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n被移除管理员的用户:`,
+                  e?.userId || e?.username,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 刷新聊天室详情，确保管理员信息最新
                 getChatroomDetails();
@@ -716,10 +826,12 @@ watch(
               case 'deleteAnnouncement':
                 // 删除聊天室公告
                 console.log(
-                    `【聊天室删除公告事件】:`,
-                    `\n事件类型: deleteAnnouncement`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n完整事件数据:`, e
+                  `【聊天室删除公告事件】:`,
+                  `\n事件类型: deleteAnnouncement`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 刷新聊天室公告
                 getChatRoomAnnouncement();
@@ -727,10 +839,12 @@ watch(
               case 'updateAnnouncement':
                 // 更新聊天室公告
                 console.log(
-                    `【聊天室更新公告事件】:`,
-                    `\n事件类型: updateAnnouncement`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n完整事件数据:`, e
+                  `【聊天室更新公告事件】:`,
+                  `\n事件类型: updateAnnouncement`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 刷新聊天室公告
                 getChatRoomAnnouncement();
@@ -738,10 +852,12 @@ watch(
               case 'updateInfo':
                 // 更新聊天室详情
                 console.log(
-                    `【聊天室更新详情事件】:`,
-                    `\n事件类型: updateInfo`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n完整事件数据:`, e
+                  `【聊天室更新详情事件】:`,
+                  `\n事件类型: updateInfo`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 刷新聊天室详情
                 getChatroomDetails();
@@ -749,11 +865,14 @@ watch(
               case 'changeOwner':
                 // 转让聊天室
                 console.log(
-                    `【聊天室转让事件】:`,
-                    `\n事件类型: changeOwner`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n新所有者:`, e?.newOwner,
-                    `\n完整事件数据:`, e
+                  `【聊天室转让事件】:`,
+                  `\n事件类型: changeOwner`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n新所有者:`,
+                  e?.newOwner,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 刷新聊天室详情
                 getChatroomDetails();
@@ -761,10 +880,12 @@ watch(
               case 'destroy':
                 // 解散聊天室
                 console.log(
-                    `【聊天室解散事件】:`,
-                    `\n事件类型: destroy`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n完整事件数据:`, e
+                  `【聊天室解散事件】:`,
+                  `\n事件类型: destroy`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 显示提示并跳转到聊天室列表
                 ElMessage.warning('当前聊天室已被解散');
@@ -773,11 +894,14 @@ watch(
               case 'updateChatRoomAttributes':
                 // 更新聊天室自定义属性
                 console.log(
-                    `【聊天室更新属性事件】:`,
-                    `\n事件类型: updateChatRoomAttributes`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n更新的属性:`, e?.attributes,
-                    `\n完整事件数据:`, e
+                  `【聊天室更新属性事件】:`,
+                  `\n事件类型: updateChatRoomAttributes`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n更新的属性:`,
+                  e?.attributes,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 刷新聊天室属性
                 getChatRoomAttributes();
@@ -785,11 +909,14 @@ watch(
               case 'removeChatRoomAttributes':
                 // 删除聊天室自定义属性
                 console.log(
-                    `【聊天室删除属性事件】:`,
-                    `\n事件类型: removeChatRoomAttributes`,
-                    `\n触发聊天室ID:`, e.id,
-                    `\n删除的属性键:`, e?.attributeKey,
-                    `\n完整事件数据:`, e
+                  `【聊天室删除属性事件】:`,
+                  `\n事件类型: removeChatRoomAttributes`,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n删除的属性键:`,
+                  e?.attributeKey,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 // 刷新聊天室属性
                 getChatRoomAttributes();
@@ -797,18 +924,21 @@ watch(
               default:
                 console.log(
                   `【聊天室未知监听事件】:`,
-                  `\n未处理的事件类型:`, e.operation,
-                  `\n触发聊天室ID:`, e.id,
-                  `\n完整事件数据:`, e
+                  `\n未处理的事件类型:`,
+                  e.operation,
+                  `\n触发聊天室ID:`,
+                  e.id,
+                  `\n完整事件数据:`,
+                  e,
                 );
                 break;
             }
           }
-        }
+        },
       });
     }
   },
-  { immediate: false }
+  { immediate: false },
 );
 </script>
 
@@ -855,10 +985,28 @@ watch(
       </el-descriptions>
 
       <div class="action_buttons">
-        <el-button type="primary" @click="() => router.push({ path: '/chat/chatroom/message', query: { id: route.query.roomId, chatType: CHAT_TYPE.CHATROOM } })">
+        <el-button
+          type="primary"
+          @click="
+            () =>
+              router.push({
+                path: '/chat/chatroom/message',
+                query: { id: route.query.roomId, chatType: CHAT_TYPE.CHATROOM },
+              })
+          "
+        >
           进入聊天室
         </el-button>
-        <el-button type="success" @click="() => router.push({ path: '/chat/chatroom/member-management', query: { roomId: route.query.roomId } })">
+        <el-button
+          type="success"
+          @click="
+            () =>
+              router.push({
+                path: '/chat/chatroom/member-management',
+                query: { roomId: route.query.roomId },
+              })
+          "
+        >
           成员管理
         </el-button>
         <el-button v-if="isOwner" @click="openEditDialog">
@@ -867,15 +1015,9 @@ watch(
         <el-button v-if="isOwner" @click="openAnnouncementDialog">
           更新公告
         </el-button>
-        <el-button @click="openAttributeDialog">
-          添加自定义属性
-        </el-button>
-        <el-button @click="openBatchAttributeDialog">
-          批量添加属性
-        </el-button>
-        <el-button @click="leaveChatroom">
-          退出聊天室
-        </el-button>
+        <el-button @click="openAttributeDialog"> 添加自定义属性 </el-button>
+        <el-button @click="openBatchAttributeDialog"> 批量添加属性 </el-button>
+        <el-button @click="leaveChatroom"> 退出聊天室 </el-button>
         <el-button v-if="isOwner" type="danger" @click="destroyChatroom">
           解散聊天室
         </el-button>
@@ -889,12 +1031,21 @@ watch(
         </div>
       </template>
 
-      <el-table :data="Object.entries(attributes).map(([key, value]) => ({ key, value }))" border>
+      <el-table
+        :data="
+          Object.entries(attributes).map(([key, value]) => ({ key, value }))
+        "
+        border
+      >
         <el-table-column prop="key" label="属性键" width="200" />
         <el-table-column prop="value" label="属性值" />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button type="danger" size="small" @click="removeChatRoomAttribute(row.key)">
+            <el-button
+              type="danger"
+              size="small"
+              @click="removeChatRoomAttribute(row.key)"
+            >
               删除
             </el-button>
           </template>
@@ -905,7 +1056,10 @@ watch(
     <el-dialog v-model="showEditDialog" title="修改聊天室信息" width="500px">
       <el-form :model="editForm" label-width="100px">
         <el-form-item label="聊天室名称">
-          <el-input v-model="editForm.chatRoomName" placeholder="请输入聊天室名称" />
+          <el-input
+            v-model="editForm.chatRoomName"
+            placeholder="请输入聊天室名称"
+          />
         </el-form-item>
         <el-form-item label="聊天室描述">
           <el-input
@@ -915,11 +1069,7 @@ watch(
           />
         </el-form-item>
         <el-form-item label="最大成员数">
-          <el-input-number
-            v-model="editForm.maxusers"
-            :min="1"
-            :max="5000"
-          />
+          <el-input-number v-model="editForm.maxusers" :min="1" :max="5000" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -930,7 +1080,11 @@ watch(
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showAnnouncementDialog" title="更新聊天室公告" width="500px">
+    <el-dialog
+      v-model="showAnnouncementDialog"
+      title="更新聊天室公告"
+      width="500px"
+    >
       <el-form :model="announcementForm" label-width="100px">
         <el-form-item label="公告内容">
           <el-input
@@ -946,18 +1100,30 @@ watch(
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showAnnouncementDialog = false">取消</el-button>
-          <el-button type="primary" @click="updateChatRoomAnnouncement">确定</el-button>
+          <el-button type="primary" @click="updateChatRoomAnnouncement"
+            >确定</el-button
+          >
         </span>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showAttributeDialog" title="添加自定义属性" width="500px">
+    <el-dialog
+      v-model="showAttributeDialog"
+      title="添加自定义属性"
+      width="500px"
+    >
       <el-form :model="attributeForm" label-width="150px">
         <el-form-item label="属性键">
-          <el-input v-model="attributeForm.attributeKey" placeholder="请输入属性键" />
+          <el-input
+            v-model="attributeForm.attributeKey"
+            placeholder="请输入属性键"
+          />
         </el-form-item>
         <el-form-item label="属性值">
-          <el-input v-model="attributeForm.attributeValue" placeholder="请输入属性值" />
+          <el-input
+            v-model="attributeForm.attributeValue"
+            placeholder="请输入属性值"
+          />
         </el-form-item>
         <el-form-item label="退出时删除">
           <el-switch v-model="attributeForm.autoDelete" />
@@ -969,12 +1135,18 @@ watch(
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showAttributeDialog = false">取消</el-button>
-          <el-button type="primary" @click="setChatRoomAttribute">确定</el-button>
+          <el-button type="primary" @click="setChatRoomAttribute"
+            >确定</el-button
+          >
         </span>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="showBatchAttributeDialog" title="批量添加自定义属性" width="600px">
+    <el-dialog
+      v-model="showBatchAttributeDialog"
+      title="批量添加自定义属性"
+      width="600px"
+    >
       <el-form :model="batchAttributeForm" label-width="150px">
         <el-form-item label="属性（JSON格式）">
           <el-input
@@ -995,7 +1167,9 @@ watch(
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showBatchAttributeDialog = false">取消</el-button>
-          <el-button type="primary" @click="setChatRoomAttributes">确定</el-button>
+          <el-button type="primary" @click="setChatRoomAttributes"
+            >确定</el-button
+          >
         </span>
       </template>
     </el-dialog>
@@ -1034,14 +1208,21 @@ watch(
 }
 
 /* 确保批量添加自定义属性对话框中的textarea为长方形 - 最具体的选择器 */
-.chatroom_details_container :deep(.el-dialog[title="批量添加自定义属性"] .el-form-item .el-input.el-input--textarea .el-textarea__inner) {
+.chatroom_details_container
+  :deep(
+    .el-dialog[title='批量添加自定义属性']
+      .el-form-item
+      .el-input.el-input--textarea
+      .el-textarea__inner
+  ) {
   border-radius: 0 !important;
   box-sizing: border-box;
   outline: none;
 }
 
 /* 直接针对square-textarea类的样式 - 最高优先级 */
-.chatroom_details_container :deep(.el-input.square-textarea.el-input--textarea .el-textarea__inner) {
+.chatroom_details_container
+  :deep(.el-input.square-textarea.el-input--textarea .el-textarea__inner) {
   border-radius: 0 !important;
   box-sizing: border-box;
   outline: none;
@@ -1058,7 +1239,10 @@ watch(
 /* 非scoped样式，确保全局覆盖 */
 <style lang="scss">
 /* 直接针对批量添加自定义属性对话框的textarea */
-.el-dialog[title="批量添加自定义属性"] .el-form-item .el-input.el-input--textarea .el-textarea__inner {
+.el-dialog[title='批量添加自定义属性']
+  .el-form-item
+  .el-input.el-input--textarea
+  .el-textarea__inner {
   border-radius: 0 !important;
   box-sizing: border-box;
   outline: none;

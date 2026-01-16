@@ -96,11 +96,15 @@ const routes = [
           },
           {
             path: 'details',
-            component: () => import('../views/Chat/components/Chatroom/ChatroomDetails.vue'),
+            component: () =>
+              import('../views/Chat/components/Chatroom/ChatroomDetails.vue'),
           },
           {
             path: 'member-management',
-            component: () => import('../views/Chat/components/Chatroom/ChatroomMemberManagement.vue'),
+            component: () =>
+              import(
+                '../views/Chat/components/Chatroom/ChatroomMemberManagement.vue'
+              ),
           },
         ],
       },

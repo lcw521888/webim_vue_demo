@@ -44,12 +44,12 @@ const sendFilesMessages = async () => {
     ElMessage.error('发送文件消息失败: 请先选择聊天对象');
     return;
   }
-  
+
   const commonFile = uploadFiles.value.files[0];
   if (!commonFile) {
     return;
   }
-  
+
   // 增加文件大小检查，避免发送过大文件触发服务器413错误
   const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
   if (commonFile.size > MAX_FILE_SIZE) {
@@ -57,7 +57,7 @@ const sendFilesMessages = async () => {
     uploadFiles.value.value = null;
     return;
   }
-  
+
   const file = {
     data: commonFile, // file 对象。
     filename: commonFile.name, //文件名称。
@@ -75,7 +75,10 @@ const sendFilesMessages = async () => {
       // 文件上传失败
       console.error('文件上传失败:', error);
       // 避免递归调用，直接处理错误
-      if (error?.type === 413 || error?.data?.error === 'Request Entity Too Large') {
+      if (
+        error?.type === 413 ||
+        error?.data?.error === 'Request Entity Too Large'
+      ) {
         ElMessage.error('文件大小超过服务器限制');
       } else {
         ElMessage.error('文件上传失败');

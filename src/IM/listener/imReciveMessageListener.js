@@ -12,18 +12,28 @@ export const imReviceMessageListener = () => {
       console.error('收到无效消息:', message);
       return;
     }
-    
+
     // 为所有消息添加日志，包括群组消息
-    console.log(`事件名称：收到${message.chatType === CHAT_TYPE.CHATROOM ? '聊天室' : message.chatType === CHAT_TYPE.GROUP ? '群组' : message.chatType === CHAT_TYPE.SINGLE ? '单聊' : '未知类型'}消息`);
+    console.log(
+      `事件名称：收到${
+        message.chatType === CHAT_TYPE.CHATROOM
+          ? '聊天室'
+          : message.chatType === CHAT_TYPE.GROUP
+          ? '群组'
+          : message.chatType === CHAT_TYPE.SINGLE
+          ? '单聊'
+          : '未知类型'
+      }消息`,
+    );
     console.log('请求参数：', {
       from: message.from,
       to: message.to,
       chatType: message.chatType,
       msg: message.msg || message.content,
-      id: message.id
+      id: message.id,
     });
     console.log('返回值：无');
-    
+
     // 确保消息有正确的chatType和to字段
     if (!message.chatType) {
       console.error('消息缺少chatType字段:', message);
@@ -33,7 +43,7 @@ export const imReviceMessageListener = () => {
       console.error('消息缺少to字段:', message);
       return;
     }
-    
+
     store.dispatch('createNewMessage', message);
     store.dispatch('UsersProfile/processMessageExt', message, { root: true });
   };
@@ -44,8 +54,12 @@ export const imReviceMessageListener = () => {
     const key = to === EMClient.user ? from : to;
 
     // 根据消息中的chatType确定聊天类型
-    const chatType = to === EMClient.user ? CHAT_TYPE.SINGLE : 
-                    messageChatType === CHAT_TYPE.CHATROOM ? CHAT_TYPE.CHATROOM : CHAT_TYPE.GROUP;
+    const chatType =
+      to === EMClient.user
+        ? CHAT_TYPE.SINGLE
+        : messageChatType === CHAT_TYPE.CHATROOM
+        ? CHAT_TYPE.CHATROOM
+        : CHAT_TYPE.GROUP;
     store.commit('CHANGE_MESSAGE_BODAY', {
       type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
       key,
@@ -81,7 +95,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -92,7 +106,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -103,7 +117,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -114,7 +128,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -125,7 +139,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -136,7 +150,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -147,7 +161,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -158,7 +172,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -169,7 +183,7 @@ export const imReviceMessageListener = () => {
         console.log('请求参数：', message);
         // 处理可能包含多条消息的情况
         if (Array.isArray(message)) {
-          message.forEach(msg => pushNewMessage(msg));
+          message.forEach((msg) => pushNewMessage(msg));
         } else {
           pushNewMessage(message);
         }
@@ -188,10 +202,10 @@ export const imReviceMessageListener = () => {
         console.log('返回值：无');
       },
       // 聊天室事件监听
-      onChatroomEvent: function(msg) {
+      onChatroomEvent: function (msg) {
         console.log('事件名称：onChatroomEvent');
         console.log('请求参数：', msg);
-        switch(msg.operation) {
+        switch (msg.operation) {
           // 解除聊天室一键禁言。聊天室所有成员（除操作者外）会收到该事件。
           case 'unmuteAllMembers':
             break;
@@ -255,7 +269,7 @@ export const imReviceMessageListener = () => {
         console.log('返回值：无');
       },
     });
-    
+
     console.log('=== 消息监听器已挂载 ===');
   };
   return {

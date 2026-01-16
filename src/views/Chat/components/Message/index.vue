@@ -88,7 +88,7 @@ const fechHistoryMessage = async (loadType) => {
   if (!routeQueryData.value) return [];
   loadingHistoryMsg.value = true;
   notScrollBottom.value = true;
-  
+
   try {
     let messages = [];
     if (loadType == 'fistLoad') {
@@ -97,7 +97,7 @@ const fechHistoryMessage = async (loadType) => {
         cursor: -1,
       });
       messages = result.messages || [];
-      
+
       if (messages.length > 0) {
         //返回数组有数据显示加载更多
         isMoreHistoryMsg.value = true;
@@ -111,13 +111,13 @@ const fechHistoryMessage = async (loadType) => {
     } else {
       const fistMessageId = messageData.value[0] && messageData.value[0].id;
       if (!fistMessageId) return;
-      
+
       const result = await store.dispatch('getHistoryMessage', {
         ...routeQueryData.value,
         cursor: fistMessageId,
       });
       messages = result.messages || [];
-      
+
       if (messages.length > 0) {
         //返回数组有数据显示加载更多
         isMoreHistoryMsg.value = true;
@@ -127,7 +127,7 @@ const fechHistoryMessage = async (loadType) => {
       }
       scrollMessageList('normal');
     }
-    
+
     return messages;
   } catch (error) {
     console.error('获取历史消息失败:', error);
@@ -154,12 +154,16 @@ watch(
     if (loginState.value && newRouteQuery.id && newRouteQuery.chatType) {
       // 只有当会话ID变化或者是首次加载时才获取历史消息
       // 首次加载时oldRouteQuery是undefined，需要特殊处理
-      if (!oldRouteQuery || !oldRouteQuery.id || newRouteQuery.id !== oldRouteQuery.id) {
+      if (
+        !oldRouteQuery ||
+        !oldRouteQuery.id ||
+        newRouteQuery.id !== oldRouteQuery.id
+      ) {
         await fechHistoryMessage('fistLoad');
       }
     }
   },
-  { immediate: true, deep: true }
+  { immediate: true, deep: true },
 );
 
 const messageContainer = ref(null);
@@ -189,7 +193,7 @@ watch(
       // 判断拉取漫游导致的消息变化不需要执行滚动置底
       if (notScrollBottom.value) {
         return;
-      } 
+      }
       // 新消息到达或首次加载时滚动到底部
       if (newLength > oldLength || oldLength === undefined) {
         scrollMessageList('bottom');
@@ -197,8 +201,8 @@ watch(
     });
   },
   {
-    immediate: true
-  }
+    immediate: true,
+  },
 );
 watch(
   () => route.query,

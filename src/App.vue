@@ -3,22 +3,23 @@ import { ref } from 'vue';
 import { mountAllEMListener } from '@/IM/listener';
 import { EMClient } from '@/IM';
 import ring from '@/assets/ring.mp3';
-/* callkit */
-// import EaseCallKit from '@/components/EaseCallKit';
-// import InviteCallMembers from '@/components/InviteCallMembers';
 import { ElMessage } from 'element-plus';
 // 导入调试工具
 import { enableEMClientDebug } from '@/utils/debugSDK';
 // 导入全局错误处理程序
 import '@/utils/globalErrorHandler';
+
 // 启用EMClient调试
 enableEMClientDebug();
+
 /* 【重要】挂载IM相关监听回调。 */
 mountAllEMListener();
+
 /* 重新登陆 */
 //读取本地EASEIM_loginUser
 const EASEIM_loginUser = window.localStorage.getItem('EASEIM_loginUser');
 const loginUserFromStorage = JSON.parse(EASEIM_loginUser) || {};
+
 const handleRelogin = async () => {
   try {
     await EMClient.open({
@@ -33,41 +34,23 @@ const handleRelogin = async () => {
     });
   }
 };
+
 if (loginUserFromStorage?.user && loginUserFromStorage?.accessToken) {
   handleRelogin();
 }
-/* EaseCallKit 相关 */
-const easeCallKit = ref(null);
-const inviteCallComp = ref(null);
-//多人会议使用-弹出邀请模态框
-const showModal = ({ groupId }) => {
-  inviteCallComp.value.alertDialog(groupId);
-};
-//多人会议使用-传递给邀请组件发送邀请消息
-const sendMulitInviteMsg = (targetIMId) => {
-  const callType = 2;
-  easeCallKit.value.inMultiChanelSendInviteMsg(targetIMId, callType);
-};
 </script>
 <template>
   <router-view v-slot="{ Component }">
-    <transition name="slide-fade" mode="out-in" :duration="{ enter: 500, leave: 300 }">
+    <transition
+      name="slide-fade"
+      mode="out-in"
+      :duration="{ enter: 500, leave: 300 }"
+    >
       <component :is="Component" />
     </transition>
   </router-view>
   <!-- 铃声标签 -->
   <audio id="ring" :src="ring" controls hidden></audio>
-  <!-- About EaseCallKit -->
-  <!-- <EaseCallKit
-    ref="easeCallKit"
-    :EaseIMClient="EMClient"
-    :msgCreateFunc="EMClient.Message"
-    @onInviteMembers="showModal"
-  />
-  <InviteCallMembers
-    ref="inviteCallComp"
-    @sendMulitInviteMsg="sendMulitInviteMsg"
-  /> -->
 </template>
 
 <style type="scss">

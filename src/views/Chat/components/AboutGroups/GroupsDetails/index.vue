@@ -151,7 +151,10 @@ const editMyGroupNickName = async (type, oldMyGroupNickname) => {
 const inTheGroupNickname = computed(() => {
   const groupIdValue = groupId.value;
   const loginUserValue = EMClient.user;
-  const groupProfile = store.getters['UsersProfile/getInTheGroupInfo'](loginUserValue, groupIdValue);
+  const groupProfile = store.getters['UsersProfile/getInTheGroupInfo'](
+    loginUserValue,
+    groupIdValue,
+  );
   const myNickname = groupProfile?.nickName;
   return myNickname || '';
 });
@@ -255,7 +258,11 @@ onMounted(() => {
     <div class="group_func_card group_name">
       <div class="title">
         群名称
-        <el-icon class="icon" v-if="memberRole" @click="editGroupName('edit', getGroupDetailFromGroupList.groupName)">
+        <el-icon
+          class="icon"
+          v-if="memberRole"
+          @click="editGroupName('edit', getGroupDetailFromGroupList.groupName)"
+        >
           <Edit />
         </el-icon>
       </div>
@@ -263,8 +270,16 @@ onMounted(() => {
         <div v-if="!isEdit">
           {{ getGroupDetailFromGroupList.groupName || '' }}
         </div>
-        <el-input v-else class="group_name_input" ref="editGroupNameInput" v-model="groupName" size="small" maxlength="15"
-          show-word-limit @blur="editGroupName('save', getGroupDetailFromGroupList.groupName)">
+        <el-input
+          v-else
+          class="group_name_input"
+          ref="editGroupNameInput"
+          v-model="groupName"
+          size="small"
+          maxlength="15"
+          show-word-limit
+          @blur="editGroupName('save', getGroupDetailFromGroupList.groupName)"
+        >
         </el-input>
       </div>
     </div>
@@ -320,8 +335,9 @@ onMounted(() => {
       <div class="main">
         <div class="member_count">
           {{
-            `${getGroupDetailFromGroupList.affiliationsCount || '0'}/${getGroupDetailFromGroupList.maxUsers || '500'
-              }`
+            `${getGroupDetailFromGroupList.affiliationsCount || '0'}/${
+              getGroupDetailFromGroupList.maxUsers || '500'
+            }`
           }}
         </div>
         <div class="more_list" @click="alertManagementModal('groupmembers')">
@@ -338,7 +354,10 @@ onMounted(() => {
           <div class="member_count">
             {{ groupBlacklist?.length || '暂无' }}
           </div>
-          <div class="more_list" @click="alertManagementModal('groupBlacklist')">
+          <div
+            class="more_list"
+            @click="alertManagementModal('groupBlacklist')"
+          >
             <ArrowRight />
           </div>
         </div>
@@ -360,16 +379,35 @@ onMounted(() => {
     </template>
     <!-- 群组操作按钮 -->
     <div class="group_list_handle_box">
-      <template v-if="getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.OWNER">
-        <el-button type="danger" class="group_list_card_btn" plain @click="dissolveThisGroup">解散群组</el-button>
+      <template
+        v-if="getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.OWNER"
+      >
+        <el-button
+          type="danger"
+          class="group_list_card_btn"
+          plain
+          @click="dissolveThisGroup"
+          >解散群组</el-button
+        >
       </template>
       <template v-else>
-        <el-button type="danger" class="group_list_card_btn" plain @click="quitThisGroup">退出群组</el-button>
+        <el-button
+          type="danger"
+          class="group_list_card_btn"
+          plain
+          @click="quitThisGroup"
+          >退出群组</el-button
+        >
       </template>
     </div>
 
-    <GroupsManagement ref="groupmanagement" :modalType="modalType" :groupModalTitle="groupModalTitle"
-      :memberRole="memberRole" :groupId="groupId" />
+    <GroupsManagement
+      ref="groupmanagement"
+      :modalType="modalType"
+      :groupModalTitle="groupModalTitle"
+      :memberRole="memberRole"
+      :groupId="groupId"
+    />
   </div>
 </template>
 <style lang="scss" scoped>

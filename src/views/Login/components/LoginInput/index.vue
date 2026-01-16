@@ -8,11 +8,11 @@ import { fetchUserLoginSmsCode, fetchUserLoginToken } from '@/api/login';
 import { useStore } from 'vuex';
 import { usePlayRing } from '@/hooks';
 import EmLoginWithPasswordLogin from './emloginWithPasswordLogin.vue';
-import { secret, PREFIX, SCENE_ID } from '@/private-config'
+import { secret, PREFIX, SCENE_ID } from '@/private-config';
 import { encryptAES } from '@/utils/encriptAES';
 //判断当前是否为生产环境
-const isProd = process.env.NODE_ENV === 'production'
-const isDev = !isProd
+const isProd = process.env.NODE_ENV === 'production';
+const isDev = !isProd;
 const store = useStore();
 const emits = defineEmits(['changeToLogin']);
 const loginValue = reactive({
@@ -91,7 +91,7 @@ const loginIM = async () => {
 };
 /* 短信验证码相关 */
 const isSending = ref(false);
-const handleSendCode = (sendStatus) => isSending.value = sendStatus;
+const handleSendCode = (sendStatus) => (isSending.value = sendStatus);
 const isSenedAuthCode = ref(false);
 const authCodeNextCansendTime = ref(60);
 onMounted(() => {
@@ -99,9 +99,9 @@ onMounted(() => {
     window.initAliyunCaptcha({
       SceneId: SCENE_ID, // 场景ID。根据步骤二新建验证场景后，您可以在验证码场景列表，获取该场景的场景ID
       prefix: PREFIX, // 身份标。开通阿里云验证码2.0后，您可以在控制台概览页面的实例基本信息卡片区域，获取身份标
-      mode: "popup", // 验证码模式。popup表示要集成的验证码模式为弹出式。无需修改
-      element: "#captcha-element", // 页面上预留的渲染验证码的元素，与原代码中预留的页面元素保持一致。
-      button: "#captcha-button", // 触发验证码弹窗的元素。button表示单击登录按钮后，触发captchaVerifyCallback函数。您可以根据实际使用的元素修改element的值
+      mode: 'popup', // 验证码模式。popup表示要集成的验证码模式为弹出式。无需修改
+      element: '#captcha-element', // 页面上预留的渲染验证码的元素，与原代码中预留的页面元素保持一致。
+      button: '#captcha-button', // 触发验证码弹窗的元素。button表示单击登录按钮后，触发captchaVerifyCallback函数。您可以根据实际使用的元素修改element的值
       captchaVerifyCallback: captchaVerifyCallback, // 业务请求(带验证码校验)回调函数，无需修改
       onBizResultCallback: onBizResultCallback, // 业务请求结果回调函数，无需修改
       getInstance: getInstance, // 绑定验证码实例函数，无需修改
@@ -109,10 +109,10 @@ onMounted(() => {
         width: 360,
         height: 40,
       }, // 滑块验证码样式，支持自定义宽度和高度，单位为px。其中，width最小值为320 px
-      language: "cn", // 验证码语言类型，支持简体中文（cn）、繁体中文（tw）、英文（en）
+      language: 'cn', // 验证码语言类型，支持简体中文（cn）、繁体中文（tw）、英文（en）
     });
   }
-})
+});
 // 验证通过后调用
 const onBizResultCallback = (bizResult) => {
   handleSendCode(bizResult);
@@ -128,12 +128,12 @@ const captchaVerifyCallback = async (captchaVerifyParam) => {
   // 验证通过后调用
   const data = { captchaResult: false, bizResult: true };
   if (!captchaVerifyParam) {
-    ElMessage.error("请先进行安全验证!");
+    ElMessage.error('请先进行安全验证!');
     handleSendCode(false);
     return data;
   }
   //进行验证结果加密
-  captchaVerifyParam = await encryptAES(captchaVerifyParam, secret)
+  captchaVerifyParam = await encryptAES(captchaVerifyParam, secret);
   handleSendCode(true);
   data.captchaResult = true;
   await sendMessageAuthCode(captchaVerifyParam);
@@ -142,20 +142,20 @@ const captchaVerifyCallback = async (captchaVerifyParam) => {
 onUnmounted(() => {
   // 必须删除相关元素，否则再次mount多次调用 initAliyunCaptcha 会导致多次回调 captchaVerifyCallback
   if (window.initAliyunCaptcha && isProd) {
-    document.getElementById("aliyunCaptcha-mask")?.remove();
-    document.getElementById("aliyunCaptcha-window-popup")?.remove();
+    document.getElementById('aliyunCaptcha-mask')?.remove();
+    document.getElementById('aliyunCaptcha-window-popup')?.remove();
   }
-})
+});
 const sendMessageAuthCode = async (captchaVerifyParam) => {
   const phoneNumber = loginValue.phoneNumber;
   if (!captchaVerifyParam) {
-    ElMessage.error("请先进行安全验证!");
+    ElMessage.error('请先进行安全验证!');
     return;
   }
   const params = {
     phoneNumber: phoneNumber,
     captchaVerifyParam: captchaVerifyParam,
-  }
+  };
   try {
     const res = await fetchUserLoginSmsCode({ ...params });
     if (res?.code === 200) {
@@ -164,7 +164,7 @@ const sendMessageAuthCode = async (captchaVerifyParam) => {
           type: 'success',
           message: '验证码获取成功！',
           center: true,
-        })
+        });
         startCountDown();
         handleSendCode(true);
       }
@@ -172,50 +172,59 @@ const sendMessageAuthCode = async (captchaVerifyParam) => {
       handleSendCode(false);
     }
   } catch (error) {
-    console.log('error.response.data?.error_description', error.response.status);
-    if (error.response.status !== "200") {
-      if (error.response.data?.error_description == "phone number illegal") {
+    console.log(
+      'error.response.data?.error_description',
+      error.response.status,
+    );
+    if (error.response.status !== '200') {
+      if (error.response.data?.error_description == 'phone number illegal') {
         ElMessage.error({
           message: '请输入正确的手机号码',
           center: true,
-          type: 'error'
+          type: 'error',
         });
       } else if (
         error.response.data?.error_description ==
-        "Please wait a moment while trying to send."
+        'Please wait a moment while trying to send.'
       ) {
         ElMessage.error({
           message: '操作过于频繁，请稍后再试',
           center: true,
-          type: 'error'
+          type: 'error',
         });
       } else if (
-        error.response.data?.error_description.includes("exceed the limit") ||
-        error.response.data?.error_description.includes("SMS verification code exceeds the limit") ||
-        error.response.data?.error_description.includes("This request has reached api limit.")
+        error.response.data?.error_description.includes('exceed the limit') ||
+        error.response.data?.error_description.includes(
+          'SMS verification code exceeds the limit',
+        ) ||
+        error.response.data?.error_description.includes(
+          'This request has reached api limit.',
+        )
       ) {
         ElMessage.error({
           message: '验证码获取已达上限，请明日再试', // 修改提示文案
           center: true,
-          type: 'error'
+          type: 'error',
         });
       } else {
         ElMessage.error({
-          message: error.response.data?.errorInfo || error.response.data?.error_description || "验证码获取失败",
+          message:
+            error.response.data?.errorInfo ||
+            error.response.data?.error_description ||
+            '验证码获取失败',
           center: true,
-          type: 'error'
+          type: 'error',
         });
       }
     } else {
       ElMessage.error({
         message: '验证码获取失败',
         center: true,
-        type: 'error'
+        type: 'error',
       });
     }
     handleSendCode(false);
   }
-
 };
 const startCountDown = () => {
   isSenedAuthCode.value = true;
@@ -245,27 +254,50 @@ const IM_IS_OPEN_CUSTOM_SERVER_CONFIG = useStorage(
   <template v-else>
     <el-form :model="loginValue" :rules="rules">
       <el-form-item prop="phoneNumber">
-        <el-input class="login_input_style" v-model="loginValue.phoneNumber" placeholder="手机号" clearable />
+        <el-input
+          class="login_input_style"
+          v-model="loginValue.phoneNumber"
+          placeholder="手机号"
+          clearable
+        />
       </el-form-item>
       <el-form-item prop="smsCode">
-        <el-input class="login_input_style" v-model="loginValue.smsCode" placeholder="请输入短信验证码">
+        <el-input
+          class="login_input_style"
+          v-model="loginValue.smsCode"
+          placeholder="请输入短信验证码"
+        >
           <template #append>
-            <el-button id="captcha-button" type="primary" :disabled="loginValue.phoneNumber && isSenedAuthCode" v-text="isSenedAuthCode ? `${authCodeNextCansendTime}S` : '获取验证码'
-              "></el-button>
+            <el-button
+              id="captcha-button"
+              type="primary"
+              :disabled="loginValue.phoneNumber && isSenedAuthCode"
+              v-text="
+                isSenedAuthCode ? `${authCodeNextCansendTime}S` : '获取验证码'
+              "
+            ></el-button>
           </template>
         </el-input>
       </el-form-item>
       <el-form-item>
         <div class="function_button_box">
-          <el-button v-if="loginValue.phoneNumber && loginValue.smsCode" class="haveValueBtn" :loading="buttonLoading"
-            @click="loginIM">登录</el-button>
+          <el-button
+            v-if="loginValue.phoneNumber && loginValue.smsCode"
+            class="haveValueBtn"
+            :loading="buttonLoading"
+            @click="loginIM"
+            >登录</el-button
+          >
           <el-button v-else class="notValueBtn">登录</el-button>
         </div>
       </el-form-item>
     </el-form>
   </template>
   <!-- 验证码渲染元素框 -->
-  <div id="captcha-element" :style="{ 'display': isSending ? 'none' : 'initial' }"></div>
+  <div
+    id="captcha-element"
+    :style="{ display: isSending ? 'none' : 'initial' }"
+  ></div>
 </template>
 
 <style lang="scss" scoped>
