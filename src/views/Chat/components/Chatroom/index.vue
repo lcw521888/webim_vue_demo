@@ -8,6 +8,28 @@ import router from '@/router';
 import SearchInput from '@/components/SearchInput';
 import Welcome from '@/components/Welcome';
 
+// 缓存已获取的聊天室详情，用于存储准确的成员数
+const chatroomDetailsCache = ref(new Map());
+
+// 获取单个聊天室的准确详情（包括成员数）
+const fetchChatroomDetail = async (roomId) => {
+  try {
+    const res = await EMClient.getChatRoomDetails({ chatRoomId: roomId });
+    const detail = Array.isArray(res.data) ? res.data[0] || {} : res.data || {};
+    
+    if (detail.id) {
+      // 缓存聊天室详情
+      chatroomDetailsCache.value.set(detail.id, detail);
+      console.log(`缓存聊天室${detail.id}的准确详情:`, { affiliations_count: detail.affiliations_count });
+    }
+    
+    return detail;
+  } catch (error) {
+    console.error(`获取聊天室${roomId}详情失败:`, error);
+    return null;
+  }
+};
+
 const store = useStore();
 
 const chatroomList = ref([]);
@@ -86,16 +108,26 @@ const getChatrooms = async () => {
       res.data && res.data.length > 0 ? JSON.stringify(res.data[0], null, 2) : '无数据',
     );
     // 修复成员数量显示问题：将可能的memberCount字段映射到affiliations_count
-    chatroomList.value = (res.data || []).map(item => ({
-      ...item,
-      affiliations_count: Math.max(
+    // 添加日志查看实际数据
+    if (res.data && res.data.length > 0) {
+      console.log(`第一个所有聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
+    }
+    
+    chatroomList.value = (res.data || []).map(item => {
+      // 计算成员数：使用服务器返回的实际数据，允许显示0
+      const calculatedCount = Math.max(
         item.affiliations_count || 0,
         item.memberCount || 0,
         item.affiliationsCount || 0,
         item.onlineCount || 0,
-        0 // 对于未加入的聊天室，可以显示0
-      )
-    }));
+        item.members?.length || 0 // 检查members数组长度
+      );
+      
+      return {
+        ...item,
+        affiliations_count: calculatedCount
+      };
+    });
     
     console.log(`所有聊天室列表处理完成:`, JSON.stringify(chatroomList.value, null, 2));
   } catch (error) {
@@ -143,7 +175,12 @@ const getJoinedChatrooms = async () => {
       chatRoomParams,
     );
     // 修复成员数量显示问题：将可能的memberCount字段映射到affiliations_count
-    // 对于已加入的聊天室，至少显示1个成员（当前用户）
+    // 添加日志查看实际数据
+    if (res.data && res.data.length > 0) {
+      console.log(`第一个已加入聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
+    }
+    
+    // 先使用列表数据初始化
     joinedChatroomList.value = (res.data || []).map(item => ({
       ...item,
       affiliations_count: Math.max(
@@ -151,9 +188,41 @@ const getJoinedChatrooms = async () => {
         item.memberCount || 0,
         item.affiliationsCount || 0,
         item.onlineCount || 0,
-        1 // 默认至少有当前用户
+        item.members?.length || 0,
+        1 // 至少显示1个成员（当前用户）
       )
     }));
+    
+    // 为每个已加入的聊天室获取准确的详情
+    if (joinedChatroomList.value.length > 0) {
+      console.log('开始为已加入聊天室获取准确详情...');
+      
+      // 并发获取所有聊天室的详情
+      const detailPromises = joinedChatroomList.value.map(item => 
+        fetchChatroomDetail(item.id)
+      );
+      
+      // 等待所有详情获取完成
+      const details = await Promise.all(detailPromises);
+      
+      // 更新列表中的成员数
+      joinedChatroomList.value = joinedChatroomList.value.map(item => {
+        // 从缓存或刚获取的详情中查找
+        const cachedDetail = chatroomDetailsCache.value.get(item.id);
+        
+        if (cachedDetail?.affiliations_count !== undefined) {
+          console.log(`更新聊天室${item.id}的成员数: 从${item.affiliations_count}到${cachedDetail.affiliations_count}`);
+          return {
+            ...item,
+            affiliations_count: cachedDetail.affiliations_count
+          };
+        }
+        
+        return item;
+      });
+      
+      console.log('已加入聊天室详情获取完成');
+    }
     
     console.log(`已加入聊天室列表处理完成:`, JSON.stringify(joinedChatroomList.value, null, 2));
   } catch (error) {
@@ -634,7 +703,6 @@ onUnmounted(() => {
                   <div class="info">
                     <!-- 确保显示affiliations_count，空值显示0 -->
                     <span>成员: {{ item.affiliations_count || 0 }}</span>
-                    <span>最大: {{ item.maxusers }}</span>
                   </div>
                 </div>
                 <div class="item_right">
@@ -686,7 +754,6 @@ onUnmounted(() => {
                   <div class="info">
                     <!-- 确保显示affiliations_count，空值显示0 -->
                     <span>成员: {{ item.affiliations_count || 0 }}</span>
-                    <span>最大: {{ item.maxusers }}</span>
                   </div>
                 </div>
                 <div class="item_right">
