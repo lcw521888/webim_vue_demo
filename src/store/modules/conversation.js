@@ -242,35 +242,62 @@ const Conversation = {
         console.error('获取会话列表失败', error);
       }
     },
-    //从服务端获取会话列表数据
-    getConversationListFromServer: async (
-      { state, dispatch, commit },
-      { isInit },
-    ) => {
+    //从服务端获取会话列表
+    getConversationListFromServer: async ({ state, commit, dispatch }, params) => {
+      const { isInit } = params || {};
       console.log('>>>>>服务端获取会话列表数据');
       try {
+        // 从服务器获取会话列表（不包含聊天室）
         const result = await EMClient.getServerConversations({
           pageSize: state.conversationListFromServerPageSize,
           cursor: isInit ? '' : state.conversationListFromServerCursor,
         });
-        if (!result?.data?.conversations?.length) return;
+        
+        let allConversations = result?.data?.conversations || [];
+        
+        // 如果是初始化加载，同时获取聊天室列表
+        if (isInit) {
+          try {
+            // 获取已加入的聊天室列表
+            const chatroomsResult = await EMClient.getJoinedChatRooms();
+            if (chatroomsResult?.data?.length) {
+              // 将聊天室转换为会话格式
+              const chatroomConversations = chatroomsResult.data.map(chatroom => ({
+                conversationId: chatroom.id,
+                conversationType: CHAT_TYPE.CHATROOM,
+                unReadCount: 0,
+                lastMessage: null,
+                customField: {},
+              }));
+              // 合并会话列表和聊天室列表
+              allConversations = [...allConversations, ...chatroomConversations];
+            }
+          } catch (chatroomError) {
+            console.error('获取聊天室列表失败', chatroomError);
+          }
+        }
+        
+        if (!allConversations.length) return;
+        
         commit('GET_CONVERSATION_LIST_FROM_SERVER', {
           isInit,
-          conversationListData: result?.data?.conversations,
+          conversationListData: allConversations,
         });
-        commit(
-          'SET_CONVERSATION_LIST_FROM_SERVER_PAGE_CURSOR',
-          result?.data?.cursor,
-        );
-        const userIds = _.chain(result?.data?.conversations)
+        
+        if (result?.data?.cursor) {
+          commit(
+            'SET_CONVERSATION_LIST_FROM_SERVER_PAGE_CURSOR',
+            result?.data?.cursor,
+          );
+        }
+        
+        const userIds = _.chain(allConversations)
           .filter({ conversationType: CHAT_TYPE.SINGLE })
           .map('conversationId')
           .value();
         dispatch('fetchContactsUserInfos', userIds);
-        dispatch(
-          'callGroupDetailWithConversationId',
-          result?.data?.conversations,
-        );
+        
+        dispatch('callGroupDetailWithConversationId', allConversations);
       } catch (error) {
         console.error('获取会话列表失败', error);
       }

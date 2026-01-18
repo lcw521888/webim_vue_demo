@@ -48,28 +48,40 @@ const {
   getGroupAvatarByGroupId,
   getUserDisplayNameById,
   getUserDisplayAvatarById,
+  getChatroomNameByChatroomId,
+  getChatroomAvatarByChatroomId,
 } = useGetUserMapInfo();
 const handleConversationName = computed(() => {
   return (conversationItem) => {
+    if (!conversationItem) return '未知会话';
     const { conversationType, conversationId } = conversationItem;
     if (conversationType === CHAT_TYPE.SINGLE) {
-      return getUserDisplayNameById(conversationId);
+      return getUserDisplayNameById(conversationId) || conversationId;
     }
     if (conversationType === CHAT_TYPE.GROUP) {
-      return getGroupNameByGroupId(conversationId);
+      return getGroupNameByGroupId(conversationId) || conversationId;
     }
+    if (conversationType === CHAT_TYPE.CHATROOM) {
+      return getChatroomNameByChatroomId(conversationId) || conversationId;
+    }
+    return conversationId;
   };
 });
 //处理会话头像
 const handleConversationAvatar = computed(() => {
   return (conversationItem) => {
+    if (!conversationItem) return defaultAvatar;
     const { conversationType, conversationId } = conversationItem;
     if (conversationType === CHAT_TYPE.SINGLE) {
-      return getUserDisplayAvatarById(conversationId);
+      return getUserDisplayAvatarById(conversationId) || defaultAvatar;
     }
     if (conversationType === CHAT_TYPE.GROUP) {
-      return getGroupAvatarByGroupId(conversationId);
+      return getGroupAvatarByGroupId(conversationId) || defaultGroupAvatar;
     }
+    if (conversationType === CHAT_TYPE.CHATROOM) {
+      return getChatroomAvatarByChatroomId(conversationId) || defaultGroupAvatar;
+    }
+    return defaultAvatar;
   };
 });
 //处理lastmsg的from昵称
