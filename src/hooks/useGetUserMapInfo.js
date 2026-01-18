@@ -60,8 +60,9 @@ const useGetUserMapInfo = () => {
   //获取群组头像
   const getGroupAvatarByGroupId = (groupId) => {
     const groupInfo = groupDetailMap.value.get(groupId) ?? {};
-    // 优先获取群组设置的头像, 再次尝试获取自定义字段内携带的头像，否则获取默认头像
-    return groupInfo?.avatar || groupInfo?.custom || defaultGroupAvatar;
+    // 优先获取群组设置的头像, 否则获取默认头像
+    // 注意：groupInfo.custom可能是一个对象，不能直接作为头像URL使用
+    return groupInfo?.avatar || defaultGroupAvatar;
   };
   
   //获取聊天室名称
