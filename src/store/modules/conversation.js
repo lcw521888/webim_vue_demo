@@ -136,7 +136,35 @@ const Conversation = {
             [...conversationListData, ...state.conversationListFromServer],
             'conversationId',
           );
+      // 按照置顶状态和最后消息时间排序，置顶会话优先，然后按时间倒序
+      conversationList.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        if (!a.lastMessage || !b.lastMessage) return 0;
+        return b.lastMessage.time - a.lastMessage.time;
+      });
       state.conversationListFromServer = conversationList;
+    },
+    //更新会话置顶状态
+    UPDATE_CONVERSATION_PIN_STATUS: (state, pinnedConversations) => {
+      if (!pinnedConversations || !pinnedConversations.length) return;
+      
+      pinnedConversations.forEach(pinnedItem => {
+        const existingConversation = state.conversationListFromServer.find(
+          c => c.conversationId === pinnedItem.conversationId
+        );
+        if (existingConversation) {
+          existingConversation.isPinned = true;
+        }
+      });
+      
+      // 重新排序会话列表
+      state.conversationListFromServer.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        if (!a.lastMessage || !b.lastMessage) return 0;
+        return b.lastMessage.time - a.lastMessage.time;
+      });
     },
   },
   actions: {
@@ -234,6 +262,30 @@ const Conversation = {
             conversationList = [...result.data.conversations];
           }
         }
+        
+        // 获取置顶会话列表
+        try {
+          const pinnedResult = await dispatch('getServerPinnedConversations');
+          if (pinnedResult?.conversations?.length) {
+            // 给会话添加置顶标记
+            conversationList.forEach(conversation => {
+              conversation.isPinned = pinnedResult.conversations.some(
+                pinned => pinned.conversationId === conversation.conversationId
+              );
+            });
+          }
+        } catch (pinnedError) {
+          console.error('获取置顶会话列表失败', pinnedError);
+        }
+        
+        // 按照置顶状态和最后消息时间排序，置顶会话优先，然后按时间倒序
+        conversationList.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          if (!a.lastMessage || !b.lastMessage) return 0;
+          return b.lastMessage.time - a.lastMessage.time;
+        });
+        
         commit('GET_CONVERSATION_LIST_FROM_LOCAL', conversationList);
 
         dispatch('callGroupDetailWithConversationId', conversationList);
@@ -255,25 +307,43 @@ const Conversation = {
         
         let allConversations = result?.data?.conversations || [];
         
-        // 如果是初始化加载，同时获取聊天室列表
+        // 如果是初始化加载，同时获取聊天室列表和置顶会话列表
         if (isInit) {
-          try {
-            // 获取已加入的聊天室列表
-            const chatroomsResult = await EMClient.getJoinedChatRooms();
-            if (chatroomsResult?.data?.length) {
-              // 将聊天室转换为会话格式
-              const chatroomConversations = chatroomsResult.data.map(chatroom => ({
-                conversationId: chatroom.id,
-                conversationType: CHAT_TYPE.CHATROOM,
-                unReadCount: 0,
-                lastMessage: null,
-                customField: {},
-              }));
-              // 合并会话列表和聊天室列表
-              allConversations = [...allConversations, ...chatroomConversations];
-            }
-          } catch (chatroomError) {
-            console.error('获取聊天室列表失败', chatroomError);
+          // 并行获取聊天室列表和置顶会话列表
+          const [chatroomsResult, pinnedResult] = await Promise.all([
+            EMClient.getJoinedChatRooms().catch(chatroomError => {
+              console.error('获取聊天室列表失败', chatroomError);
+              return { data: [] };
+            }),
+            dispatch('getServerPinnedConversations').catch(pinnedError => {
+              console.error('获取置顶会话列表失败', pinnedError);
+              return { conversations: [] };
+            })
+          ]);
+          
+          // 处理聊天室列表
+          if (chatroomsResult?.data?.length) {
+            // 将聊天室转换为会话格式
+            const chatroomConversations = chatroomsResult.data.map(chatroom => ({
+              conversationId: chatroom.id,
+              conversationType: CHAT_TYPE.CHATROOM,
+              unReadCount: 0,
+              lastMessage: null,
+              customField: {},
+              isPinned: false
+            }));
+            // 合并会话列表和聊天室列表
+            allConversations = [...allConversations, ...chatroomConversations];
+          }
+          
+          // 处理置顶会话列表
+          if (pinnedResult?.conversations?.length) {
+            // 给会话添加置顶标记
+            allConversations.forEach(conversation => {
+              conversation.isPinned = pinnedResult.conversations.some(
+                pinned => pinned.conversationId === conversation.conversationId
+              );
+            });
           }
         }
         
@@ -300,6 +370,48 @@ const Conversation = {
         dispatch('callGroupDetailWithConversationId', allConversations);
       } catch (error) {
         console.error('获取会话列表失败', error);
+      }
+    },
+    //获取服务端置顶会话列表
+    getServerPinnedConversations: async ({ commit }, params) => {
+      const { pageSize = 50, cursor = '', includeEmptyConversations = true } = params || {};
+      try {
+        const result = await EMClient.getServerPinnedConversations({
+          pageSize,
+          cursor,
+          includeEmptyConversations
+        });
+        if (result?.data?.conversations?.length) {
+          commit('UPDATE_CONVERSATION_PIN_STATUS', result.data.conversations);
+          return result.data;
+        }
+        return { conversations: [] };
+      } catch (error) {
+        console.error('获取服务端置顶会话列表失败', error);
+        throw error;
+      }
+    },
+    //根据标记从服务端筛选会话列表
+    getServerConversationsByFilter: async ({ commit }, params) => {
+      const { pageSize = 10, cursor = '', filter } = params || {};
+      try {
+        const result = await EMClient.getServerConversationsByFilter({
+          pageSize,
+          cursor,
+          filter
+        });
+        if (result?.data?.conversations?.length) {
+          // 更新会话列表
+          commit('GET_CONVERSATION_LIST_FROM_SERVER', {
+            isInit: true,
+            conversationListData: result.data.conversations
+          });
+          return result.data;
+        }
+        return { conversations: [] };
+      } catch (error) {
+        console.error('根据标记获取服务端会话列表失败', error);
+        throw error;
       }
     },
     //获取会话列表
@@ -394,11 +506,13 @@ const Conversation = {
     //删除会话列表（本地以及远端）
     removeLocalConversation: async ({ state, commit }, params) => {
       const { conversationId, conversationType } = params;
+      // 转换chatType为小写，以兼容环信SDK的要求
+      const normalizedChatType = conversationType.toLowerCase();
       const options = {
         // 会话 ID：单聊为对方的用户 ID，群聊为群组 ID。
         channel: conversationId,
         // 会话类型：（默认） `singleChat`：单聊；`groupChat`：群聊。
-        chatType: conversationType,
+        chatType: normalizedChatType,
         // 删除会话时是否同时删除服务端漫游消息。
         deleteRoam: false,
       };

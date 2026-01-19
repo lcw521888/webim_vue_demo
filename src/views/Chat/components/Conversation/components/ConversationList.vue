@@ -6,6 +6,8 @@ import { CHAT_TYPE } from '@/IM/constant';
 import { CUSTOM_MSG_EVENT_TYPE, SESSION_MESSAGE_TYPE } from '@/constant';
 import _ from 'lodash';
 import { useRouter, useRoute } from 'vue-router';
+import { EMClient } from '@/IM';
+import { ElMessage } from 'element-plus';
 /* 头像相关 */
 import informIcon from '@/assets/images/avatar/inform.png';
 import defaultAvatar from '@/assets/images/avatar/theme2x.png';
@@ -132,9 +134,9 @@ const debouncedToChatMessage = _.debounce(
   300,
 ); // 300毫秒内的连续触发将被防抖处理
 const toChatMessage = (conversationItem, index) => {
+  console.log('点击会话项:', conversationItem);
   checkedConverItemIndex.value = index;
-  const { conversationId, unReadCount, customField, conversationType } =
-    conversationItem;
+  const { conversationId, unReadCount, customField, conversationType } = conversationItem;
   if (unReadCount > 0) {
     store.dispatch('clearConversationUnreadCount', {
       conversationId: conversationId,
@@ -154,6 +156,83 @@ const deleteConversation = (conversationItem) => {
   //如果删除的itemKey与当前的message会话页的id一致则跳转至会话默认页。
   if (route?.query?.id && route.query.id === conversationId) {
     router.push('/chat/conversation');
+  }
+};
+
+//置顶/取消置顶会话
+const pinConversation = async (conversationItem) => {
+  const { conversationId, conversationType, isPinned } = conversationItem;
+  
+  // 检查会话类型，如果是聊天室会话，不支持置顶操作
+  if (conversationType === CHAT_TYPE.CHATROOM) {
+    ElMessage.info('聊天室会话不支持置顶/取消置顶操作');
+    return;
+  }
+  
+  try {
+    await EMClient.pinConversation({
+      conversationId,
+      conversationType,
+      isPinned: !isPinned
+    });
+    // 更新本地会话的置顶状态
+    conversationItem.isPinned = !isPinned;
+    // 重新排序会话列表
+    await store.dispatch('getConversationListFromServer', { isInit: true });
+    
+    ElMessage.success(isPinned ? '取消置顶成功' : '置顶成功');
+  } catch (error) {
+    console.error('置顶/取消置顶会话失败', error);
+    ElMessage.error('置顶/取消置顶会话失败');
+  }
+};
+
+//标记/取消标记会话
+const toggleConversationMark = async (conversationItem) => {
+  const { conversationId, conversationType, marks } = conversationItem;
+  
+  // 检查会话类型，如果是聊天室会话，不支持标记操作
+  if (conversationType === CHAT_TYPE.CHATROOM) {
+    ElMessage.info('聊天室会话不支持标记操作');
+    return;
+  }
+  
+  // 检查是否已经有标记（使用标记2表示标星）
+  const hasMark = marks && marks.includes(2);
+  
+  try {
+    if (!hasMark) {
+      // 添加标记
+      await EMClient.addConversationMark({
+        conversations: [
+          { conversationId, conversationType }
+        ],
+        mark: 2 // 使用标记2表示标星
+      });
+      // 更新本地会话的标记状态
+      if (!conversationItem.marks) {
+        conversationItem.marks = [];
+      }
+      conversationItem.marks.push(2);
+      ElMessage.success('标星成功');
+    } else {
+      // 移除标记
+      await EMClient.removeConversationMark({
+        conversations: [
+          { conversationId, conversationType }
+        ],
+        mark: 2 // 使用标记2表示标星
+      });
+      // 更新本地会话的标记状态
+      conversationItem.marks = conversationItem.marks.filter(mark => mark !== 2);
+      ElMessage.success('取消标星成功');
+    }
+    
+    // 重新获取会话列表以确保数据同步
+    await store.dispatch('getConversationListFromServer', { isInit: true });
+  } catch (error) {
+    console.error('标记/取消标记会话失败', error);
+    ElMessage.error(hasMark ? '取消标星失败' : '标星失败');
   }
 };
 /* 加载到底拉取新数据 */
@@ -237,7 +316,6 @@ const onScrollToBottom = (event) => {
       <li
         v-for="(item, index) in conversationList"
         :key="item.conversationId"
-        @click="toChatMessage(item, index)"
         :style="{
           background: checkedConverItemIndex === index ? '#E5E5E5' : '',
         }"
@@ -250,7 +328,7 @@ const onScrollToBottom = (event) => {
           :offset="-10"
         >
           <template #reference>
-            <div class="session_list_item">
+            <div class="session_list_item" @click="toChatMessage(item, index)">
               <div class="item_body item_left">
                 <div class="session_other_avatar">
                   <el-avatar :size="34" :src="handleConversationAvatar(item)">
@@ -260,6 +338,8 @@ const onScrollToBottom = (event) => {
               <div class="item_body item_main">
                 <div class="name">
                   {{ handleConversationName(item) }}
+                  <span v-if="item.isPinned" class="pin-icon">📌</span>
+                  <span v-if="item.marks && item.marks.includes(2)" class="mark-icon">⭐</span>
                 </div>
                 <div class="last_msg_body">
                   <span
@@ -289,6 +369,12 @@ const onScrollToBottom = (event) => {
             </div>
           </template>
           <template #default>
+            <div class="session_list_pin" @click="pinConversation(item)">
+              {{ item.isPinned ? '取消置顶' : '置顶会话' }}
+            </div>
+            <div class="session_list_mark" @click="toggleConversationMark(item)">
+              {{ item.marks && item.marks.includes(2) ? '取消标星' : '标星会话' }}
+            </div>
             <div class="session_list_delete" @click="deleteConversation(item)">
               删除会话
             </div>
@@ -380,6 +466,11 @@ const onScrollToBottom = (event) => {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      
+      .pin-icon, .mark-icon {
+        margin-left: 5px;
+        font-size: 14px;
+      }
     }
 
     .last_msg_body {
