@@ -31,11 +31,16 @@ const handleRelogin = async () => {
       accessToken: loginUserFromStorage.accessToken,
     });
   } catch (error) {
-    ElMessage({
-      type: 'error',
-      center: true,
-      message: error.message,
-    });
+    // 忽略"You are already logged in"错误
+    if (error.message !== 'You are already logged in') {
+      ElMessage({
+        type: 'error',
+        center: true,
+        message: error.message,
+      });
+    } else {
+      console.log('用户已登录，忽略重复登录错误');
+    }
   }
 };
 
