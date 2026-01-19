@@ -96,6 +96,13 @@ const initEMClient = () => {
     },
   });
 
+  // 添加各种插件
+  miniCore.usePlugin(contactPlugin);
+  miniCore.usePlugin(groupPlugin);
+  miniCore.usePlugin(presencePlugin);
+  miniCore.usePlugin(chatroomPlugin);
+  miniCore.usePlugin(localCachePlugin, 'localCache');
+
   return miniCore;
 };
 initEMClient();
@@ -158,10 +165,5 @@ if (Object.keys(miniCore).length) {
     }
   };
 
-  miniCore.usePlugin(contactPlugin);
-  miniCore.usePlugin(groupPlugin);
-  miniCore.usePlugin(presencePlugin);
-  miniCore.usePlugin(chatroomPlugin);
-  miniCore.usePlugin(localCachePlugin, 'localCache');
 }
 export default miniCore;
