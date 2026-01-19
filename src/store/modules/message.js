@@ -8,7 +8,7 @@ import {
   CHAT_TYPE,
   MAX_MESSAGE_LIST_COUNT,
 } from '@/constant';
-import { usePlayRing } from '@/hooks';
+import eventEmitter from '@/utils/eventEmitter';
 const Message = {
   state: {
     messageList: {},
@@ -177,14 +177,14 @@ const Message = {
       console.log('[Vuex Action] createNewMessage 被调用');
       console.log('消息参数:', params);
 
-      const { isOpenPlayRing, playRing } = usePlayRing();
       const key = setMessageKey(params);
 
       console.log('生成的消息列表键:', key);
 
       commit('UPDATE_MESSAGE_LIST', params);
-      //目前根据全局配置进行新消息声音提示，后续计划根据会话级别可进行设置是否声音提示，比如设定免打扰。
-      if (isOpenPlayRing.value) playRing();
+      // 触发新消息事件，用于播放提示音
+      eventEmitter.emit('newMessage', params);
+      
       dispatch('updateConversationList', {
         conversationId: key,
         chatType: params.chatType,

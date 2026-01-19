@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { mountAllEMListener } from '@/IM/listener';
 import { EMClient } from '@/IM';
 import ring from '@/assets/ring.mp3';
@@ -8,6 +8,10 @@ import { ElMessage } from 'element-plus';
 import { enableEMClientDebug } from '@/utils/debugSDK';
 // 导入全局错误处理程序
 import '@/utils/globalErrorHandler';
+// 导入播放铃声钩子
+import { usePlayRing } from '@/hooks';
+// 导入事件发射器
+import eventEmitter from '@/utils/eventEmitter';
 
 // 启用EMClient调试
 enableEMClientDebug();
@@ -38,6 +42,27 @@ const handleRelogin = async () => {
 if (loginUserFromStorage?.user && loginUserFromStorage?.accessToken) {
   handleRelogin();
 }
+
+// 初始化播放铃声功能
+const { isOpenPlayRing, playRing } = usePlayRing();
+
+// 监听新消息事件，播放提示音
+const handleNewMessage = (message) => {
+  // 只有当消息不是自己发送的时候，才播放铃声
+  if (message.from !== EMClient.user && isOpenPlayRing.value) {
+    playRing();
+  }
+};
+
+// 添加事件监听器
+onMounted(() => {
+  eventEmitter.on('newMessage', handleNewMessage);
+});
+
+// 移除事件监听器
+onUnmounted(() => {
+  eventEmitter.off('newMessage', handleNewMessage);
+});
 </script>
 <template>
   <router-view v-slot="{ Component }">
