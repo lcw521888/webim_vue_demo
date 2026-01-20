@@ -33,10 +33,24 @@ const handleRelogin = async () => {
   } catch (error) {
     // 忽略"You are already logged in"错误
     if (error.message !== 'You are already logged in') {
+      // 确保错误信息是字符串
+      let errorMsg = error.message;
+      if (typeof errorMsg === 'object' && errorMsg !== null) {
+        try {
+          errorMsg = JSON.stringify(errorMsg);
+        } catch (e) {
+          errorMsg = String(errorMsg);
+        }
+      } else if (errorMsg === null || errorMsg === undefined) {
+        errorMsg = '重新登录失败';
+      } else {
+        errorMsg = String(errorMsg);
+      }
+      
       ElMessage({
         type: 'error',
         center: true,
-        message: error.message,
+        message: errorMsg,
       });
     } else {
       console.log('用户已登录，忽略重复登录错误');

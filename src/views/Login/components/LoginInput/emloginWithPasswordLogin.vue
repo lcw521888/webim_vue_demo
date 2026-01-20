@@ -39,6 +39,22 @@ const loginIM = async () => {
   const { clickRing } = usePlayRing();
   clickRing();
   buttonLoading.value = true;
+  
+  // 改进的登录前检查：不仅检查EMClient.user，还要检查实际的连接状态
+  if (EMClient) {
+    try {
+      // 检查EMClient是否真的已经登录且连接正常
+      const isLoggedIn = EMClient.user && EMClient.isConnected();
+      if (isLoggedIn) {
+        ElMessage({ type: 'info', center: true, message: '您已经登录，请先退出登录' });
+        buttonLoading.value = false;
+        return;
+      }
+    } catch (error) {
+      console.log('登录状态检查失败，可能是连接已断开:', error);
+      // 如果检查失败，说明连接可能已断开，允许继续登录
+    }
+  }
   try {
     let { accessToken } = await EMClient.open({
       username: loginValue.username.toLowerCase(),
@@ -53,11 +69,36 @@ const loginIM = async () => {
     );
   } catch (error) {
     console.log(error);
-    ElMessage({
-      message: `${error?.data?.message}`,
-      type: 'error',
-      center: true,
-    });
+    if (error.message === 'You are already logged in') {
+      // 忽略重复登录错误，直接更新本地存储
+      if (error.data?.accessToken) {
+        window.localStorage.setItem(
+          `EASEIM_loginUser`,
+          JSON.stringify({
+            user: loginValue.username.toLowerCase(),
+            accessToken: error.data.accessToken,
+          }),
+        );
+      }
+      console.log('用户已登录，忽略重复登录错误');
+    } else if (error.type === 28 || error.message === 'INVALID_TOKEN' || error.message?.includes('Invalid token')) {
+      // 处理无效令牌错误
+      ElMessage({
+        title: '登录过期',
+        message: '登录令牌无效或已过期，请重新登录',
+        type: 'error',
+        center: true,
+      });
+      // 清除本地存储的登录信息
+      localStorage.removeItem('EASEIM_loginUser');
+    } else {
+      // 显示实际的登录错误信息
+      ElMessage({
+        message: `${error?.data?.message || error?.message || '登录失败'}`,
+        type: 'error',
+        center: true,
+      });
+    }
   } finally {
     buttonLoading.value = false;
   }
