@@ -52,20 +52,11 @@ const loginIM = async () => {
   clickRing();
   buttonLoading.value = true;
   
-  // 改进的登录前检查：不仅检查EMClient.user，还要检查实际的连接状态
-  if (EMClient) {
-    try {
-      // 检查EMClient是否真的已经登录且连接正常
-      const isLoggedIn = EMClient.user && EMClient.isConnected();
-      if (isLoggedIn) {
-        ElMessage({ type: 'info', center: true, message: '您已经登录，请先退出登录' });
-        buttonLoading.value = false;
-        return;
-      }
-    } catch (error) {
-      console.log('登录状态检查失败，可能是连接已断开:', error);
-      // 如果检查失败，说明连接可能已断开，允许继续登录
-    }
+  // 登录前检查：检查是否已经登录
+  if (EMClient && EMClient.user) {
+    ElMessage({ type: 'info', center: true, message: '您已经登录，请先退出登录' });
+    buttonLoading.value = false;
+    return;
   }
   // SDK登录方式请参考emloginWithPasswordLogin.vue 组件
   // !环信后台接口登陆（仅供环信线上demo使用！）

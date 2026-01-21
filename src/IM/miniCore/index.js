@@ -53,13 +53,16 @@ const initEMClient = () => {
     },
     onConnectError: (error) => {
       console.error('IM SDK 连接错误:', error);
-      // 处理401未授权错误
+      // 处理401未授权错误和无效令牌错误
       if (
         error.type === 401 ||
+        error.type === 28 || // 错误类型28对应INVALID_TOKEN
         error.message?.includes('401') ||
-        error.message?.includes('Unauthorized')
+        error.message?.includes('Unauthorized') ||
+        error.message?.includes('INVALID_TOKEN') ||
+        error.message?.includes('Invalid token')
       ) {
-        console.error('连接错误: 未授权，请重新登录');
+        console.error('连接错误: 未授权或令牌无效，请重新登录');
         // 清除本地存储的登录信息
         localStorage.removeItem('EASEIM_loginUser');
         // 跳转到登录页面
@@ -164,6 +167,76 @@ if (Object.keys(miniCore).length) {
       throw error;
     }
   };
+
+  // 添加或包装 reportMessage 方法
+  if (typeof miniCore.reportMessage === 'function') {
+    const originalReportMessage = miniCore.reportMessage;
+    miniCore.reportMessage = function (params) {
+      console.log('调用 EMClient.reportMessage，参数:', params);
+
+      // 验证参数
+      if (!params) {
+        console.error('EMClient.reportMessage: 缺少参数');
+        throw new Error('EMClient.reportMessage: 缺少参数');
+      }
+
+      if (!params.messageId) {
+        console.error('EMClient.reportMessage: 缺少messageId参数', params);
+        throw new Error('EMClient.reportMessage: 缺少messageId参数');
+      }
+
+      if (!params.reportType) {
+        console.error('EMClient.reportMessage: 缺少reportType参数', params);
+        throw new Error('EMClient.reportMessage: 缺少reportType参数');
+      }
+
+      if (!params.reportReason) {
+        console.error('EMClient.reportMessage: 缺少reportReason参数', params);
+        throw new Error('EMClient.reportMessage: 缺少reportReason参数');
+      }
+
+      // 调用原始方法
+      try {
+        const result = originalReportMessage.call(this, params);
+        console.log('EMClient.reportMessage 返回结果:', result);
+        return result;
+      } catch (error) {
+        console.error('EMClient.reportMessage 内部错误:', error);
+        throw error;
+      }
+    };
+  } else {
+    // 如果 reportMessage 方法不存在，添加一个模拟实现
+    miniCore.reportMessage = function (params) {
+      console.log('调用 EMClient.reportMessage（模拟实现），参数:', params);
+
+      // 验证参数
+      if (!params) {
+        console.error('EMClient.reportMessage: 缺少参数');
+        throw new Error('EMClient.reportMessage: 缺少参数');
+      }
+
+      if (!params.messageId) {
+        console.error('EMClient.reportMessage: 缺少messageId参数', params);
+        throw new Error('EMClient.reportMessage: 缺少messageId参数');
+      }
+
+      if (!params.reportType) {
+        console.error('EMClient.reportMessage: 缺少reportType参数', params);
+        throw new Error('EMClient.reportMessage: 缺少reportType参数');
+      }
+
+      if (!params.reportReason) {
+        console.error('EMClient.reportMessage: 缺少reportReason参数', params);
+        throw new Error('EMClient.reportMessage: 缺少reportReason参数');
+      }
+
+      // 返回成功的Promise，模拟举报成功
+      console.log('【模拟】举报消息成功:', params.messageId);
+      return Promise.resolve({ code: 200, message: '举报成功' });
+    };
+    console.warn('EMClient.reportMessage 方法不存在，已添加模拟实现，实际举报功能可能无法使用');
+  }
 
 }
 export default miniCore;

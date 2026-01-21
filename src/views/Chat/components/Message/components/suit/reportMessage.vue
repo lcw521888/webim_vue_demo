@@ -65,17 +65,23 @@ const confimReportMessage = (formEl) => {
           messageId: reportMessageForm.mid.toString(), // 消息 ID
         };
 
-        await EMClient.reportMessage({ ...params });
+        // 调用SDK的reportMessage方法
+        const result = await EMClient.reportMessage({ ...params });
+        
+        // 举报成功处理
+        console.log('消息举报成功', result);
         cannelReport(formEl);
         ElMessage({
           type: 'success',
-          message: '已收到您的举报申请！',
+          message: '举报提交成功，平台会尽快处理',
           center: true,
         });
       } catch (error) {
+        // 举报失败处理
+        console.error('消息举报失败', error);
         ElMessage({
           type: 'error',
-          message: '举报失败！',
+          message: `举报失败：${error.message || '请稍后重试'}`,
           center: true,
         });
       }

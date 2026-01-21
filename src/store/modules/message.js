@@ -33,12 +33,8 @@ const Message = {
         state.messageList[listKey] = [];
       }
 
-      // 为聊天室和群组消息生成临时ID（如果没有）
-      if (
-        (msgBody.chatType === CHAT_TYPE.CHATROOM ||
-          msgBody.chatType === CHAT_TYPE.GROUP) &&
-        !msgBody.id
-      ) {
+      // 为所有类型的消息生成临时ID（如果没有）
+      if (!msgBody.id) {
         msgBody.id = serverMsgId;
       }
 
@@ -198,7 +194,7 @@ const Message = {
       return new Promise((resolve, reject) => {
         const options = {
           targetId: id,
-          pageSize: 10,
+          pageSize: 20,
           cursor: cursor,
           chatType: chatType,
           searchDirection: 'up',
@@ -237,6 +233,26 @@ const Message = {
             });
           })
           .catch((error) => {
+            console.error('【Store】获取历史消息失败:', {
+              error,
+              errorType: error.type,
+              errorMessage: error.message,
+              errorStack: error.stack
+            });
+            
+            // 处理INVALID_TOKEN错误
+            if (
+              error.type === 28 || // 错误类型28对应INVALID_TOKEN
+              error.message?.includes('INVALID_TOKEN') ||
+              error.message?.includes('Invalid token')
+            ) {
+              console.error('【Store】令牌无效，跳转到登录页面');
+              // 清除本地存储的登录信息
+              localStorage.removeItem('EASEIM_loginUser');
+              // 跳转到登录页面
+              window.location.href = '/login';
+            }
+            
             reject(error);
           });
       });
