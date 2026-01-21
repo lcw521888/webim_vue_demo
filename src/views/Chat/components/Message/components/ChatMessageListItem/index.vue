@@ -494,6 +494,52 @@ const reportMessage = ref(null);
 const informOnMessage = (msgBody) => {
   reportMessage.value.alertReportMsgModal(msgBody);
 };
+// 消息置顶
+const pinMessage = async (msgBody) => {
+  try {
+    const options = {
+      conversationType: msgBody.chatType,
+      conversationId: msgBody.chatType === 'singleChat' ? msgBody.from : msgBody.to,
+      messageId: msgBody.id
+    };
+    await EMClient.pinMessage(options);
+    ElMessage({
+      type: 'success',
+      message: '置顶消息成功',
+      center: true,
+    });
+  } catch (error) {
+    console.error('置顶消息失败:', error);
+    ElMessage({
+      type: 'error',
+      message: `置顶失败：${error.message || '请稍后重试'}`,
+      center: true,
+    });
+  }
+};
+// 取消消息置顶
+const unpinMessage = async (msgBody) => {
+  try {
+    const options = {
+      conversationType: msgBody.chatType,
+      conversationId: msgBody.chatType === 'singleChat' ? msgBody.from : msgBody.to,
+      messageId: msgBody.id
+    };
+    await EMClient.unpinMessage(options);
+    ElMessage({
+      type: 'success',
+      message: '取消置顶消息成功',
+      center: true,
+    });
+  } catch (error) {
+    console.error('取消置顶消息失败:', error);
+    ElMessage({
+      type: 'error',
+      message: `取消置顶失败：${error.message || '请稍后重试'}`,
+      center: true,
+    });
+  }
+};
 //父组件重新编辑方法
 const reEdit = (msg) => {
   if (isMounted.value) {
@@ -721,6 +767,12 @@ const onMsgQuote = (msg) => {
                   </el-dropdown-item>
                   <el-dropdown-item @click="onMsgQuote(msgBody)">
                     引用
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="pinMessage(msgBody)">
+                    置顶
+                  </el-dropdown-item>
+                  <el-dropdown-item @click="unpinMessage(msgBody)">
+                    取消置顶
                   </el-dropdown-item>
                   <el-dropdown-item @click="deleteMessage(msgBody)">
                     删除

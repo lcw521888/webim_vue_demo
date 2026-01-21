@@ -238,5 +238,228 @@ if (Object.keys(miniCore).length) {
     console.warn('EMClient.reportMessage 方法不存在，已添加模拟实现，实际举报功能可能无法使用');
   }
 
+  // 添加或包装 pinMessage 方法（置顶消息）
+  if (typeof miniCore.pinMessage === 'function') {
+    const originalPinMessage = miniCore.pinMessage;
+    miniCore.pinMessage = function (options) {
+      console.log('调用 EMClient.pinMessage，参数:', options);
+
+      // 验证参数
+      if (!options) {
+        console.error('EMClient.pinMessage: 缺少参数');
+        throw new Error('EMClient.pinMessage: 缺少参数');
+      }
+
+      if (!options.conversationType) {
+        console.error('EMClient.pinMessage: 缺少conversationType参数', options);
+        throw new Error('EMClient.pinMessage: 缺少conversationType参数');
+      }
+
+      if (!options.conversationId) {
+        console.error('EMClient.pinMessage: 缺少conversationId参数', options);
+        throw new Error('EMClient.pinMessage: 缺少conversationId参数');
+      }
+
+      if (!options.messageId) {
+        console.error('EMClient.pinMessage: 缺少messageId参数', options);
+        throw new Error('EMClient.pinMessage: 缺少messageId参数');
+      }
+
+      // 调用原始方法
+      try {
+        const result = originalPinMessage.call(this, options);
+        console.log('EMClient.pinMessage 返回结果:', result);
+        return result;
+      } catch (error) {
+        console.error('EMClient.pinMessage 内部错误:', error);
+        throw error;
+      }
+    };
+  } else {
+    // 如果 pinMessage 方法不存在，添加一个模拟实现
+    miniCore.pinMessage = function (options) {
+      console.log('调用 EMClient.pinMessage（模拟实现），参数:', options);
+
+      // 验证参数
+      if (!options) {
+        console.error('EMClient.pinMessage: 缺少参数');
+        throw new Error('EMClient.pinMessage: 缺少参数');
+      }
+
+      if (!options.conversationType) {
+        console.error('EMClient.pinMessage: 缺少conversationType参数', options);
+        throw new Error('EMClient.pinMessage: 缺少conversationType参数');
+      }
+
+      if (!options.conversationId) {
+        console.error('EMClient.pinMessage: 缺少conversationId参数', options);
+        throw new Error('EMClient.pinMessage: 缺少conversationId参数');
+      }
+
+      if (!options.messageId) {
+        console.error('EMClient.pinMessage: 缺少messageId参数', options);
+        throw new Error('EMClient.pinMessage: 缺少messageId参数');
+      }
+
+      // 返回成功的Promise，模拟置顶消息成功
+      console.log('【模拟】置顶消息成功:', options.messageId);
+      return Promise.resolve();
+    };
+    console.warn('EMClient.pinMessage 方法不存在，已添加模拟实现，实际置顶功能可能无法使用');
+  }
+
+  // 添加或包装 unpinMessage 方法（取消置顶消息）
+  if (typeof miniCore.unpinMessage === 'function') {
+    const originalUnpinMessage = miniCore.unpinMessage;
+    miniCore.unpinMessage = function (options) {
+      console.log('调用 EMClient.unpinMessage，参数:', options);
+
+      // 验证参数
+      if (!options) {
+        console.error('EMClient.unpinMessage: 缺少参数');
+        throw new Error('EMClient.unpinMessage: 缺少参数');
+      }
+
+      if (!options.conversationType) {
+        console.error('EMClient.unpinMessage: 缺少conversationType参数', options);
+        throw new Error('EMClient.unpinMessage: 缺少conversationType参数');
+      }
+
+      if (!options.conversationId) {
+        console.error('EMClient.unpinMessage: 缺少conversationId参数', options);
+        throw new Error('EMClient.unpinMessage: 缺少conversationId参数');
+      }
+
+      if (!options.messageId) {
+        console.error('EMClient.unpinMessage: 缺少messageId参数', options);
+        throw new Error('EMClient.unpinMessage: 缺少messageId参数');
+      }
+
+      // 调用原始方法
+      try {
+        const result = originalUnpinMessage.call(this, options);
+        console.log('EMClient.unpinMessage 返回结果:', result);
+        return result;
+      } catch (error) {
+        console.error('EMClient.unpinMessage 内部错误:', error);
+        throw error;
+      }
+    };
+  } else {
+    // 如果 unpinMessage 方法不存在，添加一个模拟实现
+    miniCore.unpinMessage = function (options) {
+      console.log('调用 EMClient.unpinMessage（模拟实现），参数:', options);
+
+      // 验证参数
+      if (!options) {
+        console.error('EMClient.unpinMessage: 缺少参数');
+        throw new Error('EMClient.unpinMessage: 缺少参数');
+      }
+
+      if (!options.conversationType) {
+        console.error('EMClient.unpinMessage: 缺少conversationType参数', options);
+        throw new Error('EMClient.unpinMessage: 缺少conversationType参数');
+      }
+
+      if (!options.conversationId) {
+        console.error('EMClient.unpinMessage: 缺少conversationId参数', options);
+        throw new Error('EMClient.unpinMessage: 缺少conversationId参数');
+      }
+
+      if (!options.messageId) {
+        console.error('EMClient.unpinMessage: 缺少messageId参数', options);
+        throw new Error('EMClient.unpinMessage: 缺少messageId参数');
+      }
+
+      // 返回成功的Promise，模拟取消置顶消息成功
+      console.log('【模拟】取消置顶消息成功:', options.messageId);
+      return Promise.resolve();
+    };
+    console.warn('EMClient.unpinMessage 方法不存在，已添加模拟实现，实际取消置顶功能可能无法使用');
+  }
+
+  // 添加或包装 getServerPinnedMessages 方法（获取置顶消息）
+  if (typeof miniCore.getServerPinnedMessages === 'function') {
+    const originalGetServerPinnedMessages = miniCore.getServerPinnedMessages;
+    miniCore.getServerPinnedMessages = function (options) {
+      console.log('调用 EMClient.getServerPinnedMessages，参数:', options);
+
+      // 验证参数
+      if (!options) {
+        console.error('EMClient.getServerPinnedMessages: 缺少参数');
+        throw new Error('EMClient.getServerPinnedMessages: 缺少参数');
+      }
+
+      if (!options.conversationId) {
+        console.error('EMClient.getServerPinnedMessages: 缺少conversationId参数', options);
+        throw new Error('EMClient.getServerPinnedMessages: 缺少conversationId参数');
+      }
+
+      if (!options.conversationType) {
+        console.error('EMClient.getServerPinnedMessages: 缺少conversationType参数', options);
+        throw new Error('EMClient.getServerPinnedMessages: 缺少conversationType参数');
+      }
+
+      // 调用原始方法
+      try {
+        const result = originalGetServerPinnedMessages.call(this, options);
+        console.log('EMClient.getServerPinnedMessages 返回结果:', result);
+        return result;
+      } catch (error) {
+        console.error('EMClient.getServerPinnedMessages 内部错误:', error);
+        throw error;
+      }
+    };
+  } else {
+    // 如果 getServerPinnedMessages 方法不存在，添加一个模拟实现
+    miniCore.getServerPinnedMessages = function (options) {
+      console.log('调用 EMClient.getServerPinnedMessages（模拟实现），参数:', options);
+
+      // 验证参数
+      if (!options) {
+        console.error('EMClient.getServerPinnedMessages: 缺少参数');
+        throw new Error('EMClient.getServerPinnedMessages: 缺少参数');
+      }
+
+      if (!options.conversationId) {
+        console.error('EMClient.getServerPinnedMessages: 缺少conversationId参数', options);
+        throw new Error('EMClient.getServerPinnedMessages: 缺少conversationId参数');
+      }
+
+      if (!options.conversationType) {
+        console.error('EMClient.getServerPinnedMessages: 缺少conversationType参数', options);
+        throw new Error('EMClient.getServerPinnedMessages: 缺少conversationType参数');
+      }
+
+      // 返回模拟的置顶消息列表
+      console.log('【模拟】获取置顶消息列表成功:', options.conversationId);
+      return Promise.resolve({
+        cursor: '',
+        pinnedMessages: []
+      });
+    };
+    console.warn('EMClient.getServerPinnedMessages 方法不存在，已添加模拟实现，实际获取置顶消息功能可能无法使用');
+  }
+
+  // 添加消息置顶事件监听
+  miniCore.addEventHandler('messagePin', {
+    onMessagePinEvent: (event) => {
+      console.log('[IM SDK Event] Message Pin Event (onMessagePinEvent) Triggered');
+      console.log('Event Details:', {
+        operation: event.operation,
+        conversationType: event.conversationType,
+        conversationId: event.conversationId,
+        messageId: event.messageId,
+        pinTime: event.pinTime,
+        operator: event.operator,
+        originalEvent: event
+      });
+      // 发送自定义事件，让Vue应用能够监听并更新状态
+      const customEvent = new CustomEvent('hx:messagePin', { detail: event });
+      window.dispatchEvent(customEvent);
+      console.log('[IM SDK Event] Custom Event hx:messagePin Sent');
+    }
+  });
+
 }
 export default miniCore;
