@@ -26,6 +26,7 @@ export const CUSTOM_MESSAGE_TYPE = {
 export const CHAT_TYPE = {
   SINGLE: 'singleChat',
   GROUP: 'groupChat',
+  CHATROOM: 'chatRoom',
 };
 
 export const MENTION_ALL = {

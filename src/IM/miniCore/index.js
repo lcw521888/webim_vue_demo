@@ -32,6 +32,8 @@ const initEMClient = () => {
       apiUrl: CUSTOM_CONFIG.restServer
         ? CUSTOM_CONFIG.restServer
         : DEFAULT_EASEMOB_REST_URL,
+      delivery: true, // 启用消息送达回执
+      multiDevice: true, // 启用多设备登录
     });
   } else {
     Object.assign(configOptions, {
@@ -39,6 +41,8 @@ const initEMClient = () => {
       isHttpDNS: true,
       url: DEFAULT_EASEMOB_SOCKET_URL,
       apiUrl: DEFAULT_EASEMOB_REST_URL,
+      delivery: true, // 启用消息送达回执
+      multiDevice: true, // 启用多设备登录
     });
   }
   miniCore = new MiniCore({ ...configOptions });
@@ -57,10 +61,12 @@ const initEMClient = () => {
       if (
         error.type === 401 ||
         error.type === 28 || // 错误类型28对应INVALID_TOKEN
+        error.type === 2 || // 错误类型2对应Auth failed
         error.message?.includes('401') ||
         error.message?.includes('Unauthorized') ||
         error.message?.includes('INVALID_TOKEN') ||
-        error.message?.includes('Invalid token')
+        error.message?.includes('Invalid token') ||
+        error.message?.includes('Auth failed')
       ) {
         console.error('连接错误: 未授权或令牌无效，请重新登录');
         // 清除本地存储的登录信息
@@ -74,6 +80,21 @@ const initEMClient = () => {
     },
     onReconnected: () => {
       console.log('IM SDK 重新连接成功');
+    },
+  });
+  
+  // 添加消息拉取错误处理
+  miniCore.addEventHandler('messagePullError', {
+    onMessagePullError: (error) => {
+      console.error('IM SDK 消息拉取错误:', error);
+      // 处理消息拉取错误，特别是与pullCount相关的错误
+      if (error.message?.includes('pullCount')) {
+        console.error('消息拉取错误: 与pullCount相关的错误，可能需要清除本地存储并重新登录');
+        // 清除本地存储的登录信息
+        localStorage.removeItem('EASEIM_loginUser');
+        // 跳转到登录页面
+        window.location.href = '/login';
+      }
     },
   });
 
@@ -460,6 +481,146 @@ if (Object.keys(miniCore).length) {
       console.log('[IM SDK Event] Custom Event hx:messagePin Sent');
     }
   });
+
+  // 添加消息回执事件监听
+  miniCore.addEventHandler('messageReceipt', {
+    // 收到消息送达服务器回执
+    onReceivedMessage: (message) => {
+      console.log('[IM SDK Event] Message Received Event (onReceivedMessage) Triggered');
+      console.log('Message Details:', {
+        id: message.id,
+        from: message.from,
+        to: message.to,
+        chatType: message.chatType,
+        type: message.type,
+        originalMessage: message
+      });
+      // 发送自定义事件，让Vue应用能够监听并更新状态
+      const customEvent = new CustomEvent('hx:messageReceived', { detail: message });
+      window.dispatchEvent(customEvent);
+      console.log('[IM SDK Event] Custom Event hx:messageReceived Sent');
+    },
+    // 收到消息送达客户端回执
+    onDeliveredMessage: (message) => {
+      console.log('[IM SDK Event] Message Delivered Event (onDeliveredMessage) Triggered');
+      console.log('Message Details:', {
+        id: message.id,
+        from: message.from,
+        to: message.to,
+        chatType: message.chatType,
+        type: message.type,
+        originalMessage: message
+      });
+      // 发送自定义事件，让Vue应用能够监听并更新状态
+      const customEvent = new CustomEvent('hx:messageDelivered', { detail: message });
+      window.dispatchEvent(customEvent);
+      console.log('[IM SDK Event] Custom Event hx:messageDelivered Sent');
+    },
+    // 收到消息已读回执
+    onReadMessage: (message) => {
+      console.log('[IM SDK Event] Message Read Event (onReadMessage) Triggered');
+      console.log('Message Details:', {
+        id: message.id,
+        from: message.from,
+        to: message.to,
+        chatType: message.chatType,
+        type: message.type,
+        groupReadCount: message.groupReadCount,
+        originalMessage: message
+      });
+      // 发送自定义事件，让Vue应用能够监听并更新状态
+      const customEvent = new CustomEvent('hx:messageRead', { detail: message });
+      window.dispatchEvent(customEvent);
+      console.log('[IM SDK Event] Custom Event hx:messageRead Sent');
+    },
+    // 收到统计消息（离线时收到的回执）
+    onStatisticMessage: (message) => {
+      console.log('[IM SDK Event] Statistic Message Event (onStatisticMessage) Triggered');
+      console.log('Message Details:', {
+        id: message.id,
+        from: message.from,
+        to: message.to,
+        location: message.location,
+        originalMessage: message
+      });
+      // 解析群组已读回执信息
+      if (message.location) {
+        try {
+          const statisticMsg = JSON.parse(message.location);
+          const groupAck = statisticMsg.group_ack || [];
+          console.log('Group Ack Details:', groupAck);
+        } catch (error) {
+          console.error('Failed to parse statistic message location:', error);
+        }
+      }
+      // 发送自定义事件，让Vue应用能够监听并更新状态
+      const customEvent = new CustomEvent('hx:statisticMessage', { detail: message });
+      window.dispatchEvent(customEvent);
+      console.log('[IM SDK Event] Custom Event hx:statisticMessage Sent');
+    }
+  });
+
+  // 添加或包装 getGroupMsgReadUser 方法（获取群消息已读用户）
+  if (typeof miniCore.getGroupMsgReadUser === 'function') {
+    const originalGetGroupMsgReadUser = miniCore.getGroupMsgReadUser;
+    miniCore.getGroupMsgReadUser = function (params) {
+      console.log('调用 EMClient.getGroupMsgReadUser，参数:', params);
+
+      // 验证参数
+      if (!params) {
+        console.error('EMClient.getGroupMsgReadUser: 缺少参数');
+        throw new Error('EMClient.getGroupMsgReadUser: 缺少参数');
+      }
+
+      if (!params.msgId) {
+        console.error('EMClient.getGroupMsgReadUser: 缺少msgId参数', params);
+        throw new Error('EMClient.getGroupMsgReadUser: 缺少msgId参数');
+      }
+
+      if (!params.groupId) {
+        console.error('EMClient.getGroupMsgReadUser: 缺少groupId参数', params);
+        throw new Error('EMClient.getGroupMsgReadUser: 缺少groupId参数');
+      }
+
+      // 调用原始方法
+      try {
+        const result = originalGetGroupMsgReadUser.call(this, params);
+        console.log('EMClient.getGroupMsgReadUser 返回结果:', result);
+        return result;
+      } catch (error) {
+        console.error('EMClient.getGroupMsgReadUser 内部错误:', error);
+        throw error;
+      }
+    };
+  } else {
+    // 如果 getGroupMsgReadUser 方法不存在，添加一个模拟实现
+    miniCore.getGroupMsgReadUser = function (params) {
+      console.log('调用 EMClient.getGroupMsgReadUser（模拟实现），参数:', params);
+
+      // 验证参数
+      if (!params) {
+        console.error('EMClient.getGroupMsgReadUser: 缺少参数');
+        throw new Error('EMClient.getGroupMsgReadUser: 缺少参数');
+      }
+
+      if (!params.msgId) {
+        console.error('EMClient.getGroupMsgReadUser: 缺少msgId参数', params);
+        throw new Error('EMClient.getGroupMsgReadUser: 缺少msgId参数');
+      }
+
+      if (!params.groupId) {
+        console.error('EMClient.getGroupMsgReadUser: 缺少groupId参数', params);
+        throw new Error('EMClient.getGroupMsgReadUser: 缺少groupId参数');
+      }
+
+      // 返回模拟的已读用户列表
+      console.log('【模拟】获取群消息已读用户成功:', params.msgId);
+      return Promise.resolve({
+        users: []
+      });
+    };
+    console.warn('EMClient.getGroupMsgReadUser 方法不存在，已添加模拟实现，实际获取群消息已读用户功能可能无法使用');
+  }
 
 }
 export default miniCore;

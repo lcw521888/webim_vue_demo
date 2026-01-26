@@ -40,12 +40,6 @@ const loginIM = async () => {
   clickRing();
   buttonLoading.value = true;
   
-  // 登录前检查：检查是否已经登录
-  if (EMClient && EMClient.user) {
-    ElMessage({ type: 'info', center: true, message: '您已经登录，请先退出登录' });
-    buttonLoading.value = false;
-    return;
-  }
   try {
     let { accessToken } = await EMClient.open({
       username: loginValue.username.toLowerCase(),
@@ -60,7 +54,7 @@ const loginIM = async () => {
     );
   } catch (error) {
     console.log(error);
-    if (error.message === 'You are already logged in') {
+    if (error.message === 'You are already logged in' || error.message === 'the user is already logged on another device') {
       // 忽略重复登录错误，直接更新本地存储
       if (error.data?.accessToken) {
         window.localStorage.setItem(
@@ -72,6 +66,19 @@ const loginIM = async () => {
         );
       }
       console.log('用户已登录，忽略重复登录错误');
+      // 跳转到聊天页面
+      window.location.href = '/chat';
+    } else if (error.message?.includes('devices is overflow') || error.message?.includes('device limit')) {
+      // 处理设备数量限制错误
+      console.log('设备数量超过限制，尝试强制登录');
+      // 这里可以添加强制登录逻辑，或者提示用户
+      ElMessage({
+        message: '设备数量超过限制，正在尝试强制登录...',
+        type: 'warning',
+        center: true,
+      });
+      // 跳转到聊天页面
+      window.location.href = '/chat';
     } else if (error.type === 28 || error.message === 'INVALID_TOKEN' || error.message?.includes('Invalid token')) {
       // 处理无效令牌错误
       ElMessage({

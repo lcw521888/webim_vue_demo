@@ -30,4 +30,20 @@ window.addEventListener('hx:messageRecall', (event) => {
   }
 });
 
+// 添加全局错误处理，捕获并处理 SDK 内部错误，如 "Cannot read properties of undefined (reading 'pullCount')"
+window.addEventListener('error', (event) => {
+  console.error('[Global Error]', event.error);
+  
+  // 处理 pullCount 相关的错误
+  if (event.error && event.error.message && event.error.message.includes('pullCount')) {
+    console.error('[Global Error] 检测到 pullCount 相关错误，需要清除本地存储并重新登录');
+    
+    // 清除本地存储的登录信息
+    localStorage.removeItem('EASEIM_loginUser');
+    
+    // 跳转到登录页面
+    window.location.href = '/login';
+  }
+});
+
 app.mount('#app');

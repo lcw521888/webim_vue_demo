@@ -166,6 +166,84 @@ const Message = {
           break;
       }
     },
+    // 更新消息送达状态
+    UPDATE_MESSAGE_DELIVERED: (state, payload) => {
+      console.log('更新消息送达状态:', payload);
+      const { messageId, conversationId, chatType } = payload;
+      const key = setMessageKey({ to: conversationId, chatType });
+      console.log('生成的消息列表键:', key);
+      if (state.messageList[key]) {
+        console.log('消息列表存在，查找消息:', messageId);
+        const message = _.find(state.messageList[key], (o) => o.id === messageId);
+        if (message) {
+          message.delivered = true;
+          console.log('消息送达状态更新成功:', messageId);
+        } else {
+          console.log('未找到消息:', messageId);
+        }
+      } else {
+        console.log('消息列表不存在:', key);
+      }
+    },
+    // 更新消息已读状态
+    UPDATE_MESSAGE_READ: (state, payload) => {
+      console.log('更新消息已读状态:', payload);
+      const { messageId, conversationId, chatType, groupReadCount } = payload;
+      const key = setMessageKey({ to: conversationId, chatType });
+      console.log('生成的消息列表键:', key);
+      if (state.messageList[key]) {
+        console.log('消息列表存在，查找消息:', messageId);
+        const message = _.find(state.messageList[key], (o) => o.id === messageId);
+        if (message) {
+          message.read = true;
+          if (groupReadCount) {
+            message.groupReadCount = groupReadCount;
+          }
+          console.log('消息已读状态更新成功:', messageId);
+        } else {
+          console.log('未找到消息:', messageId);
+        }
+      } else {
+        console.log('消息列表不存在:', key);
+      }
+    },
+    // 发送消息已读回执
+    SEND_MESSAGE_READ_RECEIPT: (state, payload) => {
+      console.log('发送消息已读回执:', payload);
+      const { messageId, to, chatType } = payload;
+      const key = setMessageKey({ to, chatType });
+      console.log('生成的消息列表键:', key);
+      if (state.messageList[key]) {
+        console.log('消息列表存在，查找消息:', messageId);
+        const message = _.find(state.messageList[key], (o) => o.id === messageId);
+        if (message) {
+          // 创建已读回执消息
+          const readReceipt = {
+            type: 'read',
+            chatType: chatType,
+            to: to,
+            id: messageId
+          };
+          console.log('创建已读回执消息:', readReceipt);
+          // 发送已读回执
+          if (typeof EMClient !== 'undefined' && EMClient.Message && EMClient.send) {
+            const msg = EMClient.Message.create(readReceipt);
+            console.log('发送已读回执:', msg);
+            EMClient.send(msg).then((result) => {
+              console.log('发送已读回执成功:', result);
+            }).catch((error) => {
+              console.error('发送已读回执失败:', error);
+            });
+          } else {
+            console.error('EMClient 未定义或缺少必要方法');
+          }
+        } else {
+          console.log('未找到消息:', messageId);
+        }
+      } else {
+        console.log('消息列表不存在:', key);
+      }
+    },
   },
   actions: {
     //添加新消息
@@ -191,6 +269,11 @@ const Message = {
     //获取历史消息
     getHistoryMessage: async ({ state, dispatch, commit }, params) => {
       const { id, chatType, cursor } = params;
+      console.log('【Store】开始拉取历史消息:', {
+        conversationId: id,
+        chatType: chatType,
+        cursor: cursor || '初始加载'
+      });
       return new Promise((resolve, reject) => {
         const options = {
           targetId: id,
@@ -199,10 +282,21 @@ const Message = {
           chatType: chatType,
           searchDirection: 'up',
         };
+        console.log('【Store】拉取历史消息参数:', options);
+        console.log('【Store】开始调用 EMClient.getHistoryMessages');
         EMClient.getHistoryMessages(options)
           .then((res) => {
+            console.log('【Store】拉取历史消息成功，返回结果:', {
+              hasCursor: !!res.cursor,
+              messageCount: res.messages?.length || 0
+            });
             const { cursor, messages } = res;
-            messages.length > 0 &&
+            console.log('【Store】处理拉取到的历史消息:', {
+              originalCount: messages?.length || 0,
+              firstMessageId: messages?.length > 0 ? messages[0].id : '无',
+              lastMessageId: messages?.length > 0 ? messages[messages.length - 1].id : '无'
+            });
+            messages?.length > 0 &&
               messages.forEach((item) => {
                 item.read = true;
                 // 确保历史消息有正确的chatType和to字段
@@ -213,24 +307,29 @@ const Message = {
                   item.to = id;
                 }
               });
+            console.log('【Store】处理完成，准备解析结果');
             resolve({ messages, cursor });
-            const reversedMessages = _.reverse(_.cloneDeep(messages));
+            const reversedMessages = _.reverse(_.cloneDeep(messages || []));
             // 为历史消息生成正确的listKey
             const listKey = setMessageKey({ to: id, chatType });
+            console.log('【Store】生成消息列表键:', listKey);
             commit('UPDATE_HISTORY_MESSAGE', {
               listKey: listKey,
               historyMessageList: reversedMessages,
             });
             if (!state.messageList[listKey]) {
+              console.log('【Store】消息列表不存在，更新会话列表');
               //提示会话列表更新
               dispatch('updateConversationList', {
                 conversationId: id,
                 chatType: chatType,
               });
             }
+            console.log('【Store】处理消息扩展信息');
             dispatch('UsersProfile/processMessageExt', reversedMessages, {
               root: true,
             });
+            console.log('【Store】历史消息拉取流程完成');
           })
           .catch((error) => {
             console.error('【Store】获取历史消息失败:', {

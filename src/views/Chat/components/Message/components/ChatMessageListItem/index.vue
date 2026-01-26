@@ -801,12 +801,29 @@ const onMsgQuote = (msg) => {
           </div>
           <!-- 消息状态展示 -->
           <div class="message_item_status">
+            <!-- 消息送达状态 -->
+            <span
+              v-if="msgBody.delivered && msgBody._isMyself"
+              class="message_item_delivered_icon"
+              title="消息已送达"
+            >
+              ✓
+            </span>
+            <!-- 消息已读状态 -->
             <img
               class="message_item_readed_icon"
               v-if="msgReadStatus(msgBody) && msgBody._isMyself"
               :src="messageReadedIcon"
               title="消息已读"
             />
+            <!-- 群组消息已读计数 -->
+            <span
+              v-if="msgBody.groupReadCount && msgBody._isMyself"
+              class="message_item_group_read_count"
+              title="已读人数"
+            >
+              {{ msgBody.groupReadCount }}人已读
+            </span>
           </div>
         </div>
       </template>

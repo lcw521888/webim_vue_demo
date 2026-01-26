@@ -50,6 +50,106 @@ const randomTips = computed(() => {
 onMounted(() => {
   const chatContainer = document.querySelector('.chat_message_main');
   chatContainer && waterMark({ container: chatContainer });
+  
+  // 监听消息接收事件
+  window.addEventListener('hx:messageReceived', handleMessageReceived);
+  
+  // 监听消息送达回执事件
+  window.addEventListener('hx:messageDelivered', handleMessageDelivered);
+  
+  // 监听消息已读回执事件
+  window.addEventListener('hx:messageRead', handleMessageRead);
+  
+  // 监听统计消息事件（离线回执）
+  window.addEventListener('hx:statisticMessage', handleStatisticMessage);
+});
+
+// 处理消息接收事件
+const handleMessageReceived = (event) => {
+  const message = event.detail;
+  console.log('收到新消息:', message);
+  
+  // 发送已读回执
+  if (message.chatType === CHAT_TYPE.SINGLE) {
+    store.commit('SEND_MESSAGE_READ_RECEIPT', {
+      messageId: message.id,
+      to: message.from,
+      chatType: message.chatType
+    });
+  }
+};
+
+// 处理消息送达回执
+const handleMessageDelivered = (event) => {
+  const message = event.detail;
+  console.log('收到消息送达回执:', message);
+  
+  // 确定会话 ID
+  const conversationId = message.chatType === CHAT_TYPE.SINGLE 
+    ? message.from 
+    : message.to;
+  
+  // 更新消息送达状态
+  store.commit('UPDATE_MESSAGE_DELIVERED', {
+    messageId: message.id,
+    conversationId: conversationId,
+    chatType: message.chatType
+  });
+};
+
+// 处理消息已读回执
+const handleMessageRead = (event) => {
+  const message = event.detail;
+  console.log('收到消息已读回执:', message);
+  
+  // 确定会话 ID
+  const conversationId = message.chatType === CHAT_TYPE.SINGLE 
+    ? message.from 
+    : message.to;
+  
+  // 更新消息已读状态
+  store.commit('UPDATE_MESSAGE_READ', {
+    messageId: message.id,
+    conversationId: conversationId,
+    chatType: message.chatType,
+    groupReadCount: message.groupReadCount
+  });
+};
+
+// 处理统计消息事件（离线回执）
+const handleStatisticMessage = (event) => {
+  const message = event.detail;
+  console.log('收到统计消息:', message);
+  
+  // 解析群组已读回执信息
+  if (message.location) {
+    try {
+      const statisticMsg = JSON.parse(message.location);
+      const groupAck = statisticMsg.group_ack || [];
+      console.log('群组已读回执信息:', groupAck);
+      
+      // 处理群组已读回执
+      groupAck.forEach(ack => {
+        store.commit('UPDATE_MESSAGE_READ', {
+          messageId: ack.mid,
+          conversationId: message.from,
+          chatType: CHAT_TYPE.GROUP,
+          groupReadCount: ack.count
+        });
+      });
+    } catch (error) {
+      console.error('解析统计消息失败:', error);
+    }
+  }
+};
+
+// 离开该路由销毁事件监听
+onBeforeRouteLeave(() => {
+  stopWatchRoute();
+  window.removeEventListener('hx:messageReceived', handleMessageReceived);
+  window.removeEventListener('hx:messageDelivered', handleMessageDelivered);
+  window.removeEventListener('hx:messageRead', handleMessageRead);
+  window.removeEventListener('hx:statisticMessage', handleStatisticMessage);
 });
 const closeWarningTips = () => store.commit('CLOSE_WARNING_TIPS');
 /* userInfo */

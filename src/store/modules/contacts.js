@@ -93,8 +93,19 @@ const Contacts = {
     fetchAllContactsListWithRemarkFromServer: async ({ dispatch, commit }) => {
       try {
         //获取好友列表
-        const { data } = await EMClient.getAllContacts();
+        console.log('开始获取全部好友列表');
+        const result = await EMClient.getAllContacts();
+        console.log('获取全部好友列表结果', result);
+        
+        // 安全检查
+        if (!result || !result.data) {
+          console.warn('获取好友列表返回数据为空');
+          return;
+        }
+        
+        const { data } = result;
         console.log('>>>>>获取全部好友列表', data);
+        
         if (data?.length > 0) {
           commit('SET_FRIEND_LIST_WITH_REMARK', {
             friendList: { ...data },
@@ -103,11 +114,18 @@ const Contacts = {
           commit('UsersProfile/MERGE_USER_PROFILES', normalizedContacts, {
             root: true,
           });
+          
+          const userIds = _.map(data, 'userId');
+          if (userIds?.length > 0) {
+            dispatch('fetchContactsUserInfos', userIds);
+          }
         }
-        const userIds = _.map(data, 'userId');
-        dispatch('fetchContactsUserInfos', userIds);
       } catch (error) {
         console.error('好友列表获取失败', error);
+        // 忽略 SDK 内部错误，防止应用崩溃
+        if (error.message?.includes('Cannot read properties of undefined (reading')) {
+          console.warn('SDK 内部错误，已忽略');
+        }
       }
     },
     //新增联系人

@@ -311,7 +311,7 @@ const Conversation = {
         if (isInit) {
           // 并行获取聊天室列表和置顶会话列表
           const [chatroomsResult, pinnedResult] = await Promise.all([
-            EMClient.getJoinedChatRooms().catch(chatroomError => {
+            EMClient.getJoinedChatRooms({ pageNum: 1, pageSize: 100 }).catch(chatroomError => {
               console.error('获取聊天室列表失败', chatroomError);
               return { data: [] };
             }),
@@ -506,13 +506,11 @@ const Conversation = {
     //删除会话列表（本地以及远端）
     removeLocalConversation: async ({ state, commit }, params) => {
       const { conversationId, conversationType } = params;
-      // 转换chatType为小写，以兼容环信SDK的要求
-      const normalizedChatType = conversationType.toLowerCase();
       const options = {
         // 会话 ID：单聊为对方的用户 ID，群聊为群组 ID。
         channel: conversationId,
         // 会话类型：（默认） `singleChat`：单聊；`groupChat`：群聊。
-        chatType: normalizedChatType,
+        chatType: conversationType,
         // 删除会话时是否同时删除服务端漫游消息。
         deleteRoam: false,
       };

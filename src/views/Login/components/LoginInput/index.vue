@@ -52,12 +52,6 @@ const loginIM = async () => {
   clickRing();
   buttonLoading.value = true;
   
-  // 登录前检查：检查是否已经登录
-  if (EMClient && EMClient.user) {
-    ElMessage({ type: 'info', center: true, message: '您已经登录，请先退出登录' });
-    buttonLoading.value = false;
-    return;
-  }
   // SDK登录方式请参考emloginWithPasswordLogin.vue 组件
   // !环信后台接口登陆（仅供环信线上demo使用！）
   const params = {
@@ -67,17 +61,55 @@ const loginIM = async () => {
   try {
     const res = await fetchUserLoginToken(params);
     if (res?.code === 200) {
-      EMClient.open({
-        username: res.chatUserName.toLowerCase(),
-        accessToken: res.token,
-      });
-      window.localStorage.setItem(
-        'EASEIM_loginUser',
-        JSON.stringify({
-          user: res.chatUserName.toLowerCase(),
+      // 尝试登录，支持多设备登录
+      try {
+        EMClient.open({
+          username: res.chatUserName.toLowerCase(),
           accessToken: res.token,
-        }),
-      );
+        });
+        window.localStorage.setItem(
+          'EASEIM_loginUser',
+          JSON.stringify({
+            user: res.chatUserName.toLowerCase(),
+            accessToken: res.token,
+          }),
+        );
+      } catch (loginError) {
+        // 处理登录错误
+        if (loginError.message === 'You are already logged in' || loginError.message === 'the user is already logged on another device') {
+          // 忽略重复登录错误，直接更新本地存储
+          if (loginError.data?.accessToken) {
+            window.localStorage.setItem(
+              'EASEIM_loginUser',
+              JSON.stringify({
+                user: res.chatUserName.toLowerCase(),
+                accessToken: loginError.data.accessToken,
+              }),
+            );
+          }
+          console.log('用户已登录，忽略重复登录错误');
+          // 跳转到聊天页面
+          window.location.href = '/chat';
+        } else if (loginError.message?.includes('devices is overflow') || loginError.message?.includes('device limit')) {
+          // 处理设备数量限制错误
+          console.log('设备数量超过限制，尝试强制登录');
+          // 这里可以添加强制登录逻辑，或者提示用户
+          ElMessage({
+            message: '设备数量超过限制，正在尝试强制登录...',
+            type: 'warning',
+            center: true,
+          });
+          // 跳转到聊天页面
+          window.location.href = '/chat';
+        } else {
+          console.error('登录失败:', loginError);
+          ElMessage({
+            message: `${loginError?.data?.message || loginError?.message || '登录失败'}`,
+            type: 'error',
+            center: true,
+          });
+        }
+      }
     }
   } catch (error) {
     if (error.response?.data) {

@@ -180,6 +180,52 @@ const personalCardMessageComp = ref(null);
 const onShowContactsModal = () => {
   personalCardMessageComp.value.dialogVisible = true;
 };
+
+/* 位置消息 */
+const sendLocationMessage = () => {
+  //验证targetId是否有效
+  if (!routeQueryData.value.id || routeQueryData.value.id === '') {
+    console.error('发送位置消息失败: 缺少目标ID');
+    ElMessage.error('发送位置消息失败: 请先选择聊天对象');
+    return;
+  }
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function (position) {
+      const coords = position.coords;
+      const msgOptions = {
+        type: MESSAGE_TYPE.LOCAL,
+        to: routeQueryData.value.id,
+        from: EMClient.user,
+        chatType: routeQueryData.value.chatType,
+        addr: '未知位置',
+        buildingName: '未知建筑',
+        lat: Math.round(coords.latitude * 1000000) / 1000000, // 保留6位小数
+        lng: Math.round(coords.longitude * 1000000) / 1000000, // 保留6位小数
+      };
+      setUserInfoExt(msgOptions);
+      try {
+        const msg = EMClient.Message.create(msgOptions);
+        EMClient.send(msg).then((result) => {
+          console.log('发送位置消息成功:', result);
+          ElMessage.success('发送位置消息成功');
+        }).catch((error) => {
+          console.error('发送位置消息失败:', error);
+          ElMessage.error('发送位置消息失败');
+        });
+      } catch (error) {
+        console.error('发送位置消息异常:', error);
+        ElMessage.error('发送位置消息异常');
+      }
+    }, function (error) {
+      console.error('获取位置失败:', error);
+      ElMessage.error('获取位置失败，请检查位置权限');
+    });
+  } else {
+    console.error('浏览器不支持地理定位');
+    ElMessage.error('浏览器不支持地理定位');
+  }
+};
 /*清除屏幕*/
 const clearScreen = () => {
   ElMessageBox.confirm('确认清空当前消息内容？', '消息清屏', {
@@ -345,6 +391,12 @@ const all_func = [
     style: 'font-size: 23px;',
     title: '个人名片',
     methodName: onShowContactsModal,
+  },
+  {
+    className: 'icon-tuku',
+    style: 'font-size: 20px;',
+    title: '发送位置',
+    methodName: sendLocationMessage,
   },
   {
     className: 'icon-hebing',
