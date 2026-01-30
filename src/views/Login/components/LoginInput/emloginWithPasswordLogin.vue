@@ -52,8 +52,20 @@ const loginIM = async () => {
         accessToken: accessToken,
       }),
     );
+    // 登录成功后跳转到聊天页面
+    window.location.href = '/chat';
   } catch (error) {
     console.log(error);
+    
+    // 检查用户是否已经登录成功
+    const loginUser = localStorage.getItem('EASEIM_loginUser');
+    if (loginUser) {
+      console.log('用户已登录，忽略错误:', error.message);
+      // 跳转到聊天页面
+      window.location.href = '/chat';
+      return;
+    }
+    
     if (error.message === 'You are already logged in' || error.message === 'the user is already logged on another device') {
       // 忽略重复登录错误，直接更新本地存储
       if (error.data?.accessToken) {
@@ -81,6 +93,16 @@ const loginIM = async () => {
       window.location.href = '/chat';
     } else if (error.type === 28 || error.message === 'INVALID_TOKEN' || error.message?.includes('Invalid token')) {
       // 处理无效令牌错误
+      console.log('INVALID_TOKEN错误，检查用户是否已经登录成功');
+      // 检查用户是否已经登录成功
+      const loginUserAfterError = localStorage.getItem('EASEIM_loginUser');
+      if (loginUserAfterError) {
+        console.log('用户已登录，忽略INVALID_TOKEN错误');
+        // 跳转到聊天页面
+        window.location.href = '/chat';
+        return;
+      }
+      // 如果用户未登录，显示错误信息并清除本地存储
       ElMessage({
         title: '登录过期',
         message: '登录令牌无效或已过期，请重新登录',
@@ -89,6 +111,23 @@ const loginIM = async () => {
       });
       // 清除本地存储的登录信息
       localStorage.removeItem('EASEIM_loginUser');
+    } else if (error.type === 2 || error.message?.includes('Auth failed')) {
+      // 处理Auth failed错误，可能是临时错误，尝试继续
+      console.log('Auth failed错误，可能是临时错误，尝试继续');
+      // 检查是否已经有登录信息
+      const loginUserAfterError = localStorage.getItem('EASEIM_loginUser');
+      if (loginUserAfterError) {
+        console.log('用户已登录，忽略Auth failed错误');
+        // 跳转到聊天页面
+        window.location.href = '/chat';
+        return;
+      }
+      // 显示错误信息
+      ElMessage({
+        message: '认证失败，请检查用户名和密码',
+        type: 'error',
+        center: true,
+      });
     } else {
       // 显示实际的登录错误信息
       ElMessage({

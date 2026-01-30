@@ -55,6 +55,33 @@ window.onerror = function (message, source, lineno, colno, error) {
 window.addEventListener('unhandledrejection', function (event) {
   const reason = event.reason;
 
+  // 检查是否是断网导致的页面显示错误
+  const isNetworkError = reason && (
+    reason.message?.includes('Network Error') || 
+    reason.message?.includes('network error') || 
+    reason.message?.includes('timeout') || 
+    reason.message?.includes('Connection refused') || 
+    reason.message?.includes('Failed to fetch') ||
+    reason.code === 'ECONNABORTED'
+  );
+
+  // 处理断网导致的页面显示错误
+  if (isNetworkError) {
+    console.log('全局捕获到断网导致的页面显示错误，跳转到登录页面');
+    const loginUser = localStorage.getItem('EASEIM_loginUser');
+    if (loginUser) {
+      // 清除本地存储的登录信息
+      localStorage.removeItem('EASEIM_loginUser');
+      // 跳转到登录页面
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1000);
+    }
+    // 阻止Promise拒绝事件冒泡，防止应用崩溃
+    event.preventDefault();
+    return;
+  }
+
   // 检查是否是SDK内部的TypeError错误
   const isSDKError =
     reason && reason.stack && reason.stack.includes('easemob-websdk');
@@ -64,9 +91,15 @@ window.addEventListener('unhandledrejection', function (event) {
     (reason.message.includes('Cannot read properties of undefined') ||
       reason.message.includes('Cannot read property'));
 
+  // 增强错误处理，确保错误信息能够正确显示
   if (isSDKError && isTypeError) {
-    console.error('\n=== 全局捕获到SDK内部Promise TypeError错误 ===');
+    console.error('\n=== 全局捕获到SDK内部TypeError错误 ===');
     console.error('错误原因:', reason);
+
+    // 检查reason是否是对象但不是Error实例
+    if (typeof reason === 'object' && reason !== null && !(reason instanceof Error)) {
+      console.error('错误对象内容:', JSON.stringify(reason, null, 2));
+    }
 
     if (reason.stack) {
       console.error('完整错误栈:', reason.stack);

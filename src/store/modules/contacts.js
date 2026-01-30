@@ -72,7 +72,20 @@ const Contacts = {
       const friendListData = {};
       try {
         //获取好友列表
-        const { data } = await EMClient.getContacts();
+        console.log('开始获取好友列表');
+        const result = await EMClient.getContacts();
+        console.log('获取好友列表结果', result);
+        
+        // 安全检查
+        if (!result || !result.data) {
+          console.warn('获取好友列表返回数据为空');
+          commit('SET_FRIEND_LIST', friendListData);
+          return;
+        }
+        
+        const { data } = result;
+        console.log('获取好友列表数据', data);
+        
         data.length > 0 &&
           data.map((item) => (friendListData[item] = { hxId: item }));
         //获取好友列表对应的用户属性
@@ -81,12 +94,15 @@ const Contacts = {
         const mergedFriendList = _.merge(friendListData, friendListWithInfos);
         commit('SET_FRIEND_LIST', mergedFriendList);
         //提交之后订阅好友状态
-        dispatch('subFriendsPresence', data);
+        data.length > 0 && dispatch('subFriendsPresence', data);
       } catch (error) {
+        console.error('获取好友列表失败', error);
+        // 忽略 SDK 内部错误，防止应用崩溃
+        if (error.message?.includes('Cannot read properties of undefined (reading')) {
+          console.warn('SDK 内部错误，已忽略');
+        }
         //异常一般为获取会话异常，直接提交好友列表
         commit('SET_FRIEND_LIST', friendListData);
-        //提交之后订阅好友状态
-        dispatch('subFriendsPresence', data);
       }
     },
     //获取全部好友列表（包含好友备注）

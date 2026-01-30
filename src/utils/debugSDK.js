@@ -80,8 +80,35 @@ console.error = function (...args) {
     return false;
   });
   
-  // 忽略"You are already logged in"错误
-  if (isAlreadyLoggedInError) {
+  // 检查是否是SSL证书错误
+  const isSSLCertError = args.some(arg => {
+    if (typeof arg === 'string') {
+      return arg.includes('ERR_CERT_COMMON_NAME_INVALID');
+    }
+    return false;
+  });
+  
+  // 检查是否是网络错误
+  const isNetworkError = args.some(arg => {
+    if (typeof arg === 'object' && arg !== null) {
+      return arg.message && (arg.message.includes('Network Error') || 
+                          arg.message.includes('network error') || 
+                          arg.message.includes('timeout') || 
+                          arg.message.includes('Connection refused') || 
+                          arg.message.includes('Failed to fetch'));
+    }
+    if (typeof arg === 'string') {
+      return arg.includes('Network Error') || 
+             arg.includes('network error') || 
+             arg.includes('timeout') || 
+             arg.includes('Connection refused') || 
+             arg.includes('Failed to fetch');
+    }
+    return false;
+  });
+  
+  // 忽略无效的错误日志
+  if (isAlreadyLoggedInError || isSSLCertError || isNetworkError) {
     // 只使用原始方法打印，不添加额外的调用栈信息
     originalError(...args);
     return;
@@ -97,12 +124,30 @@ console.error = function (...args) {
   isHandlingError = true;
   
   try {
-    const stack = new Error().stack;
-    const callStack = stack.split('\n').slice(2, 10).join('\n');
-    originalError('\n=== EMClient 错误日志 ===');
-    originalError(...args);
-    originalError('完整调用栈:', callStack);
-    originalError('=========================\n');
+    // 只记录与EMClient相关的错误
+    const isEMClientError = args.some(arg => {
+      if (typeof arg === 'string') {
+        return arg.includes('EMClient') || arg.includes('easemob');
+      }
+      if (typeof arg === 'object' && arg !== null) {
+        return arg.__proto__ && 
+               arg.__proto__.constructor && 
+               arg.__proto__.constructor.name.includes('EM');
+      }
+      return false;
+    });
+    
+    if (isEMClientError) {
+      const stack = new Error().stack;
+      const callStack = stack.split('\n').slice(2, 10).join('\n');
+      originalError('\n=== EMClient 错误日志 ===');
+      originalError(...args);
+      originalError('完整调用栈:', callStack);
+      originalError('=========================\n');
+    } else {
+      // 对于其他错误，保持原样
+      originalError(...args);
+    }
   } finally {
     // 确保无论如何都会重置标志位
     isHandlingError = false;

@@ -54,7 +54,9 @@ const sendFilesMessages = async () => {
   const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
   if (commonFile.size > MAX_FILE_SIZE) {
     ElMessage.error('文件大小不能超过100MB');
-    uploadFiles.value.value = null;
+    if (uploadFiles.value) {
+      uploadFiles.value.value = null;
+    }
     return;
   }
 
@@ -109,7 +111,9 @@ const sendFilesMessages = async () => {
       handleSDKErrorNotifi(0, 'none');
     }
   } finally {
-    uploadFiles.value.value = null;
+    if (uploadFiles.value) {
+      uploadFiles.value.value = null;
+    }
   }
 };
 

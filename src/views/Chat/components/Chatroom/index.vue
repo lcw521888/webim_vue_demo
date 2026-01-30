@@ -53,452 +53,36 @@ const checkLoginStatus = () => {
   return true;
 };
 
-// ========== 新增：根据聊天室ID获取本地缓存的成员数 ==========
-const getChatroomMemberCountFromLocal = (chatRoomId) => {
-  // 先从已加入列表找
-  const joinedRoom = joinedChatroomList.value.find(item => item.id === chatRoomId);
-  if (joinedRoom) {
-    return joinedRoom.affiliations_count || 0;
+// 设置聊天室事件监听器
+const setupChatroomEventHandler = () => {
+  console.log('===== 设置聊天室事件监听器 =====');
+  console.log('当前时间:', new Date().toISOString());
+  console.log('当前用户:', EMClient.user);
+  console.log('连接状态:', EMClient.connectionState || '未知');
+  console.log('是否已有事件监听器:', !!chatroomEventHandler);
+  
+  if (chatroomEventHandler) {
+    console.log('移除旧的事件监听器...');
+    EMClient.removeEventHandler('CHATROOM');
+    console.log('已移除旧的事件监听器');
   }
-  // 再从所有列表找
-  const allRoom = chatroomList.value.find(item => item.id === chatRoomId);
-  return allRoom?.affiliations_count || 0;
-};
-
-// ========== 新增：获取单个聊天室的实际成员数量 ==========
-const getChatroomMemberCount = async (roomId) => {
-  try {
-    // 简化方法：只使用最基本的保底逻辑
-    // 避免调用不存在的方法导致SDK内部错误
-    console.log(`获取聊天室${roomId}成员数量: 使用保底值1`);
-    
-    // 不再尝试调用可能不存在的方法，避免SDK内部错误
-    // 如果API返回0，我们至少显示1个成员（当前用户）
-    return 1;
-  } catch (error) {
-    console.error(`获取聊天室${roomId}成员数量失败:`, error);
-    return 1; // 出错时默认返回至少有当前用户
-  }
-};
-
-const getChatrooms = async () => {
-  if (!checkLoginStatus()) return;
-  const GET_CHAT_ROOMS_METHOD = 'getChatRooms';
-  const chatRoomListParams = {
-    pagenum: 1,
-    pagesize: 100,
-  };
-  loading.value = true;
-  try {
-    const res = await EMClient.getChatRooms(chatRoomListParams);
-    console.log(
-      `获取聊天室列表成功:`,
-      `\n调用方法: ${GET_CHAT_ROOMS_METHOD}`,
-      `\n方法入参:`,
-      chatRoomListParams,
-      `\n原始返回数据:`,
-      res,
-      `\n返回的聊天室数据:`,
-      res.data,
-      `\n聊天室总数:`,
-      (res.data || []).length,
-      `\n当前用户:`,
-      EMClient.user,
-      `\n第一个聊天室的数据结构:`,
-      res.data && res.data.length > 0 ? JSON.stringify(res.data[0], null, 2) : '无数据',
-    );
-    // 修复成员数量显示问题：将可能的memberCount字段映射到affiliations_count
-    // 添加日志查看实际数据
-    if (res.data && res.data.length > 0) {
-      console.log(`第一个所有聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
-    }
-    
-    chatroomList.value = (res.data || []).map(item => {
-      // 计算成员数：使用服务器返回的实际数据，允许显示0
-      const calculatedCount = Math.max(
-        item.affiliations_count || 0,
-        item.memberCount || 0,
-        item.affiliationsCount || 0,
-        item.onlineCount || 0,
-        item.members?.length || 0 // 检查members数组长度
-      );
-      
-      return {
-        ...item,
-        affiliations_count: calculatedCount
-      };
-    });
-    
-    console.log(`所有聊天室列表处理完成:`, JSON.stringify(chatroomList.value, null, 2));
-  } catch (error) {
-    console.error(
-      `获取聊天室列表失败:`,
-      `\n调用方法: ${GET_CHAT_ROOMS_METHOD}`,
-      `\n方法入参:`,
-      chatRoomListParams,
-      `\n当前用户:`,
-      EMClient.user,
-      `\n错误类型:`,
-      error.type,
-      `\n错误消息:`,
-      error.message,
-      `\n完整错误信息:`,
-      error,
-    );
-    EMClient.error('获取聊天室列表失败');
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else {
-      ElMessage.error('获取聊天室列表失败');
-    }
-  } finally {
-    loading.value = false;
-  }
-};
-
-const getJoinedChatrooms = async () => {
-  if (!checkLoginStatus()) return;
-  const chatRoomParams = {
-    pageNum: 1,
-    pageSize: 100,
-  };
-  const GET_JOINED_CHAT_ROOMS_METHOD = 'getJoinedChatRooms';
-  loading.value = true;
-  try {
-    console.log(`获取当前用户${EMClient.user}加入的聊天室列表`);
-    const res = await EMClient.getJoinedChatRooms(chatRoomParams);
-    console.log(
-      `获取已加入聊天室列表成功:`,
-      res,
-      `\n调用方法: ${GET_JOINED_CHAT_ROOMS_METHOD}`,
-      `\n方法入参:`,
-      chatRoomParams,
-    );
-    // 修复成员数量显示问题：将可能的memberCount字段映射到affiliations_count
-    // 添加日志查看实际数据
-    if (res.data && res.data.length > 0) {
-      console.log(`第一个已加入聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
-    }
-    
-    // 先使用列表数据初始化
-    joinedChatroomList.value = (res.data || []).map(item => ({
-      ...item,
-      affiliations_count: Math.max(
-        item.affiliations_count || 0,
-        item.memberCount || 0,
-        item.affiliationsCount || 0,
-        item.onlineCount || 0,
-        item.members?.length || 0,
-        1 // 至少显示1个成员（当前用户）
-      )
-    }));
-    
-    // 为每个已加入的聊天室获取准确的详情
-    if (joinedChatroomList.value.length > 0) {
-      console.log('开始为已加入聊天室获取准确详情...');
-      
-      // 并发获取所有聊天室的详情
-      const detailPromises = joinedChatroomList.value.map(item => 
-        fetchChatroomDetail(item.id)
-      );
-      
-      // 等待所有详情获取完成
-      const details = await Promise.all(detailPromises);
-      
-      // 更新列表中的成员数
-      joinedChatroomList.value = joinedChatroomList.value.map(item => {
-        // 从缓存或刚获取的详情中查找
-        const cachedDetail = chatroomDetailsCache.value.get(item.id);
-        
-        if (cachedDetail?.affiliations_count !== undefined) {
-          console.log(`更新聊天室${item.id}的成员数: 从${item.affiliations_count}到${cachedDetail.affiliations_count}`);
-          return {
-            ...item,
-            affiliations_count: cachedDetail.affiliations_count
-          };
-        }
-        
-        return item;
-      });
-      
-      console.log('已加入聊天室详情获取完成');
-    }
-    
-    console.log(`已加入聊天室列表处理完成:`, JSON.stringify(joinedChatroomList.value, null, 2));
-  } catch (error) {
-    ElMessage.error('获取已加入聊天室列表失败');
-    console.error(
-      `获取已加入聊天室列表失败`,
-      `\n调用方法: ${GET_JOINED_CHAT_ROOMS_METHOD}`,
-      `\n方法入参:`,
-      chatRoomParams,
-      `错误详情:`,
-      error,
-    );
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else {
-      ElMessage.error('获取已加入聊天室列表失败');
-    }
-  } finally {
-    loading.value = false;
-  }
-};
-
-const joinChatroom = async (roomId) => {
-  if (!checkLoginStatus()) return;
-  const JOIN_CHAT_ROOM_METHOD = 'joinChatRoom';
-  const joinChatRoomParams = {
-    roomId: roomId,
-    ext: '',
-    leaveOtherRooms: false,
-  };
-  try {
-    console.log(
-      `开始加入聊天室:`,
-      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`,
-      joinChatRoomParams,
-      `\n当前用户:`,
-      EMClient.user,
-      `\n目标聊天室ID:`,
-      roomId,
-    );
-    const res = await EMClient.joinChatRoom(joinChatRoomParams);
-    ElMessage.success('加入聊天室成功');
-    console.log(
-      `加入聊天室成功:`,
-      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`,
-      joinChatRoomParams,
-      `\n返回结果:`,
-      res,
-      `\n成功加入的聊天室ID:`,
-      roomId,
-    );
-    // 加入后刷新列表，确保affiliations_count更新
-    await getJoinedChatrooms();
-    await getChatrooms();
-  } catch (error) {
-    ElMessage.error('加入聊天室失败');
-    console.error(
-      `加入聊天室失败:`,
-      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`,
-      joinChatRoomParams,
-      `\n目标聊天室ID:`,
-      roomId,
-      `\n当前用户:`,
-      EMClient.user,
-      `\n完整错误信息:`,
-      error,
-      `\n错误类型:`,
-      error.type,
-      `\n错误数据:`,
-      error.data,
-      `\n错误消息:`,
-      error.message,
-    );
-
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else if (
-      error.type === 17 ||
-      error.data?.includes('group_authorization')
-    ) {
-      ElMessage.error('您没有权限加入该聊天室');
-    } else if (error.data?.includes('forbidden_op')) {
-      ElMessage.error('操作被禁止，您可能已被禁言或限制');
-    } else {
-      const errorMsg = error.data || error.message || '加入聊天室失败';
-      ElMessage.error(`加入聊天室失败: ${errorMsg}`);
-    }
-  }
-};
-
-const leaveChatroom = async (roomId) => {
-  if (!checkLoginStatus()) return;
-  const LEAVE_CHAT_ROOM_METHOD = 'leaveChatRoom';
-  const leaveChatRoomParams = { roomId };
-  try {
-    await ElMessageBox.confirm('确定要退出该聊天室吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-    const res = await EMClient.leaveChatRoom(leaveChatRoomParams);
-    ElMessage.success('退出聊天室成功');
-    console.log(
-      `退出聊天室成功:`,
-      `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`,
-      leaveChatRoomParams,
-      `\n接口返回结果:`,
-      res,
-      `\n已退出聊天室ID:`,
-      roomId,
-    );
-    // 退出后刷新列表，确保affiliations_count更新
-    await getJoinedChatrooms();
-    await getChatrooms();
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error(
-        `退出聊天室失败:`,
-        `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
-        `\n方法入参:`,
-        leaveChatRoomParams,
-        `\n目标聊天室ID:`,
-        roomId,
-        `\n当前用户:`,
-        EMClient.user,
-        `\n错误类型:`,
-        error.type,
-        `\n错误数据:`,
-        error.data,
-        `\n错误消息:`,
-        error.message,
-        `\n完整错误信息:`,
-        error,
-      );
-      ElMessage.error('退出聊天室失败');
-      if (error.type === 52 || error.message?.includes('authenticate')) {
-        ElMessage.error('认证失败，请重新登录');
-      } else if (
-        error.type === 17 ||
-        error.data?.includes('group_authorization')
-      ) {
-        ElMessage.error('您没有权限退出该聊天室');
-      } else {
-        ElMessage.error('退出聊天室失败');
-      }
-    }
-  }
-};
-
-const destroyChatroom = async (roomId) => {
-  if (!checkLoginStatus()) return;
-  const DESTROY_CHAT_ROOM_METHOD = 'destroyChatRoom';
-  const destroyChatRoomParams = { chatRoomId: roomId };
-  try {
-    await ElMessageBox.confirm(
-      '确定要解散该聊天室吗？此操作不可恢复！',
-      '警告',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    );
-
-    console.log(
-      `用户确认解散聊天室，开始调用接口:`,
-      `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`,
-      destroyChatRoomParams,
-      `\n待解散聊天室ID:`,
-      roomId,
-    );
-
-    const res = await EMClient.destroyChatRoom(destroyChatRoomParams);
-    console.log(
-      `解散聊天室成功:`,
-      `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
-      `\n方法入参:`,
-      destroyChatRoomParams,
-      `\n接口返回结果:`,
-      res,
-      `\n已解散聊天室ID:`,
-      roomId,
-    );
-    ElMessage.success('解散聊天室成功');
-    getChatrooms();
-    getJoinedChatrooms();
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('解散聊天室失败');
-      console.error(
-        `解散聊天室失败:`,
-        `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
-        `\n方法入参:`,
-        destroyChatRoomParams,
-        `\n目标聊天室ID:`,
-        roomId,
-        `\n当前用户:`,
-        EMClient.user,
-        `\n错误类型:`,
-        error.type,
-        `\n错误数据:`,
-        error.data,
-        `\n错误消息:`,
-        error.message,
-        `\n完整错误信息:`,
-        error,
-      );
-      if (error.type === 52 || error.message?.includes('authenticate')) {
-        ElMessage.error('认证失败，请重新登录');
-      } else if (
-        error.type === 17 ||
-        error.data?.includes('group_authorization')
-      ) {
-        ElMessage.error('您没有权限解散该聊天室');
-      } else {
-        ElMessage.error('解散聊天室失败');
-      }
-    }
-  }
-};
-
-const toChatroomMessage = (roomId) => {
-  router.push({
-    path: '/chat/chatroom/message',
-    query: {
-      id: roomId,
-      chatType: CHAT_TYPE.CHATROOM,
-    },
-  });
-};
-
-const toChatroomDetails = (roomId) => {
-  router.push({
-    path: '/chat/chatroom/details',
-    query: { roomId },
-  });
-};
-
-const filteredChatroomList = computed(() => {
-  if (!searchKeyword.value) return chatroomList.value;
-  return chatroomList.value.filter(
-    (item) =>
-      item.name?.includes(searchKeyword.value) ||
-      item.affiliations?.includes(searchKeyword.value),
-  );
-});
-
-const filteredJoinedChatroomList = computed(() => {
-  if (!searchKeyword.value) return joinedChatroomList.value;
-  return joinedChatroomList.value.filter(
-    (item) =>
-      item.name?.includes(searchKeyword.value) ||
-      item.affiliations?.includes(searchKeyword.value),
-  );
-});
-
-const networkStatus = computed(() => {
-  return store.state.networkStatus;
-});
-
-let chatroomEventHandler = null;
-
-onMounted(() => {
-  getChatrooms();
-  getJoinedChatrooms();
-
+  
+  console.log('添加新的事件监听器...');
   chatroomEventHandler = EMClient.addEventHandler('CHATROOM', {
     onChatroomEvent: (e) => {
-      console.log('===== 聊天室事件 =====');
-      console.log('事件类型:', e.operation);
+      console.log('===== 收到聊天室事件 =====');
+      console.log('当前时间:', new Date().toISOString());
+      // 事件名
+      const eventName = e.operation;
+      // 事件结果默认设为成功
+      let eventResult = '成功';
+      
+      console.log('事件名:', eventName);
+      console.log('事件结果:', eventResult);
       console.log('完整事件数据:', e);
+      console.log('事件对象所有属性:', Object.keys(e));
+      console.log('事件对象详细信息:', JSON.stringify(e, null, 2));
+      console.log('服务端返回原数据:', e?.data || e?.rawData || e?.serverData || e?.payload || e?.body || '无');
       console.log('===================');
 
       // 获取聊天室ID（兼容不同字段名）
@@ -654,6 +238,576 @@ onMounted(() => {
       }
     },
   });
+  console.log('聊天室事件监听器设置完成');
+};
+
+// ========== 新增：根据聊天室ID获取本地缓存的成员数 ==========
+const getChatroomMemberCountFromLocal = (chatRoomId) => {
+  // 先从已加入列表找
+  const joinedRoom = joinedChatroomList.value.find(item => item.id === chatRoomId);
+  if (joinedRoom) {
+    return joinedRoom.affiliations_count || 0;
+  }
+  // 再从所有列表找
+  const allRoom = chatroomList.value.find(item => item.id === chatRoomId);
+  return allRoom?.affiliations_count || 0;
+};
+
+// ========== 新增：获取单个聊天室的实际成员数量 ==========
+const getChatroomMemberCount = async (roomId) => {
+  try {
+    // 简化方法：只使用最基本的保底逻辑
+    // 避免调用不存在的方法导致SDK内部错误
+    console.log(`获取聊天室${roomId}成员数量: 使用保底值1`);
+    
+    // 不再尝试调用可能不存在的方法，避免SDK内部错误
+    // 如果API返回0，我们至少显示1个成员（当前用户）
+    return 1;
+  } catch (error) {
+    console.error(`获取聊天室${roomId}成员数量失败:`, error);
+    return 1; // 出错时默认返回至少有当前用户
+  }
+};
+
+const getChatrooms = async () => {
+  if (!checkLoginStatus()) return;
+  const GET_CHAT_ROOMS_METHOD = 'getChatRooms';
+  const chatRoomListParams = {
+    pagenum: 1,
+    pagesize: 100,
+  };
+  loading.value = true;
+  try {
+    const res = await EMClient.getChatRooms(chatRoomListParams);
+    console.log(
+      `获取聊天室列表成功:`,
+      `\n调用方法: ${GET_CHAT_ROOMS_METHOD}`,
+      `\n方法入参:`,
+      chatRoomListParams,
+      `\n原始返回数据:`,
+      res,
+      `\n返回的聊天室数据:`,
+      res.data,
+      `\n聊天室总数:`,
+      (res.data || []).length,
+      `\n当前用户:`,
+      EMClient.user,
+      `\n第一个聊天室的数据结构:`,
+      res.data && res.data.length > 0 ? JSON.stringify(res.data[0], null, 2) : '无数据',
+    );
+    // 修复成员数量显示问题：将可能的memberCount字段映射到affiliations_count
+    // 添加日志查看实际数据
+    if (res.data && res.data.length > 0) {
+      console.log(`第一个所有聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
+    }
+    
+    chatroomList.value = (res.data || []).map(item => {
+      // 计算成员数：使用服务器返回的实际数据，允许显示0
+      const calculatedCount = Math.max(
+        item.affiliations_count || 0,
+        item.memberCount || 0,
+        item.affiliationsCount || 0,
+        item.onlineCount || 0,
+        item.members?.length || 0 // 检查members数组长度
+      );
+      
+      return {
+        ...item,
+        affiliations_count: calculatedCount
+      };
+    });
+    
+    console.log(`所有聊天室列表处理完成:`, JSON.stringify(chatroomList.value, null, 2));
+  } catch (error) {
+    console.error(
+      `获取聊天室列表失败:`,
+      `\n调用方法: ${GET_CHAT_ROOMS_METHOD}`,
+      `\n方法入参:`,
+      chatRoomListParams,
+      `\n当前用户:`,
+      EMClient.user,
+      `\n错误类型:`,
+      error.type,
+      `\n错误消息:`,
+      error.message,
+      `\n完整错误信息:`,
+      error,
+    );
+    // 处理认证错误和无效令牌错误
+    if (
+      error.type === 52 || 
+      error.type === 17 || // 错误类型17对应unauthorized
+      error.message?.includes('authenticate') || 
+      error.message?.includes('unauthorized') || 
+      error.message?.includes('corrupt access token') || 
+      error.message?.includes('INVALID_TOKEN') || 
+      error.message?.includes('Invalid token')
+    ) {
+      console.log('收到认证错误，检查用户是否已经登录成功');
+      const loginUser = localStorage.getItem('EASEIM_loginUser');
+      if (loginUser) {
+        console.log('用户已登录，忽略认证错误:', error.message);
+        ElMessage.warning('网络波动，正在重试...');
+        // 尝试重新获取已加入聊天室列表
+        setTimeout(() => {
+          getJoinedChatrooms();
+        }, 1000);
+        return;
+      }
+      console.error('认证失败或令牌无效，清除本地存储并跳转到登录页面');
+      // 清除本地存储的登录信息
+      localStorage.removeItem('EASEIM_loginUser');
+      // 显示错误提示
+      ElMessage.error('认证失败或令牌无效，请重新登录');
+      // 跳转到登录页面
+      setTimeout(() => {
+        router.push('/login');
+      }, 1000);
+    } else {
+      ElMessage.error('获取聊天室列表失败');
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+const getJoinedChatrooms = async () => {
+  if (!checkLoginStatus()) return;
+  const chatRoomParams = {
+    pageNum: 1,
+    pageSize: 100,
+  };
+  const GET_JOINED_CHAT_ROOMS_METHOD = 'getJoinedChatRooms';
+  loading.value = true;
+  try {
+    console.log(`获取当前用户${EMClient.user}加入的聊天室列表`);
+    const res = await EMClient.getJoinedChatRooms(chatRoomParams);
+    console.log(
+      `获取已加入聊天室列表成功:`,
+      res,
+      `\n调用方法: ${GET_JOINED_CHAT_ROOMS_METHOD}`,
+      `\n方法入参:`,
+      chatRoomParams,
+    );
+    // 修复成员数量显示问题：将可能的memberCount字段映射到affiliations_count
+    // 添加日志查看实际数据
+    if (res.data && res.data.length > 0) {
+      console.log(`第一个已加入聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
+    }
+    
+    // 先使用列表数据初始化
+    joinedChatroomList.value = (res.data || []).map(item => ({
+      ...item,
+      affiliations_count: Math.max(
+        item.affiliations_count || 0,
+        item.memberCount || 0,
+        item.affiliationsCount || 0,
+        item.onlineCount || 0,
+        item.members?.length || 0,
+        1 // 至少显示1个成员（当前用户）
+      )
+    }));
+    
+    // 为每个已加入的聊天室获取准确的详情
+    if (joinedChatroomList.value.length > 0) {
+      console.log('开始为已加入聊天室获取准确详情...');
+      
+      // 并发获取所有聊天室的详情
+      const detailPromises = joinedChatroomList.value.map(item => 
+        fetchChatroomDetail(item.id)
+      );
+      
+      // 等待所有详情获取完成
+      const details = await Promise.all(detailPromises);
+      
+      // 更新列表中的成员数
+      joinedChatroomList.value = joinedChatroomList.value.map(item => {
+        // 从缓存或刚获取的详情中查找
+        const cachedDetail = chatroomDetailsCache.value.get(item.id);
+        
+        if (cachedDetail?.affiliations_count !== undefined) {
+          console.log(`更新聊天室${item.id}的成员数: 从${item.affiliations_count}到${cachedDetail.affiliations_count}`);
+          return {
+            ...item,
+            affiliations_count: cachedDetail.affiliations_count
+          };
+        }
+        
+        return item;
+      });
+      
+      console.log('已加入聊天室详情获取完成');
+    }
+    
+    console.log(`已加入聊天室列表处理完成:`, JSON.stringify(joinedChatroomList.value, null, 2));
+  } catch (error) {
+    // 检查是否是断网导致的页面显示错误
+    const isNetworkError = error.message?.includes('Network Error') || 
+                          error.message?.includes('network error') || 
+                          error.message?.includes('timeout') || 
+                          error.message?.includes('Connection refused') || 
+                          error.message?.includes('Failed to fetch') ||
+                          error.code === 'ECONNABORTED';
+    
+    // 检查是否是认证错误
+    const isAuthError = error.type === 52 || 
+                       error.type === 17 || // 错误类型17对应unauthorized
+                       error.message?.includes('authenticate') || 
+                       error.message?.includes('unauthorized') || 
+                       error.message?.includes('corrupt access token') || 
+                       error.message?.includes('INVALID_TOKEN') || 
+                       error.message?.includes('Invalid token');
+    
+    // 处理断网导致的页面显示错误
+    if (isNetworkError) {
+      console.log('检测到断网导致的页面显示错误，跳转到登录页面');
+      const loginUser = localStorage.getItem('EASEIM_loginUser');
+      if (loginUser) {
+        // 清除本地存储的登录信息
+        localStorage.removeItem('EASEIM_loginUser');
+        // 跳转到登录页面
+        setTimeout(() => {
+          router.push('/login');
+        }, 1000);
+      }
+      return;
+    }
+    
+    // 处理认证错误和无效令牌错误
+    if (isAuthError) {
+      console.log('收到认证错误，检查用户是否已经登录成功');
+      const loginUser = localStorage.getItem('EASEIM_loginUser');
+      if (loginUser) {
+        console.log('用户已登录，忽略认证错误:', error.message);
+        ElMessage.warning('网络波动，正在重试...');
+        // 尝试重新获取已加入聊天室列表
+        setTimeout(() => {
+          getJoinedChatrooms();
+        }, 1000);
+        return;
+      }
+      console.error('认证失败或令牌无效，清除本地存储并跳转到登录页面');
+      // 清除本地存储的登录信息
+      localStorage.removeItem('EASEIM_loginUser');
+      // 显示错误提示
+      ElMessage.error('认证失败或令牌无效，请重新登录');
+      // 跳转到登录页面
+      setTimeout(() => {
+        router.push('/login');
+      }, 1000);
+    }
+  } finally {
+    loading.value = false;
+  }
+};
+
+const joinChatroom = async (roomId) => {
+  if (!checkLoginStatus()) return;
+  const JOIN_CHAT_ROOM_METHOD = 'joinChatRoom';
+  const joinChatRoomParams = {
+    roomId: roomId,
+    ext: '',
+    leaveOtherRooms: false,
+  };
+  try {
+    console.log(
+      `开始加入聊天室:`,
+      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`,
+      joinChatRoomParams,
+      `\n当前用户:`,
+      EMClient.user,
+      `\n目标聊天室ID:`,
+      roomId,
+    );
+    const res = await EMClient.joinChatRoom(joinChatRoomParams);
+    ElMessage.success('加入聊天室成功');
+    console.log(
+      `加入聊天室成功:`,
+      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`,
+      joinChatRoomParams,
+      `\n返回结果:`,
+      res,
+      `\n成功加入的聊天室ID:`,
+      roomId,
+      `\n当前连接状态:`,
+      EMClient.connectionState || '未知',
+    );
+    
+    // 重新设置事件监听器，确保能够接收memberPresence事件
+    console.log('重新设置聊天室事件监听器...');
+    setupChatroomEventHandler();
+    console.log('聊天室事件监听器重新设置完成');
+    
+    // 加入后刷新列表，确保affiliations_count更新
+    await getChatrooms();
+    await getJoinedChatrooms();
+  } catch (error) {
+    console.error(
+      `加入聊天室失败:`,
+      `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`,
+      joinChatRoomParams,
+      `\n目标聊天室ID:`,
+      roomId,
+      `\n当前用户:`,
+      EMClient.user,
+      `\n完整错误信息:`,
+      error,
+      `\n错误类型:`,
+      error.type,
+      `\n错误数据:`,
+      error.data,
+      `\n错误消息:`,
+      error.message,
+    );
+
+    // 处理认证错误和无效令牌错误
+    if (
+      error.type === 52 || 
+      error.type === 17 || // 错误类型17对应unauthorized
+      error.message?.includes('authenticate') || 
+      error.message?.includes('unauthorized') || 
+      error.message?.includes('corrupt access token') || 
+      error.message?.includes('INVALID_TOKEN') || 
+      error.message?.includes('Invalid token')
+    ) {
+      console.error('认证失败或令牌无效，清除本地存储并跳转到登录页面');
+      // 清除本地存储的登录信息
+      localStorage.removeItem('EASEIM_loginUser');
+      // 显示错误提示
+      ElMessage.error('认证失败或令牌无效，请重新登录');
+      // 跳转到登录页面
+      setTimeout(() => {
+        router.push('/login');
+      }, 1000);
+    } else if (
+      error.type === 17 ||
+      error.data?.includes('group_authorization')
+    ) {
+      ElMessage.error('您没有权限加入该聊天室');
+    } else if (error.data?.includes('forbidden_op')) {
+      ElMessage.error('操作被禁止，您可能已被禁言或限制');
+    } else {
+      const errorMsg = error.data || error.message || '加入聊天室失败';
+      ElMessage.error(`加入聊天室失败: ${errorMsg}`);
+    }
+  }
+};
+
+const leaveChatroom = async (roomId) => {
+  if (!checkLoginStatus()) return;
+  const LEAVE_CHAT_ROOM_METHOD = 'leaveChatRoom';
+  const leaveChatRoomParams = { roomId };
+  try {
+    await ElMessageBox.confirm('确定要退出该聊天室吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+    const res = await EMClient.leaveChatRoom(leaveChatRoomParams);
+    ElMessage.success('退出聊天室成功');
+    console.log(
+      `退出聊天室成功:`,
+      `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`,
+      leaveChatRoomParams,
+      `\n接口返回结果:`,
+      res,
+      `\n已退出聊天室ID:`,
+      roomId,
+    );
+    // 退出后刷新列表，确保affiliations_count更新
+    await getJoinedChatrooms();
+    await getChatrooms();
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error(
+        `退出聊天室失败:`,
+        `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,
+        `\n方法入参:`,
+        leaveChatRoomParams,
+        `\n目标聊天室ID:`,
+        roomId,
+        `\n当前用户:`,
+        EMClient.user,
+        `\n错误类型:`,
+        error.type,
+        `\n错误数据:`,
+        error.data,
+        `\n错误消息:`,
+        error.message,
+        `\n完整错误信息:`,
+        error,
+      );
+      // 处理认证错误和无效令牌错误
+      if (
+        error.type === 52 || 
+        error.type === 17 || // 错误类型17对应unauthorized
+        error.message?.includes('authenticate') || 
+        error.message?.includes('unauthorized') || 
+        error.message?.includes('corrupt access token') || 
+        error.message?.includes('INVALID_TOKEN') || 
+        error.message?.includes('Invalid token')
+      ) {
+        console.error('认证失败或令牌无效，清除本地存储并跳转到登录页面');
+        // 清除本地存储的登录信息
+        localStorage.removeItem('EASEIM_loginUser');
+        // 显示错误提示
+        ElMessage.error('认证失败或令牌无效，请重新登录');
+        // 跳转到登录页面
+        setTimeout(() => {
+          router.push('/login');
+        }, 1000);
+      } else if (
+        error.type === 17 ||
+        error.data?.includes('group_authorization')
+      ) {
+        ElMessage.error('您没有权限退出该聊天室');
+      } else {
+        ElMessage.error('退出聊天室失败');
+      }
+    }
+  }
+};
+
+const destroyChatroom = async (roomId) => {
+  if (!checkLoginStatus()) return;
+  const DESTROY_CHAT_ROOM_METHOD = 'destroyChatRoom';
+  const destroyChatRoomParams = { chatRoomId: roomId };
+  try {
+    await ElMessageBox.confirm(
+      '确定要解散该聊天室吗？此操作不可恢复！',
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
+
+    console.log(
+      `用户确认解散聊天室，开始调用接口:`,
+      `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`,
+      destroyChatRoomParams,
+      `\n待解散聊天室ID:`,
+      roomId,
+    );
+
+    const res = await EMClient.destroyChatRoom(destroyChatRoomParams);
+    console.log(
+      `解散聊天室成功:`,
+      `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
+      `\n方法入参:`,
+      destroyChatRoomParams,
+      `\n接口返回结果:`,
+      res,
+      `\n已解散聊天室ID:`,
+      roomId,
+    );
+    ElMessage.success('解散聊天室成功');
+    getChatrooms();
+    getJoinedChatrooms();
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error(
+        `解散聊天室失败:`,
+        `\n调用方法: ${DESTROY_CHAT_ROOM_METHOD}`,
+        `\n方法入参:`,
+        destroyChatRoomParams,
+        `\n目标聊天室ID:`,
+        roomId,
+        `\n当前用户:`,
+        EMClient.user,
+        `\n错误类型:`,
+        error.type,
+        `\n错误数据:`,
+        error.data,
+        `\n错误消息:`,
+        error.message,
+        `\n完整错误信息:`,
+        error,
+      );
+      // 处理认证错误和无效令牌错误
+      if (
+        error.type === 52 || 
+        error.type === 17 || // 错误类型17对应unauthorized
+        error.message?.includes('authenticate') || 
+        error.message?.includes('unauthorized') || 
+        error.message?.includes('corrupt access token') || 
+        error.message?.includes('INVALID_TOKEN') || 
+        error.message?.includes('Invalid token')
+      ) {
+        console.error('认证失败或令牌无效，清除本地存储并跳转到登录页面');
+        // 清除本地存储的登录信息
+        localStorage.removeItem('EASEIM_loginUser');
+        // 显示错误提示
+        ElMessage.error('认证失败或令牌无效，请重新登录');
+        // 跳转到登录页面
+        setTimeout(() => {
+          router.push('/login');
+        }, 1000);
+      } else if (
+        error.type === 17 ||
+        error.data?.includes('group_authorization')
+      ) {
+        ElMessage.error('您没有权限解散该聊天室');
+      } else {
+        ElMessage.error('解散聊天室失败');
+      }
+    }
+  }
+};
+
+const toChatroomMessage = (roomId) => {
+  router.push({
+    path: '/chat/chatroom/message',
+    query: {
+      id: roomId,
+      chatType: CHAT_TYPE.CHATROOM,
+    },
+  });
+};
+
+const toChatroomDetails = (roomId) => {
+  router.push({
+    path: '/chat/chatroom/details',
+    query: { roomId },
+  });
+};
+
+const filteredChatroomList = computed(() => {
+  if (!searchKeyword.value) return chatroomList.value;
+  return chatroomList.value.filter(
+    (item) =>
+      item.name?.includes(searchKeyword.value) ||
+      item.affiliations?.includes(searchKeyword.value),
+  );
+});
+
+const filteredJoinedChatroomList = computed(() => {
+  if (!searchKeyword.value) return joinedChatroomList.value;
+  return joinedChatroomList.value.filter(
+    (item) =>
+      item.name?.includes(searchKeyword.value) ||
+      item.affiliations?.includes(searchKeyword.value),
+  );
+});
+
+const networkStatus = computed(() => {
+  return store.state.networkStatus;
+});
+
+let chatroomEventHandler = null;
+
+onMounted(() => {
+  getChatrooms();
+  getJoinedChatrooms();
+
+  // 调用设置事件监听器的函数
+  setupChatroomEventHandler();
 });
 
 onUnmounted(() => {

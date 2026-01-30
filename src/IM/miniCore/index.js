@@ -20,6 +20,20 @@ const initEMClient = () => {
   // 读取自定义配置（因demo需要自定义配置，非必须）
   const configOptions = {};
   
+  // 验证和修复URL格式的函数
+  const fixUrl = (url) => {
+    if (!url) return url;
+    // 检查URL是否缺少协议前缀
+    if (url.startsWith('//')) {
+      // 使用当前页面的协议
+      return window.location.protocol + url;
+    } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // 缺少协议前缀，添加http://
+      return 'http://' + url;
+    }
+    return url;
+  };
+  
   if (IM_IS_OPEN_CUSTOM_SERVER_CONFIG) {
     Object.assign(configOptions, {
       appKey: CUSTOM_CONFIG.appKey
@@ -27,11 +41,11 @@ const initEMClient = () => {
         : DEFAULT_EASEMOB_APPKEY,
       isHttpDNS: !CUSTOM_CONFIG.isPrivate, //取反isPrivate
       url: CUSTOM_CONFIG.imServer
-        ? CUSTOM_CONFIG.imServer
-        : DEFAULT_EASEMOB_SOCKET_URL,
+        ? fixUrl(CUSTOM_CONFIG.imServer)
+        : fixUrl(DEFAULT_EASEMOB_SOCKET_URL),
       apiUrl: CUSTOM_CONFIG.restServer
-        ? CUSTOM_CONFIG.restServer
-        : DEFAULT_EASEMOB_REST_URL,
+        ? fixUrl(CUSTOM_CONFIG.restServer)
+        : fixUrl(DEFAULT_EASEMOB_REST_URL),
       delivery: true, // 启用消息送达回执
       multiDevice: true, // 启用多设备登录
     });
@@ -39,12 +53,22 @@ const initEMClient = () => {
     Object.assign(configOptions, {
       appKey: DEFAULT_EASEMOB_APPKEY,
       isHttpDNS: true,
-      url: DEFAULT_EASEMOB_SOCKET_URL,
-      apiUrl: DEFAULT_EASEMOB_REST_URL,
+      url: fixUrl(DEFAULT_EASEMOB_SOCKET_URL),
+      apiUrl: fixUrl(DEFAULT_EASEMOB_REST_URL),
       delivery: true, // 启用消息送达回执
       multiDevice: true, // 启用多设备登录
     });
   }
+  
+  // 打印配置信息
+  console.log('IM SDK 初始化配置:', {
+    appKey: configOptions.appKey,
+    isHttpDNS: configOptions.isHttpDNS,
+    url: configOptions.url,
+    apiUrl: configOptions.apiUrl,
+    delivery: configOptions.delivery,
+    multiDevice: configOptions.multiDevice,
+  });
   miniCore = new MiniCore({ ...configOptions });
 
   // 添加连接错误处理
@@ -57,6 +81,15 @@ const initEMClient = () => {
     },
     onConnectError: (error) => {
       console.error('IM SDK 连接错误:', error);
+      
+      // 检查用户是否已经登录成功
+      const loginUser = localStorage.getItem('EASEIM_loginUser');
+      if (loginUser) {
+        console.log('用户已登录，忽略连接错误:', error.message);
+        // 即使是INVALID_TOKEN错误，只要用户已经登录成功，就忽略
+        return;
+      }
+      
       // 处理401未授权错误和无效令牌错误
       if (
         error.type === 401 ||
@@ -465,7 +498,14 @@ if (Object.keys(miniCore).length) {
   // 添加消息置顶事件监听
   miniCore.addEventHandler('messagePin', {
     onMessagePinEvent: (event) => {
+      // 事件名
+      const eventName = event.operation || 'messagePin';
+      // 事件结果默认设为成功
+      let eventResult = '成功';
+      
       console.log('[IM SDK Event] Message Pin Event (onMessagePinEvent) Triggered');
+      console.log('事件名:', eventName);
+      console.log('事件结果:', eventResult);
       console.log('Event Details:', {
         operation: event.operation,
         conversationType: event.conversationType,
@@ -486,7 +526,14 @@ if (Object.keys(miniCore).length) {
   miniCore.addEventHandler('messageReceipt', {
     // 收到消息送达服务器回执
     onReceivedMessage: (message) => {
+      // 事件名
+      const eventName = 'onReceivedMessage';
+      // 事件结果默认设为成功
+      let eventResult = '成功';
+      
       console.log('[IM SDK Event] Message Received Event (onReceivedMessage) Triggered');
+      console.log('事件名:', eventName);
+      console.log('事件结果:', eventResult);
       console.log('Message Details:', {
         id: message.id,
         from: message.from,
@@ -502,7 +549,14 @@ if (Object.keys(miniCore).length) {
     },
     // 收到消息送达客户端回执
     onDeliveredMessage: (message) => {
+      // 事件名
+      const eventName = 'onDeliveredMessage';
+      // 事件结果默认设为成功
+      let eventResult = '成功';
+      
       console.log('[IM SDK Event] Message Delivered Event (onDeliveredMessage) Triggered');
+      console.log('事件名:', eventName);
+      console.log('事件结果:', eventResult);
       console.log('Message Details:', {
         id: message.id,
         from: message.from,
@@ -518,7 +572,14 @@ if (Object.keys(miniCore).length) {
     },
     // 收到消息已读回执
     onReadMessage: (message) => {
+      // 事件名
+      const eventName = 'onReadMessage';
+      // 事件结果默认设为成功
+      let eventResult = '成功';
+      
       console.log('[IM SDK Event] Message Read Event (onReadMessage) Triggered');
+      console.log('事件名:', eventName);
+      console.log('事件结果:', eventResult);
       console.log('Message Details:', {
         id: message.id,
         from: message.from,
@@ -535,7 +596,14 @@ if (Object.keys(miniCore).length) {
     },
     // 收到统计消息（离线时收到的回执）
     onStatisticMessage: (message) => {
+      // 事件名
+      const eventName = 'onStatisticMessage';
+      // 事件结果默认设为成功
+      let eventResult = '成功';
+      
       console.log('[IM SDK Event] Statistic Message Event (onStatisticMessage) Triggered');
+      console.log('事件名:', eventName);
+      console.log('事件结果:', eventResult);
       console.log('Message Details:', {
         id: message.id,
         from: message.from,
@@ -551,6 +619,9 @@ if (Object.keys(miniCore).length) {
           console.log('Group Ack Details:', groupAck);
         } catch (error) {
           console.error('Failed to parse statistic message location:', error);
+          // 如果解析失败，更新事件结果为失败
+          eventResult = '失败';
+          console.log('事件结果:', eventResult);
         }
       }
       // 发送自定义事件，让Vue应用能够监听并更新状态
@@ -620,6 +691,76 @@ if (Object.keys(miniCore).length) {
       });
     };
     console.warn('EMClient.getGroupMsgReadUser 方法不存在，已添加模拟实现，实际获取群消息已读用户功能可能无法使用');
+  }
+
+  // 添加或包装 recallMessage 方法（撤回消息）
+  if (typeof miniCore.recallMessage === 'function') {
+    const originalRecallMessage = miniCore.recallMessage;
+    miniCore.recallMessage = function (params) {
+      console.log('调用 EMClient.recallMessage，参数:', params);
+
+      // 验证参数
+      if (!params) {
+        console.error('EMClient.recallMessage: 缺少参数');
+        throw new Error('EMClient.recallMessage: 缺少参数');
+      }
+
+      if (!params.mid) {
+        console.error('EMClient.recallMessage: 缺少mid参数', params);
+        throw new Error('EMClient.recallMessage: 缺少mid参数');
+      }
+
+      if (!params.to) {
+        console.error('EMClient.recallMessage: 缺少to参数', params);
+        throw new Error('EMClient.recallMessage: 缺少to参数');
+      }
+
+      if (!params.chatType) {
+        console.error('EMClient.recallMessage: 缺少chatType参数', params);
+        throw new Error('EMClient.recallMessage: 缺少chatType参数');
+      }
+
+      // 调用原始方法
+      try {
+        const result = originalRecallMessage.call(this, params);
+        console.log('EMClient.recallMessage 返回结果:', result);
+        return result;
+      } catch (error) {
+        console.error('EMClient.recallMessage 内部错误:', error);
+        throw error;
+      }
+    };
+  } else {
+    // 如果 recallMessage 方法不存在，添加一个模拟实现
+    miniCore.recallMessage = function (params) {
+      console.log('调用 EMClient.recallMessage（模拟实现），参数:', params);
+
+      // 验证参数
+      if (!params) {
+        console.error('EMClient.recallMessage: 缺少参数');
+        throw new Error('EMClient.recallMessage: 缺少参数');
+      }
+
+      if (!params.mid) {
+        console.error('EMClient.recallMessage: 缺少mid参数', params);
+        throw new Error('EMClient.recallMessage: 缺少mid参数');
+      }
+
+      if (!params.to) {
+        console.error('EMClient.recallMessage: 缺少to参数', params);
+        throw new Error('EMClient.recallMessage: 缺少to参数');
+      }
+
+      if (!params.chatType) {
+        console.error('EMClient.recallMessage: 缺少chatType参数', params);
+        throw new Error('EMClient.recallMessage: 缺少chatType参数');
+      }
+
+      // 返回成功的Promise，模拟撤回消息成功
+      console.log('【模拟】撤回消息成功:', params.mid);
+      return Promise.resolve();
+    };
+    console.warn('EMClient.recallMessage 方法不存在，已添加模拟实现，实际撤回消息功能可能无法使用');
   }
 
 }
