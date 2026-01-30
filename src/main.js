@@ -9,6 +9,9 @@ import ElementPlus from 'element-plus';
 import './styles/element/index.scss';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 
+// 导入并执行全局错误处理
+import './utils/globalErrorHandler';
+
 const app = createApp(App)
   .use(store)
   .use(router)
