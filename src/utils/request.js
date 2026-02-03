@@ -54,9 +54,11 @@ service.interceptors.response.use(
       if (error.response.status === 403) {
         res.desc = '您没有权限进行查询和操作!';
       }
-      return Promise.reject(res.desc || error);
+      // 确保返回的是 Error 实例
+      return Promise.reject(new Error(res.desc || error.message || '请求失败'));
     }
-    return Promise.reject(error);
+    // 确保返回的是 Error 实例
+    return Promise.reject(new Error(error.message || '请求失败'));
   },
 );
 

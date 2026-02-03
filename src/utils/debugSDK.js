@@ -141,7 +141,18 @@ console.error = function (...args) {
       const stack = new Error().stack;
       const callStack = stack.split('\n').slice(2, 10).join('\n');
       originalError('\n=== EMClient 错误日志 ===');
-      originalError(...args);
+      // 确保所有错误对象都被正确地转换为字符串
+      const processedArgs = args.map(arg => {
+        if (typeof arg === 'object' && arg !== null) {
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch (e) {
+            return String(arg);
+          }
+        }
+        return arg;
+      });
+      originalError(...processedArgs);
       originalError('完整调用栈:', callStack);
       originalError('=========================\n');
     } else {

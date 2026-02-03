@@ -589,6 +589,9 @@ const joinChatroom = async (roomId) => {
       ElMessage.error('您没有权限加入该聊天室');
     } else if (error.data?.includes('forbidden_op')) {
       ElMessage.error('操作被禁止，您可能已被禁言或限制');
+    } else if (error.type === 503) {
+      // 错误类型 503 通常表示服务器内部错误或暂时无法处理请求
+      ElMessage.error('加入聊天室失败：服务器暂时无法处理请求，请稍后再试');
     } else {
       const errorMsg = error.data || error.message || '加入聊天室失败';
       ElMessage.error(`加入聊天室失败: ${errorMsg}`);

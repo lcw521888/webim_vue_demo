@@ -357,54 +357,63 @@ const sendCombineMessage = async () => {
 
 const all_func = [
   {
+    id: 'emoji',
     className: 'icon-icon_emoji',
     style: 'font-size:20px;margin-left: 20px;',
     title: '选择表情',
     methodName: showEmojisBox,
   },
   {
+    id: 'image',
     className: 'icon-tuku',
     style: 'font-size: 26px;',
     title: '发送图片',
     methodName: chooseImages,
   },
   {
+    id: 'combine',
+    className: 'icon-kuaijiehuifu',
+    style: 'font-size: 20px;',
+    title: '发送合并消息',
+    methodName: sendCombineMessage,
+  },
+  {
+    id: 'video',
     className: 'icon-shipin',
     style: 'font-size: 20px;',
     title: '发送视频',
     methodName: chooseVideo,
   },
   {
+    id: 'file',
     className: 'icon-wenjian',
     style: 'font-size: 20px;',
     title: '发送文件',
     methodName: chooseFiles,
   },
   {
+    id: 'audio',
     className: 'icon-01',
     style: 'font-size: 20px;',
     title: '发送语音',
     methodName: showRecordBox,
   },
   {
+    id: 'card',
     className: 'icon-mingpian',
     style: 'font-size: 23px;',
     title: '个人名片',
     methodName: onShowContactsModal,
   },
   {
+    id: 'location',
     className: 'icon-tuku',
     style: 'font-size: 20px;',
     title: '发送位置',
     methodName: sendLocationMessage,
   },
   {
-    className: 'icon-hebing',
-    style: 'font-size: 20px;',
-    title: '发送合并消息',
-    methodName: sendCombineMessage,
-  },
-  {
+    id: 'clear',
     className: 'icon-lajitong',
     style: 'font-size: 23px;',
     title: '清屏',
@@ -421,7 +430,7 @@ defineExpose({
     <span
       v-for="iconItem in all_func"
       :class="['iconfont', iconItem.className]"
-      :key="iconItem.className"
+      :key="iconItem.id"
       :style="iconItem.style"
       :title="iconItem.title"
       @click.stop="iconItem.methodName"

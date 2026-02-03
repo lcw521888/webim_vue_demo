@@ -485,8 +485,10 @@ const removeChatRoomAttribute = async (key) => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除聊天室属性失败', error);
-      if (error.type === 52 || error.message?.includes('authenticate')) {
+      if (error.message?.includes('authenticate')) {
         ElMessage.error('认证失败，请重新登录');
+      } else if (error.message?.includes('not part of you') || error.message?.includes('permission')) {
+        ElMessage.error('没有权限删除该属性');
       } else {
         ElMessage.error('删除聊天室属性失败');
       }
