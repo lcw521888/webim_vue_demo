@@ -426,21 +426,35 @@ const Message = {
       return new Promise((resolve, reject) => {
         EMClient.recallMessage({ mid, to, chatType })
           .then((result) => {
+            const key = setMessageKey({ to, chatType });
             commit('CHANGE_MESSAGE_BODAY', {
               type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
-              key: to,
+              key: key,
               mid,
             });
 
             dispatch('updateConversationList', {
-              conversationId: to,
+              conversationId: key,
               chatType,
             });
 
             resolve('OK');
           })
           .catch((error) => {
-            reject(error);
+            // 处理"not_found msg"错误
+            if (error.message && error.message.includes('not_found msg')) {
+              console.warn('消息可能还未同步到服务器，稍后再试');
+              // 即使服务器返回错误，也在本地标记为撤回
+              const key = setMessageKey({ to, chatType });
+              commit('CHANGE_MESSAGE_BODAY', {
+                type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
+                key: key,
+                mid,
+              });
+              resolve('OK');
+            } else {
+              reject(error);
+            }
           });
       });
     },

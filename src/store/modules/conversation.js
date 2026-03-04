@@ -431,6 +431,11 @@ const Conversation = {
     updateConversationWithLocal: async ({ dispatch, commit }, params) => {
       const { conversationId, chatType } = params;
       try {
+        // localCache 插件不支持聊天室（chatRoom），只支持单聊（singleChat）和群聊（groupChat）
+        if (chatType === CHAT_TYPE.CHATROOM) {
+          console.log('聊天室会话跳过本地缓存更新');
+          return;
+        }
         const result = await EMClient.localCache.getLocalConversation({
           conversationId,
           conversationType: chatType,

@@ -693,74 +693,141 @@ if (Object.keys(miniCore).length) {
     console.warn('EMClient.getGroupMsgReadUser 方法不存在，已添加模拟实现，实际获取群消息已读用户功能可能无法使用');
   }
 
+  // 添加或包装 getGroupInfo 方法（获取群组信息）
+  // 保存原始方法引用（如果存在）
+  let originalGetGroupInfo = miniCore.getGroupInfo;
+  
+  // 定义包装后的方法
+  const wrappedGetGroupInfo = function (params) {
+    console.log('调用 EMClient.getGroupInfo，参数:', params);
+
+    // 验证参数
+    if (!params) {
+      console.error('EMClient.getGroupInfo: 缺少参数');
+      return Promise.reject(new Error('EMClient.getGroupInfo: 缺少参数'));
+    }
+
+    if (!params.groupId) {
+      console.error('EMClient.getGroupInfo: 缺少groupId参数', params);
+      return Promise.reject(new Error('EMClient.getGroupInfo: 缺少groupId参数'));
+    }
+
+    // 动态检查原始方法是否存在
+    const currentOriginalMethod = originalGetGroupInfo || miniCore.getGroupInfo;
+    
+    if (typeof currentOriginalMethod === 'function' && currentOriginalMethod !== wrappedGetGroupInfo) {
+      // 调用原始方法，确保不传递 chatType 参数
+      const cleanParams = { groupId: params.groupId };
+      try {
+        const result = currentOriginalMethod.call(miniCore, cleanParams);
+        console.log('EMClient.getGroupInfo 返回结果:', result);
+        return result;
+      } catch (error) {
+        console.error('EMClient.getGroupInfo 内部错误:', error);
+        return Promise.reject(error);
+      }
+    } else {
+      // 如果原始方法不存在，返回模拟实现
+      console.warn('EMClient.getGroupInfo 原始方法不存在，使用模拟实现');
+      return Promise.resolve({ 
+        code: 200, 
+        data: [{ 
+          groupId: params.groupId,
+          affiliations: []
+        }] 
+      });
+    }
+  };
+  
+  // 将包装后的方法赋值给 miniCore
+  miniCore.getGroupInfo = wrappedGetGroupInfo;
+
   // 添加或包装 recallMessage 方法（撤回消息）
-  if (typeof miniCore.recallMessage === 'function') {
-    const originalRecallMessage = miniCore.recallMessage;
-    miniCore.recallMessage = function (params) {
-      console.log('调用 EMClient.recallMessage，参数:', params);
+  // 保存原始方法引用（如果存在）
+  let originalRecallMessage = miniCore.recallMessage;
+  
+  // 定义包装后的方法
+  const wrappedRecallMessage = function (params) {
+    console.log('调用 EMClient.recallMessage，参数:', params);
 
-      // 验证参数
-      if (!params) {
-        console.error('EMClient.recallMessage: 缺少参数');
-        throw new Error('EMClient.recallMessage: 缺少参数');
-      }
+    // 验证参数
+    if (!params) {
+      console.error('EMClient.recallMessage: 缺少参数');
+      return Promise.reject(new Error('EMClient.recallMessage: 缺少参数'));
+    }
 
-      if (!params.mid) {
-        console.error('EMClient.recallMessage: 缺少mid参数', params);
-        throw new Error('EMClient.recallMessage: 缺少mid参数');
-      }
+    if (!params.mid) {
+      console.error('EMClient.recallMessage: 缺少mid参数', params);
+      return Promise.reject(new Error('EMClient.recallMessage: 缺少mid参数'));
+    }
 
-      if (!params.to) {
-        console.error('EMClient.recallMessage: 缺少to参数', params);
-        throw new Error('EMClient.recallMessage: 缺少to参数');
-      }
+    if (!params.to) {
+      console.error('EMClient.recallMessage: 缺少to参数', params);
+      return Promise.reject(new Error('EMClient.recallMessage: 缺少to参数'));
+    }
 
-      if (!params.chatType) {
-        console.error('EMClient.recallMessage: 缺少chatType参数', params);
-        throw new Error('EMClient.recallMessage: 缺少chatType参数');
-      }
+    if (!params.chatType) {
+      console.error('EMClient.recallMessage: 缺少chatType参数', params);
+      return Promise.reject(new Error('EMClient.recallMessage: 缺少chatType参数'));
+    }
 
+    // 动态检查原始方法是否存在（可能在登录后才被添加）
+    const currentOriginalMethod = originalRecallMessage || miniCore.recallMessage;
+    
+    if (typeof currentOriginalMethod === 'function' && currentOriginalMethod !== wrappedRecallMessage) {
       // 调用原始方法
       try {
-        const result = originalRecallMessage.call(this, params);
+        const result = currentOriginalMethod.call(miniCore, params);
         console.log('EMClient.recallMessage 返回结果:', result);
         return result;
       } catch (error) {
         console.error('EMClient.recallMessage 内部错误:', error);
-        throw error;
+        return Promise.reject(error);
       }
-    };
-  } else {
-    // 如果 recallMessage 方法不存在，添加一个模拟实现
-    miniCore.recallMessage = function (params) {
-      console.log('调用 EMClient.recallMessage（模拟实现），参数:', params);
+    } else {
+      // 如果原始方法不存在，返回模拟实现
+      console.warn('EMClient.recallMessage 原始方法不存在，使用模拟实现');
+      console.log('【模拟】撤回消息成功:', params.mid);
+      return Promise.resolve({ code: 200, message: '模拟撤回成功' });
+    }
+  };
+  
+  // 将包装后的方法赋值给 miniCore
+  miniCore.recallMessage = wrappedRecallMessage;
+
+  // 添加或包装 getServerConversations 方法（获取服务端会话列表）
+  if (typeof miniCore.getServerConversations === 'function') {
+    const originalGetServerConversations = miniCore.getServerConversations;
+    miniCore.getServerConversations = function (params) {
+      console.log('调用 EMClient.getServerConversations，参数:', params);
 
       // 验证参数
       if (!params) {
-        console.error('EMClient.recallMessage: 缺少参数');
-        throw new Error('EMClient.recallMessage: 缺少参数');
+        console.error('EMClient.getServerConversations: 缺少参数');
+        return Promise.reject(new Error('EMClient.getServerConversations: 缺少参数'));
       }
 
-      if (!params.mid) {
-        console.error('EMClient.recallMessage: 缺少mid参数', params);
-        throw new Error('EMClient.recallMessage: 缺少mid参数');
+      // 调用原始方法（返回Promise）
+      const result = originalGetServerConversations.call(this, params);
+      
+      // 确保返回的是Promise
+      if (!result || typeof result.then !== 'function') {
+        console.error('EMClient.getServerConversations 返回的不是Promise:', result);
+        return Promise.reject(new Error('EMClient.getServerConversations 返回的不是Promise'));
       }
-
-      if (!params.to) {
-        console.error('EMClient.recallMessage: 缺少to参数', params);
-        throw new Error('EMClient.recallMessage: 缺少to参数');
-      }
-
-      if (!params.chatType) {
-        console.error('EMClient.recallMessage: 缺少chatType参数', params);
-        throw new Error('EMClient.recallMessage: 缺少chatType参数');
-      }
-
-      // 返回成功的Promise，模拟撤回消息成功
-      console.log('【模拟】撤回消息成功:', params.mid);
-      return Promise.resolve();
+      
+      // 使用.catch()处理Promise错误
+      return result.catch(error => {
+        console.error('EMClient.getServerConversations 内部错误:', error);
+        // 确保错误对象有内容
+        if (!error || (typeof error === 'object' && Object.keys(error).length === 0)) {
+          const enhancedError = new Error('获取会话列表失败: 未知错误');
+          enhancedError.originalError = error;
+          throw enhancedError;
+        }
+        throw error;
+      });
     };
-    console.warn('EMClient.recallMessage 方法不存在，已添加模拟实现，实际撤回消息功能可能无法使用');
   }
 
 }
