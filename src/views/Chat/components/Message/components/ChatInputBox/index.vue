@@ -1,5 +1,5 @@
 <script setup>
-import { ref, toRefs } from 'vue';
+import { ref, toRefs, computed } from 'vue';
 import { useStore } from 'vuex';
 import { handleSDKErrorNotifi, setMessageKey } from '@/utils/handleSomeData';
 import { ElLoading, ElMessageBox, ElMessage } from 'element-plus';
@@ -58,9 +58,12 @@ const appendEmoji = (emoji) => {
 };
 /* emojis */
 const emojiContainerComp = ref(null);
-onClickOutside(emojiContainerComp, () => {
-  emojiContainerComp.value?.handleShowEmojisBox({ isShow: false });
-});
+// 只有当元素存在时才使用onClickOutside
+if (emojiContainerComp.value) {
+  onClickOutside(emojiContainerComp, () => {
+    emojiContainerComp.value?.handleShowEmojisBox({ isShow: false });
+  });
+}
 const showEmojisBox = () => {
   emojiContainerComp.value?.handleShowEmojisBox({ isShow: true });
 };
@@ -129,9 +132,12 @@ const isHttps =
   window.location.hostname === 'localhost';
 const isShowRecordBox = ref(false);
 const recordBox = ref(null);
-onClickOutside(recordBox, () => {
-  isShowRecordBox.value = false;
-});
+// 只有当元素存在时才使用onClickOutside
+if (recordBox.value) {
+  onClickOutside(recordBox, () => {
+    isShowRecordBox.value = false;
+  });
+}
 const showRecordBox = () => {
   isShowRecordBox.value = true;
 };

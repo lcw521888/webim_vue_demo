@@ -156,8 +156,18 @@ console.error = function (...args) {
       originalError('完整调用栈:', callStack);
       originalError('=========================\n');
     } else {
-      // 对于其他错误，保持原样
-      originalError(...args);
+      // 对于其他错误，也确保错误对象被正确地转换为字符串
+      const processedArgs = args.map(arg => {
+        if (typeof arg === 'object' && arg !== null) {
+          try {
+            return JSON.stringify(arg, null, 2);
+          } catch (e) {
+            return String(arg);
+          }
+        }
+        return arg;
+      });
+      originalError(...processedArgs);
     }
   } finally {
     // 确保无论如何都会重置标志位
