@@ -31,7 +31,7 @@ const getGroupMembersList = computed(() => {
 });
 onMounted(async () => {
   if (!getGroupMembersList.value) {
-    store.dispatch('fetchGroupsMemberFromServer', groupId.value);
+    store.dispatch('fetchGroupsMemberFromServer', { groupId: groupId.value, chatType: 'groupChat' });
   }
 });
 //群组详情

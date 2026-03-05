@@ -191,7 +191,8 @@ if (Object.keys(miniCore).length) {
       return message;
     } catch (error) {
       console.error('EMClient.Message.create 内部错误:', error);
-      throw error;
+      // 确保抛出的是字符串错误，避免 [object Object] 错误
+      throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
     }
   };
 
@@ -218,7 +219,8 @@ if (Object.keys(miniCore).length) {
       return result;
     } catch (error) {
       console.error('EMClient.send 内部错误:', error);
-      throw error;
+      // 确保抛出的是字符串错误，避免 [object Object] 错误
+      throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
     }
   };
 
@@ -256,7 +258,8 @@ if (Object.keys(miniCore).length) {
         return result;
       } catch (error) {
         console.error('EMClient.reportMessage 内部错误:', error);
-        throw error;
+        // 确保抛出的是字符串错误，避免 [object Object] 错误
+        throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
       }
     };
   } else {
@@ -326,7 +329,8 @@ if (Object.keys(miniCore).length) {
         return result;
       } catch (error) {
         console.error('EMClient.pinMessage 内部错误:', error);
-        throw error;
+        // 确保抛出的是字符串错误，避免 [object Object] 错误
+        throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
       }
     };
   } else {
@@ -715,16 +719,21 @@ if (Object.keys(miniCore).length) {
     // 动态检查原始方法是否存在
     const currentOriginalMethod = originalGetGroupInfo || miniCore.getGroupInfo;
     
+    console.log('currentOriginalMethod:', currentOriginalMethod);
+    console.log('currentOriginalMethod === wrappedGetGroupInfo:', currentOriginalMethod === wrappedGetGroupInfo);
+    
     if (typeof currentOriginalMethod === 'function' && currentOriginalMethod !== wrappedGetGroupInfo) {
       // 调用原始方法，确保不传递 chatType 参数
       const cleanParams = { groupId: params.groupId };
+      console.log('调用原始 getGroupInfo 方法，参数:', cleanParams);
       try {
         const result = currentOriginalMethod.call(miniCore, cleanParams);
         console.log('EMClient.getGroupInfo 返回结果:', result);
         return result;
       } catch (error) {
         console.error('EMClient.getGroupInfo 内部错误:', error);
-        return Promise.reject(error);
+        // 确保返回的是字符串错误，避免 [object Object] 错误
+        return Promise.reject(new Error(typeof error === 'string' ? error : JSON.stringify(error)));
       }
     } else {
       // 如果原始方法不存在，返回模拟实现
@@ -775,21 +784,22 @@ if (Object.keys(miniCore).length) {
     const currentOriginalMethod = originalRecallMessage || miniCore.recallMessage;
     
     if (typeof currentOriginalMethod === 'function' && currentOriginalMethod !== wrappedRecallMessage) {
-      // 调用原始方法
-      try {
-        const result = currentOriginalMethod.call(miniCore, params);
-        console.log('EMClient.recallMessage 返回结果:', result);
-        return result;
-      } catch (error) {
-        console.error('EMClient.recallMessage 内部错误:', error);
-        return Promise.reject(error);
-      }
-    } else {
-      // 如果原始方法不存在，返回模拟实现
-      console.warn('EMClient.recallMessage 原始方法不存在，使用模拟实现');
-      console.log('【模拟】撤回消息成功:', params.mid);
-      return Promise.resolve({ code: 200, message: '模拟撤回成功' });
-    }
+            // 调用原始方法
+            try {
+              const result = currentOriginalMethod.call(miniCore, params);
+              console.log('EMClient.recallMessage 返回结果:', result);
+              return result;
+            } catch (error) {
+              console.error('EMClient.recallMessage 内部错误:', error);
+              // 确保返回的是字符串错误，避免 [object Object] 错误
+              return Promise.reject(new Error(typeof error === 'string' ? error : JSON.stringify(error)));
+            }
+          } else {
+            // 如果原始方法不存在，返回模拟实现
+            console.warn('EMClient.recallMessage 原始方法不存在，使用模拟实现');
+            console.log('【模拟】撤回消息成功:', params.mid);
+            return Promise.resolve({ code: 200, message: '模拟撤回成功' });
+          }
   };
   
   // 将包装后的方法赋值给 miniCore

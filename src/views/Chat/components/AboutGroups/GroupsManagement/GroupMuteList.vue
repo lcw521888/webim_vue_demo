@@ -27,7 +27,7 @@ const { getUserDisplayNameById, getUserDisplayAvatarById } =
   useGetUserMapInfo();
 onMounted(async () => {
   if (!getGroupMembersList.value) {
-    await store.dispatch('fetchGroupsMemberFromServer', groupId.value);
+    await store.dispatch('fetchGroupsMemberFromServer', { groupId: groupId.value, chatType: 'groupChat' });
   }
 });
 let tobeAddedMuteList = ref([]);

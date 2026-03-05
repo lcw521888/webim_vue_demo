@@ -252,10 +252,15 @@ const Groups = {
       }
     },
     //获取群组成员
-    fetchGroupsMemberFromServer: async ({ dispatch, commit }, groupId) => {
-      console.log('>>>>>获取群组成员');
+    fetchGroupsMemberFromServer: async ({ dispatch, commit }, { groupId, chatType }) => {
+      console.log('>>>>>获取群组成员', { groupId, chatType });
       if (!EMClient.user) {
         console.error('>>>>>用户未登录，无法获取群组成员');
+        return;
+      }
+      // 只在 chatType 是群组时才调用 getGroupInfo
+      if (chatType !== 'groupChat') {
+        console.log('>>>>>chatType 不是群组，跳过获取群组成员');
         return;
       }
       try {
@@ -483,7 +488,7 @@ const Groups = {
           type: 'success',
         });
         //更新群成员
-        dispatch('fetchGroupsMemberFromServer', groupId);
+        dispatch('fetchGroupsMemberFromServer', { groupId, chatType: 'groupChat' });
       } catch (error) {
         ElMessage({
           message: '该群成员移出失败，请稍后重试！',
@@ -508,7 +513,7 @@ const Groups = {
         //重新获取黑名单列表
         dispatch('fetchGroupsBlackListFromServer', groupId);
         //重新获取成员列表
-        dispatch('fetchGroupsMemberFromServer', groupId);
+        dispatch('fetchGroupsMemberFromServer', { groupId, chatType: 'groupChat' });
       } catch (error) {
         ElMessage({
           message: '黑名单添加失败，请稍后重试~',
