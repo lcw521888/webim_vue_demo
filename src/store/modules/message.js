@@ -158,7 +158,16 @@ const Message = {
           {
             if (state.messageList[key]) {
               const res = _.find(state.messageList[key], (o) => o.id === mid);
-              _.assign(res, payload?.message);
+              if (res) {
+                // 保存原始的发送者信息
+                const originalFrom = res.from;
+                // 更新消息内容，但保持发送者不变
+                _.assign(res, payload?.message);
+                // 恢复原始的发送者信息
+                res.from = originalFrom;
+              } else {
+                console.warn('未找到要修改的消息:', mid);
+              }
             }
           }
           break;
@@ -472,6 +481,7 @@ const Message = {
       }
 
       const { id: mid, to, chatType, msg } = params;
+      const key = setMessageKey(params);
       return new Promise((resolve, reject) => {
         const textMessage = EMClient.Message.create({
           type: 'txt',
@@ -488,18 +498,18 @@ const Message = {
             const { message } = res || {};
             commit('CHANGE_MESSAGE_BODAY', {
               type: CHANGE_MESSAGE_BODAY_TYPE.MODIFY,
-              key: to,
+              key: key,
               mid,
               message,
             });
             dispatch('updateConversationList', {
-              conversationId: to,
+              conversationId: key,
               chatType,
             });
-            resolve(res);
+            resolve('OK');
           })
-          .catch((e) => {
-            reject(e);
+          .catch((error) => {
+            reject(error);
           });
       });
     },

@@ -829,6 +829,12 @@ if (Object.keys(miniCore).length) {
       // 使用.catch()处理Promise错误
       return result.catch(error => {
         console.error('EMClient.getServerConversations 内部错误:', error);
+        // 处理网络超时错误
+        if (error && error.errorType === 'timeout_error') {
+          const timeoutError = new Error('获取会话列表失败: 网络超时，请检查网络连接');
+          timeoutError.originalError = error;
+          throw timeoutError;
+        }
         // 确保错误对象有内容
         if (!error || (typeof error === 'object' && Object.keys(error).length === 0)) {
           const enhancedError = new Error('获取会话列表失败: 未知错误');
