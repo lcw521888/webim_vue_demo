@@ -136,7 +136,11 @@ const Message = {
           {
             if (state.messageList[key]) {
               const res = _.find(state.messageList[key], (o) => o.id === mid);
-              res.isRecall = true;
+              if (res) {
+                res.isRecall = true;
+              } else {
+                console.warn('未找到要撤回的消息:', mid);
+              }
             }
           }
 
