@@ -341,6 +341,14 @@ const sendCombineMessage = async () => {
     const msg = EMClient.Message.create(combineMsgOptions);
     const { message } = await EMClient.send(msg);
     console.log('合并消息发送成功:', message);
+    // 确保返回的消息包含 messageList
+    if (!message.messageList) {
+      message.messageList = recentMessages;
+    }
+    // 确保返回的消息包含 summary
+    if (!message.summary) {
+      message.summary = `共${recentMessages.length}条消息`;
+    }
     ElMessage.success('合并消息发送成功');
     await store.dispatch('senedShowTypeMessage', message);
   } catch (error) {
