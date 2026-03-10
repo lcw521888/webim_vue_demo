@@ -135,6 +135,12 @@ const processedMessageData = computed(() => {
       processed.messageList = processed.messageList || [];
     }
 
+    // 确保透传消息属性存在
+    if (processed.type === MESSAGE_TYPE.COMMAND) {
+      processed.action = processed.action || '';
+      processed.ext = processed.ext || {};
+    }
+
     // 预先计算常用属性
     processed._isMyself = processed.from === loginUserId;
 
@@ -164,6 +170,12 @@ const processedMessageData = computed(() => {
 const messageDataArray = computed(() => {
   return processedMessageData.value;
 });
+
+// 会话维度 key：切换会话时整块替换列表 DOM，避免 patch 时 parentNode 为 null
+const messageListKey = computed(
+  () =>
+    `msg-list-${routeQueryData.value?.id ?? ''}-${routeQueryData.value?.chatType ?? ''}`,
+);
 
 // 组件挂载和卸载处理
 onMounted(() => {
@@ -409,6 +421,7 @@ const copyTextMessages = (msg) => {
     });
   }
 };
+
 //引用消息
 const clickQuoteMsgId = ref('');
 const quoteMsgTimer = ref(null);
@@ -555,12 +568,13 @@ const onMsgQuote = (msg) => {
 </script>
 <template>
   <div>
-    <div
-      class="messageList_box"
-      v-for="(msgBody, index) in messageDataArray"
-      :key="msgBody.id || `msg_${index}_${msgBody.time || 0}`"
-      :data-mid="msgBody.id"
-    >
+    <div :key="messageListKey">
+      <div
+        v-for="(msgBody, index) in messageDataArray"
+        :key="msgBody.id || `msg_${String(msgBody.time ?? '')}_${msgBody.from ?? ''}_${index}`"
+        class="messageList_box"
+        :data-mid="msgBody.id"
+      >
       <!-- 普通消息气泡 -->
       <template
         v-if="!msgBody.isRecall && msgBody.type !== CUSTOM_MESSAGE_TYPE.INFORM"
@@ -665,6 +679,21 @@ const onMsgQuote = (msg) => {
                 </div>
                 <div v-if="msgBody.type === MESSAGE_TYPE.LOCAL">
                   <p style="padding: 10px">[暂不支持位置消息展示]</p>
+                </div>
+                <!-- 透传消息 -->
+                <div
+                  v-if="msgBody.type === MESSAGE_TYPE.COMMAND"
+                  class="message_box_content_cmd"
+                  style="padding: 10px; line-height: 20px"
+                >
+                  <p style="margin: 0; color: #666">[透传消息]</p>
+                  <p style="margin: 4px 0 0 0">action: {{ msgBody.action || '-' }}</p>
+                  <p
+                    v-if="msgBody.ext && Object.keys(msgBody.ext).length"
+                    style="margin: 4px 0 0 0; font-size: 12px; color: #999"
+                  >
+                    ext: {{ JSON.stringify(msgBody.ext) }}
+                  </p>
                 </div>
                 <!-- 文件类型消息 -->
                 <div
@@ -850,6 +879,7 @@ const onMsgQuote = (msg) => {
           </p>
         </div>
       </template>
+    </div>
     </div>
     <ReportMessage ref="reportMessage" />
     <ModifyMessage ref="modifyMessageRef" />

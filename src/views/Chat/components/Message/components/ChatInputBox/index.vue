@@ -19,6 +19,7 @@ import VideoMessage from './components/VideoMessage';
 import ImageMessage from './components/ImageMessage';
 import FileMessage from './components/FileMessage';
 import ShareUserCard from './components/CustomMessage/ShareUserCard.vue';
+import CmdMessage from './components/CmdMessage/index.vue';
 //EaseCallKit Invite
 // import { useManageChannel } from '@/components/EaseCallKit/hooks';
 //inviteMembers modal
@@ -185,6 +186,16 @@ const sendAudioMessages = async (audioData) => {
 const personalCardMessageComp = ref(null);
 const onShowContactsModal = () => {
   personalCardMessageComp.value.dialogVisible = true;
+};
+
+/* 透传消息 */
+const cmdMessageComp = ref(null);
+const onShowCmdModal = () => {
+  if (!routeQueryData.value.id || routeQueryData.value.id === '') {
+    ElMessage.error('请先选择聊天对象');
+    return;
+  }
+  cmdMessageComp.value?.openDialog?.();
 };
 
 /* 位置消息 */
@@ -415,6 +426,13 @@ const all_func = [
     methodName: sendLocationMessage,
   },
   {
+    id: 'cmd',
+    className: 'icon-kuaijiehuifu',
+    style: 'font-size: 20px;',
+    title: '发送透传消息',
+    methodName: onShowCmdModal,
+  },
+  {
     id: 'clear',
     className: 'icon-lajitong',
     style: 'font-size: 23px;',
@@ -514,6 +532,11 @@ defineExpose({
   />
   <ShareUserCard
     ref="personalCardMessageComp"
+    :targetId="routeQueryData.id"
+    :chatType="routeQueryData.chatType"
+  />
+  <CmdMessage
+    ref="cmdMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
   />
