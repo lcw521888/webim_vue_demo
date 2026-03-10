@@ -188,7 +188,7 @@ const onShowContactsModal = () => {
 };
 
 /* 位置消息 */
-const sendLocationMessage = () => {
+const sendLocationMessage = async () => {
   //验证targetId是否有效
   if (!routeQueryData.value.id || routeQueryData.value.id === '') {
     console.error('发送位置消息失败: 缺少目标ID');
@@ -196,40 +196,26 @@ const sendLocationMessage = () => {
     return;
   }
 
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function (position) {
-      const coords = position.coords;
-      const msgOptions = {
-        type: MESSAGE_TYPE.LOCAL,
-        to: routeQueryData.value.id,
-        from: EMClient.user,
-        chatType: routeQueryData.value.chatType,
-        addr: '未知位置',
-        buildingName: '未知建筑',
-        lat: Math.round(coords.latitude * 1000000) / 1000000, // 保留6位小数
-        lng: Math.round(coords.longitude * 1000000) / 1000000, // 保留6位小数
-      };
-      setUserInfoExt(msgOptions);
-      try {
-        const msg = EMClient.Message.create(msgOptions);
-        EMClient.send(msg).then((result) => {
-          console.log('发送位置消息成功:', result);
-          ElMessage.success('发送位置消息成功');
-        }).catch((error) => {
-          console.error('发送位置消息失败:', error);
-          ElMessage.error('发送位置消息失败');
-        });
-      } catch (error) {
-        console.error('发送位置消息异常:', error);
-        ElMessage.error('发送位置消息异常');
-      }
-    }, function (error) {
-      console.error('获取位置失败:', error);
-      ElMessage.error('获取位置失败，请检查位置权限');
-    });
-  } else {
-    console.error('浏览器不支持地理定位');
-    ElMessage.error('浏览器不支持地理定位');
+  const msgOptions = {
+    type: MESSAGE_TYPE.LOCAL,
+    to: routeQueryData.value.id,
+    from: EMClient.user,
+    chatType: routeQueryData.value.chatType,
+    addr: '四通桥东',
+    buildingName: '数码大厦',
+    lat: 39,
+    lng: 116,
+  };
+  setUserInfoExt(msgOptions);
+  try {
+    const msg = EMClient.Message.create(msgOptions);
+    const { message } = await EMClient.send(msg);
+    console.log('发送位置消息成功:', message);
+    ElMessage.success('发送位置消息成功');
+    await store.dispatch('senedShowTypeMessage', message);
+  } catch (error) {
+    console.error('发送位置消息失败:', error);
+    ElMessage.error('发送位置消息失败');
   }
 };
 /*清除屏幕*/
@@ -353,8 +339,10 @@ const sendCombineMessage = async () => {
 
     // 发送合并消息
     const msg = EMClient.Message.create(combineMsgOptions);
-    await EMClient.send(msg);
+    const { message } = await EMClient.send(msg);
+    console.log('合并消息发送成功:', message);
     ElMessage.success('合并消息发送成功');
+    await store.dispatch('senedShowTypeMessage', message);
   } catch (error) {
     console.error('发送合并消息失败:', error);
     handleSDKErrorNotifi(error.type, error.message);
