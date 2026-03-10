@@ -769,6 +769,23 @@ const onMsgQuote = (msg) => {
                       <p style="font-size: 8px">个人名片</p>
                     </div>
                   </template>
+                  <!-- 其他自定义消息：展示 customEvent 与 customExts -->
+                  <div
+                    v-else
+                    class="message_box_content_custom_generic"
+                    style="padding: 10px; line-height: 20px"
+                  >
+                    <p style="margin: 0; color: #666">[自定义消息]</p>
+                    <p style="margin: 4px 0 0 0">
+                      event: {{ msgBody.customEvent || '-' }}
+                    </p>
+                    <p
+                      v-if="msgBody.customExts && Object.keys(msgBody.customExts).length"
+                      style="margin: 4px 0 0 0; font-size: 12px; color: #999"
+                    >
+                      {{ JSON.stringify(msgBody.customExts) }}
+                    </p>
+                  </div>
                 </div>
               </div>
               <!-- 右键点击弹起更多功能栏 -->

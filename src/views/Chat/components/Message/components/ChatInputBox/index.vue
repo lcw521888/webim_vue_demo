@@ -19,6 +19,7 @@ import VideoMessage from './components/VideoMessage';
 import ImageMessage from './components/ImageMessage';
 import FileMessage from './components/FileMessage';
 import ShareUserCard from './components/CustomMessage/ShareUserCard.vue';
+import SendCustomMessage from './components/CustomMessage/SendCustomMessage.vue';
 import CmdMessage from './components/CmdMessage/index.vue';
 //EaseCallKit Invite
 // import { useManageChannel } from '@/components/EaseCallKit/hooks';
@@ -196,6 +197,16 @@ const onShowCmdModal = () => {
     return;
   }
   cmdMessageComp.value?.openDialog?.();
+};
+
+/* 自定义消息 */
+const customMessageComp = ref(null);
+const onShowCustomMessageModal = () => {
+  if (!routeQueryData.value.id || routeQueryData.value.id === '') {
+    ElMessage.error('请先选择聊天对象');
+    return;
+  }
+  customMessageComp.value?.openDialog?.();
 };
 
 /* 位置消息 */
@@ -433,6 +444,13 @@ const all_func = [
     methodName: onShowCmdModal,
   },
   {
+    id: 'custom',
+    className: 'icon-wenjian',
+    style: 'font-size: 20px;',
+    title: '发送自定义消息',
+    methodName: onShowCustomMessageModal,
+  },
+  {
     id: 'clear',
     className: 'icon-lajitong',
     style: 'font-size: 23px;',
@@ -537,6 +555,11 @@ defineExpose({
   />
   <CmdMessage
     ref="cmdMessageComp"
+    :targetId="routeQueryData.id"
+    :chatType="routeQueryData.chatType"
+  />
+  <SendCustomMessage
+    ref="customMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
   />
