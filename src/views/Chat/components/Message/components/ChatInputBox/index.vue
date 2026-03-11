@@ -119,7 +119,7 @@ const getImageFileFromClipboard = (items) => {
 /* 视频消息 */
 const videoMessageComp = ref(null);
 const chooseVideo = () => {
-  videoMessageComp.value?.openChooseVideo();
+  videoMessageComp.value?.openVideoDialog?.() ?? videoMessageComp.value?.openChooseVideo?.();
 };
 /* 文件消息相关 */
 //选择文件

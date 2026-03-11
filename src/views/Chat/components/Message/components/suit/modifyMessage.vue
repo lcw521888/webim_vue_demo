@@ -41,6 +41,8 @@ const saveEditedMessage = async () => {
   loading.value = true;
   if (!editMessageContent.msg) {
     ElMessage.warning('消息内容不能为空');
+    loading.value = false;
+    return;
   }
   try {
     await store.dispatch('modifyMessage', { ...editMessageContent });
@@ -59,7 +61,6 @@ const saveEditedMessage = async () => {
       });
     }
   } finally {
-    initModifyMessage();
     loading.value = false;
     dialogVisible.value = false;
   }

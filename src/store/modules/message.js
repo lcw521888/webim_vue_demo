@@ -163,12 +163,14 @@ const Message = {
             if (state.messageList[key]) {
               const res = _.find(state.messageList[key], (o) => o.id === mid);
               if (res) {
-                // 保存原始的发送者信息
+                // 保存原始的发送者信息和聊天类型
                 const originalFrom = res.from;
-                // 更新消息内容，但保持发送者不变
+                const originalChatType = res.chatType;
+                // 更新消息内容，但保持发送者和聊天类型不变
                 _.assign(res, payload?.message);
-                // 恢复原始的发送者信息
+                // 恢复原始的发送者信息和聊天类型
                 res.from = originalFrom;
+                res.chatType = originalChatType;
               } else {
                 console.warn('未找到要修改的消息:', mid);
               }
