@@ -1,5 +1,5 @@
 <script setup>
-import { ref, toRefs, computed } from 'vue';
+import { ref, toRefs, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import { handleSDKErrorNotifi, setMessageKey } from '@/utils/handleSomeData';
 import { ElLoading, ElMessageBox, ElMessage } from 'element-plus';
@@ -60,15 +60,11 @@ const appendEmoji = (emoji) => {
 };
 /* emojis */
 const emojiContainerComp = ref(null);
-// 只有当元素存在时才使用onClickOutside
-if (emojiContainerComp.value) {
-  onClickOutside(emojiContainerComp, () => {
-    emojiContainerComp.value?.handleShowEmojisBox({ isShow: false });
-  });
-}
 const showEmojisBox = () => {
   emojiContainerComp.value?.handleShowEmojisBox({ isShow: true });
 };
+
+
 //文本消息重新编辑
 const handleEditTextMessage = (msg) => {
   textMessageComp.value?.onEditMessage(msg);
@@ -143,6 +139,16 @@ if (recordBox.value) {
 const showRecordBox = () => {
   isShowRecordBox.value = true;
 };
+
+// 在组件挂载后设置点击外部关闭逻辑
+onMounted(() => {
+  // 表情弹窗点击外部关闭
+  if (emojiContainerComp.value) {
+    onClickOutside(emojiContainerComp, () => {
+      emojiContainerComp.value?.handleShowEmojisBox({ isShow: false });
+    });
+  }
+});
 const { setUserInfoExt } = useUserInfoExt();
 const sendAudioMessages = async (audioData) => {
   //验证targetId是否有效
