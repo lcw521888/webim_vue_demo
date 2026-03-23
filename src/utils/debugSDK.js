@@ -152,9 +152,14 @@ console.error = function (...args) {
         }
         return arg;
       });
-      originalError(...processedArgs);
-      originalError('完整调用栈:', callStack);
-      originalError('=========================\n');
+      try {
+        originalError(...processedArgs);
+        originalError('完整调用栈:', callStack);
+        originalError('=========================\n');
+      } catch (e) {
+        // 防止 originalError 调用本身出错
+        console.log('调用 originalError 时出错:', e);
+      }
     } else {
       // 对于其他错误，也确保错误对象被正确地转换为字符串
       const processedArgs = args.map(arg => {
@@ -167,7 +172,12 @@ console.error = function (...args) {
         }
         return arg;
       });
-      originalError(...processedArgs);
+      try {
+        originalError(...processedArgs);
+      } catch (e) {
+        // 防止 originalError 调用本身出错
+        console.log('调用 originalError 时出错:', e);
+      }
     }
   } finally {
     // 确保无论如何都会重置标志位

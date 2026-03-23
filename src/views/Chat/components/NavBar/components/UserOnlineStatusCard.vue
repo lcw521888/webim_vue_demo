@@ -1,12 +1,13 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
 import { onLineStatus } from '@/constant';
-import { ElNotification } from 'element-plus';
+import { ElNotification, ElInput } from 'element-plus';
 import { EMClient } from '@/IM';
 
 const store = useStore();
 const loginUserOnlineStatus = computed(() => store.state.loginUserOnlineStatus);
+const customStatus = ref('');
 
 const selectOnlineMode = async (statusType) => {
   const option = {
@@ -22,9 +23,40 @@ const selectOnlineMode = async (statusType) => {
     });
   }
 };
+
+const publishCustomPresence = async () => {
+  if (!customStatus.value.trim()) {
+    ElNotification({
+      title: 'Easemob',
+      message: '请输入自定义在线状态！',
+      type: 'warning',
+    });
+    return;
+  }
+  
+  const option = {
+    description: customStatus.value.trim(),
+  };
+  
+  try {
+    await EMClient.publishPresence(option);
+    ElNotification({
+      title: 'Easemob',
+      message: '自定义在线状态发布成功！',
+      type: 'success',
+    });
+    customStatus.value = '';
+  } catch (error) {
+    ElNotification({
+      title: 'Easemob',
+      message: '自定义在线状态发布失败，请稍后重试！',
+      type: 'error',
+    });
+  }
+};
 </script>
 <template>
-  <div style="width: 100%; height: 100%; display: flex; align-items: center">
+  <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center">
     <ul class="chat_status_change">
       <li
         class="chat_status_change_item"
@@ -51,6 +83,16 @@ const selectOnlineMode = async (statusType) => {
         </span>
       </li>
     </ul>
+    <div class="custom_status_container">
+      <el-input
+        v-model="customStatus"
+        placeholder="输入自定义在线状态"
+        style="width: 140px; margin-top: 10px"
+      />
+      <button class="custom_status_button" @click="publishCustomPresence">
+        发布
+      </button>
+    </div>
   </div>
 </template>
 
@@ -102,6 +144,28 @@ const selectOnlineMode = async (statusType) => {
     padding: 0 3px;
     background-color: #f2f2f2;
     box-sizing: border-box;
+  }
+}
+
+.custom_status_container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 140px;
+  
+  .custom_status_button {
+    width: 140px;
+    height: 30px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f2f2f2;
+    cursor: pointer;
+    transition: all 0.3s;
+    
+    &:hover {
+      background-color: #e2e2e2;
+    }
   }
 }
 </style>

@@ -6,7 +6,7 @@ import { CHAT_TYPE } from '@/IM/constant';
 import { useStore } from 'vuex';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import { EASEIM_HINT, SWINDLER_GO_DIE, WARM_TIP } from '@/constant';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElDialog, ElInput, ElButton } from 'element-plus';
 import { Close } from '@element-plus/icons-vue';
 import waterMark from '@/utils/waterMark';
 /* 组件 */
@@ -37,10 +37,87 @@ const delTheFriend = async () => {
     } catch (error) {}
   }
 };
-//加入好友到黑名单
-// const addFriendToBlackList = () => {
+// 设置好友备注
+const remarkDialogVisible = ref(false);
+const friendRemark = ref('');
+const setFriendRemark = async () => {
+  if (routeQueryData.value?.id && friendRemark.value.trim()) {
+    const targetId = routeQueryData.value.id;
+    const remark = friendRemark.value.trim();
+    
+    // 检查备注长度
+    if (remark.length > 100) {
+      ElMessage({ type: 'warning', center: true, message: '好友备注长度不能超过 100 个字符' });
+      return;
+    }
+    
+    // 检查是否是好友关系
+    const contactsMap = store.getters.getContactsWithRemarkMap;
+    if (!contactsMap.has(targetId)) {
+      ElMessage({ type: 'warning', center: true, message: '只有好友才能设置备注' });
+      return;
+    }
+    
+    try {
+      await EMClient.setContactRemark({
+        userId: targetId,
+        remark: remark
+      });
+      ElMessage({ type: 'success', center: true, message: '好友备注设置成功~' });
+      remarkDialogVisible.value = false;
+      friendRemark.value = '';
+    } catch (error) {
+      ElMessage({ type: 'error', center: true, message: '好友备注设置失败，请稍后重试' });
+      console.error('设置好友备注失败:', error);
+    }
+  }
+};
+//检查用户是否在黑名单中
+const isInBlackList = computed(() => {
+  const targetId = routeQueryData.value?.id;
+  if (!targetId) return false;
+  return Array.from(store.state.Contacts.friendBlackList).includes(targetId);
+});
 
-// }
+//加入好友到黑名单
+const addFriendToBlackList = async () => {
+  if (routeQueryData.value?.id) {
+    const targetId = routeQueryData.value.id;
+    try {
+      await EMClient.addUsersToBlocklist({
+        name: [targetId]
+      });
+      ElMessage({ type: 'success', center: true, message: '已成功将该用户添加到黑名单' });
+      // 刷新黑名单列表
+      setTimeout(() => {
+        store.dispatch('fetchBlackList');
+      }, 500);
+    } catch (error) {
+      ElMessage({ type: 'error', center: true, message: '添加到黑名单失败，请稍后重试' });
+      console.error('添加到黑名单失败:', error);
+    }
+  }
+};
+
+//从黑名单中移除用户
+const removeFriendFromBlackList = async () => {
+  if (routeQueryData.value?.id) {
+    const targetId = routeQueryData.value.id;
+    try {
+      await EMClient.removeUserFromBlocklist({
+        name: [targetId]
+      });
+      ElMessage({ type: 'success', center: true, message: '已成功将该用户从黑名单中移除' });
+      // 刷新黑名单列表
+      setTimeout(() => {
+        store.dispatch('fetchBlackList');
+      }, 500);
+    } catch (error) {
+      ElMessage({ type: 'error', center: true, message: '从黑名单中移除失败，请稍后重试' });
+      console.error('从黑名单中移除失败:', error);
+    }
+  }
+};
 /* warningTips */
 const isShowWarningTips = computed(() => store.state.isShowWarningTips);
 const randomTips = computed(() => {
@@ -359,12 +436,18 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
             </svg>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item @click="remarkDialogVisible = true">
+                  设置好友备注
+                </el-dropdown-item>
+                <el-dropdown-item v-if="!isInBlackList" @click="addFriendToBlackList">
+                  加入黑名单
+                </el-dropdown-item>
+                <el-dropdown-item v-else @click="removeFriendFromBlackList">
+                  从黑名单中移除
+                </el-dropdown-item>
                 <el-dropdown-item @click="delTheFriend">
                   删除好友
                 </el-dropdown-item>
-                <!-- <el-dropdown-item @click="addFriendToBlackList">
-                加入黑名单
-              </el-dropdown-item> -->
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -436,6 +519,26 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
         @handleDrawer="handleDrawer"
       />
     </el-drawer>
+    
+    <!-- 设置好友备注对话框 -->
+    <el-dialog
+      v-model="remarkDialogVisible"
+      title="设置好友备注"
+      width="30%"
+    >
+      <el-input
+        v-model="friendRemark"
+        placeholder="请输入好友备注（最多100个字符）"
+        maxlength="100"
+        show-word-limit
+      />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="remarkDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="setFriendRemark">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 

@@ -110,7 +110,7 @@ const toSendFeedback = () => window.open('mailto:yunying@easemob.com');
     </el-avatar>
     <el-popover
       popper-class="user_status_popover"
-      :width="10"
+      :width="160"
       trigger="click"
       placement="right-start"
       :show-arrow="false"
@@ -414,10 +414,10 @@ const toSendFeedback = () => window.open('mailto:yunying@easemob.com');
     right: 2px;
     bottom: 2px;
     display: inline-block;
-    width: 6px;
-    height: 6px;
+    width: 10px;
+    height: 10px;
     border: 2px solid #fff;
-    background: #fff;
+    background: #BEC1BD;
     border-radius: 50%;
     transition: all 0.3s;
     cursor: pointer;
