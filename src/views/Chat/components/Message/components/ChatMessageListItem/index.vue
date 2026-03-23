@@ -546,11 +546,20 @@ const unpinMessage = async (msgBody) => {
     });
   } catch (error) {
     console.error('取消置顶消息失败:', error);
-    ElMessage({
-      type: 'error',
-      message: `取消置顶失败：${error.message || '请稍后重试'}`,
-      center: true,
-    });
+    // 当消息未置顶时，不显示错误提示
+    if (error.message === 'user session pin message not exist') {
+      ElMessage({
+        type: 'info',
+        message: '消息未置顶',
+        center: true,
+      });
+    } else {
+      ElMessage({
+        type: 'error',
+        message: `取消置顶失败：${error.message || '请稍后重试'}`,
+        center: true,
+      });
+    }
   }
 };
 //父组件重新编辑方法
