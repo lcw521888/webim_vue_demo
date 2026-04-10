@@ -9,6 +9,8 @@ import {
   DEFAULT_EASEMOB_APPKEY,
   DEFAULT_EASEMOB_SOCKET_URL,
   DEFAULT_EASEMOB_REST_URL,
+  fixSocketUrl,
+  fixRestUrl,
 } from '../config';
 let miniCore = {};
 const IM_IS_OPEN_CUSTOM_SERVER_CONFIG =
@@ -19,21 +21,7 @@ const CUSTOM_CONFIG = (webimConfig && JSON.parse(webimConfig)) || {};
 const initEMClient = () => {
   // 读取自定义配置（因demo需要自定义配置，非必须）
   const configOptions = {};
-  
-  // 验证和修复URL格式的函数
-  const fixUrl = (url) => {
-    if (!url) return url;
-    // 检查URL是否缺少协议前缀
-    if (url.startsWith('//')) {
-      // 使用当前页面的协议
-      return window.location.protocol + url;
-    } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      // 缺少协议前缀，添加http://
-      return 'http://' + url;
-    }
-    return url;
-  };
-  
+
   if (IM_IS_OPEN_CUSTOM_SERVER_CONFIG) {
     Object.assign(configOptions, {
       appKey: CUSTOM_CONFIG.appKey
@@ -41,11 +29,11 @@ const initEMClient = () => {
         : DEFAULT_EASEMOB_APPKEY,
       isHttpDNS: !CUSTOM_CONFIG.isPrivate, //取反isPrivate
       url: CUSTOM_CONFIG.imServer
-        ? fixUrl(CUSTOM_CONFIG.imServer)
-        : fixUrl(DEFAULT_EASEMOB_SOCKET_URL),
+        ? fixSocketUrl(CUSTOM_CONFIG.imServer)
+        : fixSocketUrl(DEFAULT_EASEMOB_SOCKET_URL),
       apiUrl: CUSTOM_CONFIG.restServer
-        ? fixUrl(CUSTOM_CONFIG.restServer)
-        : fixUrl(DEFAULT_EASEMOB_REST_URL),
+        ? fixRestUrl(CUSTOM_CONFIG.restServer)
+        : fixRestUrl(DEFAULT_EASEMOB_REST_URL),
       delivery: true, // 启用消息送达回执
       multiDevice: true, // 启用多设备登录
     });
@@ -53,8 +41,8 @@ const initEMClient = () => {
     Object.assign(configOptions, {
       appKey: DEFAULT_EASEMOB_APPKEY,
       isHttpDNS: true,
-      url: fixUrl(DEFAULT_EASEMOB_SOCKET_URL),
-      apiUrl: fixUrl(DEFAULT_EASEMOB_REST_URL),
+      url: fixSocketUrl(DEFAULT_EASEMOB_SOCKET_URL),
+      apiUrl: fixRestUrl(DEFAULT_EASEMOB_REST_URL),
       delivery: true, // 启用消息送达回执
       multiDevice: true, // 启用多设备登录
     });
