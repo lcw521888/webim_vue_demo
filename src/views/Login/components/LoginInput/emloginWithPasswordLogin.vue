@@ -6,7 +6,7 @@
  */
 import { ref, reactive, watch, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { EMClient } from '@/IM';
+import { EMClient, openImWithRetry } from '@/IM';
 import { useStore } from 'vuex';
 import { usePlayRing } from '@/hooks';
 const store = useStore();
@@ -41,7 +41,7 @@ const loginIM = async () => {
   buttonLoading.value = true;
   
   try {
-    let { accessToken } = await EMClient.open({
+    let { accessToken } = await openImWithRetry(EMClient, {
       username: loginValue.username.toLowerCase(),
       password: loginValue.password.toLowerCase(),
     });

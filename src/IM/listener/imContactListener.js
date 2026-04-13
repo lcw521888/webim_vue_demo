@@ -2,12 +2,20 @@ import { EMClient } from '../index';
 import { INFORM_FROM } from '@/constant';
 import store from '@/store';
 import { CONTACT_OPERATION_CUSTOM_TYPE } from '../constant';
+import { wrapImEventHandler } from '@/utils/safeCall';
+
 export const imContactListener = () => {
   const submitInformData = (fromType, informContent) => {
-    store.dispatch('createNewInform', { fromType, informContent });
+    Promise.resolve(
+      store.dispatch('createNewInform', { fromType, informContent }),
+    ).catch((err) => console.error('[imContactListener.createNewInform]', err));
   };
   const onDispatchContactEvent = (eventType, data) => {
     console.log('onDispatchContactEvent', data);
+    if (data == null || typeof data !== 'object') {
+      console.warn('[onDispatchContactEvent] 无效 data', eventType, data);
+      return;
+    }
     switch (eventType) {
       case CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_INVITED:
         {
@@ -25,7 +33,9 @@ export const imContactListener = () => {
           //改掉data中的type
           data.type = 'other_person_agree';
           submitInformData(INFORM_FROM.FRIEND, data);
-          store.dispatch('onAddNewContact', data);
+          Promise.resolve(store.dispatch('onAddNewContact', data)).catch(
+            (err) => console.error('[CONTACT_AGREED]', err),
+          );
         }
         break;
       case CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_REFUSE:
@@ -36,14 +46,18 @@ export const imContactListener = () => {
         break;
       case CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_DELETED: {
         submitInformData(INFORM_FROM.FRIEND, data);
-        store.dispatch('onDeleteContact', data);
+        Promise.resolve(store.dispatch('onDeleteContact', data)).catch((err) =>
+          console.error('[CONTACT_DELETED]', err),
+        );
       }
       default:
         break;
     }
   };
   const mountContactEventListener = () => {
-    EMClient.addEventHandler('friendListen', {
+    EMClient.addEventHandler(
+      'friendListen',
+      wrapImEventHandler({
       // 收到好友邀请触发此方法。
       onContactInvited: (data) => {
         //写入INFORM
@@ -88,7 +102,8 @@ export const imContactListener = () => {
           data,
         );
       },
-    });
+    }),
+    );
   };
   return {
     mountContactEventListener,

@@ -601,13 +601,10 @@ const Conversation = {
       { dispatch },
       conversationList,
     ) => {
-      //挑出为群组的会话id，用于获取群组详情
+      // 仅群聊会话可调用 getGroupInfo（/chatgroups）。聊天室应使用 getChatRoomDetails 等接口，混用会触发 400：
+      // Illegal arguments: chatType is not required: group
       const groupConversationIds = _.chain(conversationList)
-        .filter(
-          (item) =>
-            item.conversationType === CHAT_TYPE.GROUP ||
-            item.conversationType === CHAT_TYPE.CHATROOM,
-        )
+        .filter((item) => item.conversationType === CHAT_TYPE.GROUP)
         .map('conversationId')
         .value();
       try {

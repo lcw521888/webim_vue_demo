@@ -482,6 +482,7 @@ const Message = {
           type: 'txt',
           msg: msg,
           to: to,
+          from: EMClient.user,
           chatType: chatType,
         });
 

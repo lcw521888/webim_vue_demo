@@ -1,4 +1,6 @@
 //MiniCore
+// 必须在加载环信 SDK 之前注册全局捕获，否则 dev overlay / 未处理拒绝会先处理异常
+import '@/utils/globalErrorHandler';
 import MiniCore from 'easemob-websdk/miniCore/miniCore';
 import * as contactPlugin from 'easemob-websdk/contact/contact';
 import * as groupPlugin from 'easemob-websdk/group/group';
@@ -12,12 +14,27 @@ import {
   fixSocketUrl,
   fixRestUrl,
 } from '../config';
+import { sdkErrorToError } from '../sdkError';
+import { safeSync } from '@/utils/safeCall';
+import { redirectToLoginClearImSession } from '@/utils/imAuthRedirect';
+
+function parseJSONSafe(raw, fallback) {
+  if (raw == null || raw === '') return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
 let miniCore = {};
 const IM_IS_OPEN_CUSTOM_SERVER_CONFIG =
-  JSON.parse(window.localStorage.getItem('IM_IS_OPEN_CUSTOM_SERVER_CONFIG')) ||
-  false;
+  parseJSONSafe(
+    window.localStorage.getItem('IM_IS_OPEN_CUSTOM_SERVER_CONFIG'),
+    false,
+  ) || false;
 const webimConfig = window.localStorage.getItem('webimConfig');
-const CUSTOM_CONFIG = (webimConfig && JSON.parse(webimConfig)) || {};
+const CUSTOM_CONFIG = webimConfig ? parseJSONSafe(webimConfig, {}) : {};
 const initEMClient = () => {
   // 读取自定义配置（因demo需要自定义配置，非必须）
   const configOptions = {};
@@ -68,33 +85,39 @@ const initEMClient = () => {
       console.log('IM SDK 断开连接');
     },
     onConnectError: (error) => {
-      console.error('IM SDK 连接错误:', error);
-      
-      // 检查用户是否已经登录成功
-      const loginUser = localStorage.getItem('EASEIM_loginUser');
-      if (loginUser) {
-        console.log('用户已登录，忽略连接错误:', error.message);
-        // 即使是INVALID_TOKEN错误，只要用户已经登录成功，就忽略
-        return;
-      }
-      
-      // 处理401未授权错误和无效令牌错误
-      if (
-        error.type === 401 ||
-        error.type === 28 || // 错误类型28对应INVALID_TOKEN
-        error.type === 2 || // 错误类型2对应Auth failed
-        error.message?.includes('401') ||
-        error.message?.includes('Unauthorized') ||
-        error.message?.includes('INVALID_TOKEN') ||
-        error.message?.includes('Invalid token') ||
-        error.message?.includes('Auth failed')
-      ) {
-        console.error('连接错误: 未授权或令牌无效，请重新登录');
-        // 清除本地存储的登录信息
-        localStorage.removeItem('EASEIM_loginUser');
-        // 跳转到登录页面
-        window.location.href = '/login';
-      }
+      safeSync('connectionError.onConnectError', () => {
+        console.error('IM SDK 连接错误:', error);
+
+        // 本地已有 token 只说明业务侧已登录；长连仍可能因首包网络抖动失败，由 SDK 自动重连。
+        // 不再直接 return，避免吞掉首次连接阶段的错误信息。
+        if (localStorage.getItem('EASEIM_loginUser')) {
+          console.warn(
+            '[IM] 已存在本地登录缓存，当前为连接层错误（常见为网络波动，可等待自动重连或刷新）:',
+            error?.message || error,
+          );
+        }
+
+        if (error?.type === 2 || error?.message?.includes('Auth failed')) {
+          console.warn(
+            '[IM] 长连接鉴权失败，将清除本地登录状态并返回登录页。',
+            error?.message || error,
+          );
+          redirectToLoginClearImSession();
+          return;
+        }
+        if (
+          error?.type === 401 ||
+          error?.type === 28 ||
+          error?.message?.includes('401') ||
+          error?.message?.includes('Unauthorized') ||
+          error?.message?.includes('INVALID_TOKEN') ||
+          error?.message?.includes('Invalid token')
+        ) {
+          console.error(
+            '连接错误: 未授权或令牌无效，请自行前往登录页或清除 EASEIM_loginUser；未自动跳转以免页面不可用。',
+          );
+        }
+      });
     },
     onWillReconnect: (retryTimes) => {
       console.log(`IM SDK 即将重试连接，第${retryTimes}次`);
@@ -107,21 +130,24 @@ const initEMClient = () => {
   // 添加消息拉取错误处理
   miniCore.addEventHandler('messagePullError', {
     onMessagePullError: (error) => {
-      console.error('IM SDK 消息拉取错误:', error);
-      // 处理消息拉取错误，特别是与pullCount相关的错误
-      if (error.message?.includes('pullCount')) {
-        console.error('消息拉取错误: 与pullCount相关的错误，可能需要清除本地存储并重新登录');
-        // 清除本地存储的登录信息
-        localStorage.removeItem('EASEIM_loginUser');
-        // 跳转到登录页面
-        window.location.href = '/login';
-      }
+      safeSync('messagePullError.onMessagePullError', () => {
+        console.error('IM SDK 消息拉取错误:', error);
+        if (error?.message?.includes('pullCount')) {
+          console.error(
+            '消息拉取 pullCount 相关错误，可尝试清除 EASEIM_loginUser 后重新登录；未自动跳转。',
+          );
+        }
+      });
     },
   });
 
   // 添加消息撤回监听
   miniCore.addEventHandler('messageRecall', {
     onRecallMessage: (msg) => {
+      if (msg == null || typeof msg !== 'object') {
+        console.warn('[IM SDK] onRecallMessage 收到无效消息体，已忽略', msg);
+        return;
+      }
       console.log(
         '[IM SDK Event] Message Recall Event (onRecallMessage) Triggered',
       );
@@ -134,9 +160,9 @@ const initEMClient = () => {
         ext: msg.ext,
         originalMessage: msg,
       });
-      // 发送自定义事件，让Vue应用能够监听并更新状态
-      const event = new CustomEvent('hx:messageRecall', { detail: msg });
-      window.dispatchEvent(event);
+      safeSync('messageRecall.dispatch hx:messageRecall', () => {
+        window.dispatchEvent(new CustomEvent('hx:messageRecall', { detail: msg }));
+      });
       console.log('[IM SDK Event] Custom Event hx:messageRecall Sent');
     },
   });
@@ -388,7 +414,7 @@ if (Object.keys(miniCore).length) {
         return result;
       } catch (error) {
         console.error('EMClient.unpinMessage 内部错误:', error);
-        throw error;
+        throw sdkErrorToError(error);
       }
     };
   } else {
@@ -453,7 +479,7 @@ if (Object.keys(miniCore).length) {
         return result;
       } catch (error) {
         console.error('EMClient.getServerPinnedMessages 内部错误:', error);
-        throw error;
+        throw sdkErrorToError(error);
       }
     };
   } else {
@@ -652,7 +678,7 @@ if (Object.keys(miniCore).length) {
         return result;
       } catch (error) {
         console.error('EMClient.getGroupMsgReadUser 内部错误:', error);
-        throw error;
+        throw sdkErrorToError(error);
       }
     };
   } else {
@@ -793,6 +819,32 @@ if (Object.keys(miniCore).length) {
   // 将包装后的方法赋值给 miniCore
   miniCore.recallMessage = wrappedRecallMessage;
 
+  // 编辑消息：SDK 内部会读 modifiedMessage.to，缺省时会在 miniCore 内抛 TypeError
+  if (typeof miniCore.modifyMessage === 'function') {
+    const originalModifyMessage = miniCore.modifyMessage.bind(miniCore);
+    miniCore.modifyMessage = function (opts) {
+      const mid = opts && opts.messageId;
+      const mod = opts && opts.modifiedMessage;
+      if (!mid) {
+        return Promise.reject(
+          new Error('EMClient.modifyMessage: 缺少 messageId'),
+        );
+      }
+      if (!mod || mod.to == null || mod.to === '') {
+        return Promise.reject(
+          new Error(
+            'EMClient.modifyMessage: modifiedMessage 无效（需为 Message.create 返回值且含 to）',
+          ),
+        );
+      }
+      try {
+        return originalModifyMessage(opts);
+      } catch (e) {
+        return Promise.reject(sdkErrorToError(e));
+      }
+    };
+  }
+
   // 添加或包装 getServerConversations 方法（获取服务端会话列表）
   if (typeof miniCore.getServerConversations === 'function') {
     const originalGetServerConversations = miniCore.getServerConversations;
@@ -829,7 +881,7 @@ if (Object.keys(miniCore).length) {
           enhancedError.originalError = error;
           throw enhancedError;
         }
-        throw error;
+        throw sdkErrorToError(error);
       });
     };
   }

@@ -1,22 +1,29 @@
 import { EMClient } from '../index';
 import store from '@/store';
 import { MESSAGE_STATUS_TYPE } from '@/constant';
+import { wrapImEventHandler } from '@/utils/safeCall';
+
 export const imReadAckListener = () => {
   const mountReadAckEventListener = () => {
     console.log('mountReadAckEventListener');
-    EMClient.addEventHandler('aboutReadAckMessage', {
-      // 当前用户收到消息已读回执。
+    EMClient.addEventHandler(
+      'aboutReadAckMessage',
+      wrapImEventHandler({
       onReadMessage: (message) => {
         updateMessageReadStatus(message);
       },
-      // 当前用户收到会话已读回执。
       onChannelMessage: (message) => {
         updateConversationReadStatus(message);
       },
-    });
+    }),
+    );
   };
   //根据收到的单条消息已读回执更新消息已读状态状态
   const updateMessageReadStatus = (message) => {
+    if (!message || typeof message !== 'object') {
+      console.warn('[updateMessageReadStatus] 无效 message', message);
+      return;
+    }
     const { mid, to, from } = message;
     const key = to === EMClient.user ? from : to;
     const payload = {
@@ -28,6 +35,10 @@ export const imReadAckListener = () => {
   };
   //根据收到会话已读回执更新整个会话为已读状态
   const updateConversationReadStatus = (message) => {
+    if (!message || typeof message !== 'object') {
+      console.warn('[updateConversationReadStatus] 无效 message', message);
+      return;
+    }
     const { to, from } = message;
     const key = to === EMClient.user ? from : to;
     const payload = {

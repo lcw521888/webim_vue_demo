@@ -3,11 +3,17 @@ import { CHAT_TYPE } from '../constant';
 import { CHANGE_MESSAGE_BODAY_TYPE } from '@/constant';
 import { setMessageKey } from '@/utils/handleSomeData';
 import store from '@/store';
+import { safeSync, wrapImEventHandler } from '@/utils/safeCall';
+
 export const imReviceMessageListener = () => {
   //接收的消息往store中push
   const pushNewMessage = (message) => {
+    if (message == null || typeof message !== 'object') {
+      console.warn('【IM】忽略空或非对象消息:', message);
+      return;
+    }
     console.log('【DEBUG】收到消息:', message);
-    
+
     // 确保消息有chatType
     if (!message.chatType) {
       console.log('【DEBUG】消息缺少chatType，根据to字段推断');
@@ -25,46 +31,70 @@ export const imReviceMessageListener = () => {
     }
     
     console.log('【DEBUG】准备添加消息到消息列表:', message);
-    store.dispatch('createNewMessage', message);
-    store.dispatch('UsersProfile/processMessageExt', message, { root: true });
+    Promise.resolve(store.dispatch('createNewMessage', message)).catch((err) => {
+      console.error('[pushNewMessage.createNewMessage]', err);
+    });
+    Promise.resolve(
+      store.dispatch('UsersProfile/processMessageExt', message, { root: true }),
+    ).catch((err) => {
+      console.error('[pushNewMessage.processMessageExt]', err);
+    });
   };
   //收到他人的撤回指令
   const otherRecallMessage = (message) => {
+    if (message == null || typeof message !== 'object') {
+      console.warn('【IM】忽略空撤回事件:', message);
+      return;
+    }
     const { from, to, mid } = message;
     //单对单的撤回to必然为登陆的用户id，群组发起撤回to必然为群组id 所以key可以这样来区分群组或者单人。
     const key = to === EMClient.user ? from : to;
 
     const chatType = to === EMClient.user ? CHAT_TYPE.SINGLE : CHAT_TYPE.GROUP;
-    store.commit('CHANGE_MESSAGE_BODAY', {
-      type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
-      key,
-      mid,
+    safeSync('otherRecallMessage.commit', () => {
+      store.commit('CHANGE_MESSAGE_BODAY', {
+        type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
+        key,
+        mid,
+      });
     });
-    store.dispatch('updateConversationList', {
-      conversationId: key,
-      chatType,
-    });
+    Promise.resolve(
+      store.dispatch('updateConversationList', {
+        conversationId: key,
+        chatType,
+      }),
+    ).catch((err) => console.error('[otherRecallMessage.updateConversationList]', err));
   };
   //收到消息修改指令
   const otherModifyMessage = (message) => {
+    if (message == null || typeof message !== 'object') {
+      console.warn('【IM】忽略空编辑消息事件:', message);
+      return;
+    }
     const { from, to, id: mid, chatType } = message;
     //单对单的撤回to必然为登陆的用户id，群组发起撤回to必然为群组id 所以key可以这样来区分群组或者单人。
     if (!to) return;
     const key = to === EMClient.user ? from : to;
-    store.commit('CHANGE_MESSAGE_BODAY', {
-      type: CHANGE_MESSAGE_BODAY_TYPE.MODIFY,
-      key,
-      mid,
-      message,
+    safeSync('otherModifyMessage.commit', () => {
+      store.commit('CHANGE_MESSAGE_BODAY', {
+        type: CHANGE_MESSAGE_BODAY_TYPE.MODIFY,
+        key,
+        mid,
+        message,
+      });
     });
-    store.dispatch('updateConversationList', {
-      conversationId: key,
-      chatType,
-    });
+    Promise.resolve(
+      store.dispatch('updateConversationList', {
+        conversationId: key,
+        chatType,
+      }),
+    ).catch((err) => console.error('[otherModifyMessage.updateConversationList]', err));
   };
   const mountReviceMessageEventListener = () => {
     /* message 相关监听 */
-    EMClient.addEventHandler('messageListen', {
+    EMClient.addEventHandler(
+      'messageListen',
+      wrapImEventHandler({
       // 全局消息监听器，接收所有类型的消息
       onMessage: function (message) {
         pushNewMessage(message);
@@ -79,7 +109,9 @@ export const imReviceMessageListener = () => {
       onImageMessage: function (message) {
         pushNewMessage(message);
       }, // 收到图片消息。
-      onCmdMessage: function (message) {}, // 收到命令消息。
+      onCmdMessage: function (message) {
+        if (message == null || typeof message !== 'object') return;
+      }, // 收到命令消息。
       onAudioMessage: function (message) {
         pushNewMessage(message);
       }, // 收到音频消息。
@@ -107,7 +139,8 @@ export const imReviceMessageListener = () => {
       onModifiedMessage: function (message) {
         otherModifyMessage(message);
       },
-    });
+    }),
+    );
   };
   return {
     mountReviceMessageEventListener,

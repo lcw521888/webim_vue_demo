@@ -1,57 +1,59 @@
 <script setup>
+import '@/utils/globalErrorHandler';
 import { ref, onMounted, onUnmounted } from 'vue';
 import { mountAllEMListener } from '@/IM/listener';
-import { EMClient } from '@/IM';
+import { EMClient, openImWithRetry } from '@/IM';
+import { sdkErrorToError } from '@/IM/sdkError';
+import {
+  isImAuthFailedReason,
+  redirectToLoginClearImSession,
+} from '@/utils/imAuthRedirect';
 import ring from '@/assets/ring.mp3';
 import { ElMessage } from 'element-plus';
 // 导入调试工具
 import { enableEMClientDebug } from '@/utils/debugSDK';
-// 导入全局错误处理程序
-import '@/utils/globalErrorHandler';
 // 导入播放铃声钩子
 import { usePlayRing } from '@/hooks';
 // 导入事件发射器
 import eventEmitter from '@/utils/eventEmitter';
+import { safeSync } from '@/utils/safeCall';
 
 // 启用EMClient调试
 enableEMClientDebug();
 
 /* 【重要】挂载IM相关监听回调。 */
-mountAllEMListener();
+safeSync('mountAllEMListener', () => mountAllEMListener());
 
 /* 重新登陆 */
-//读取本地EASEIM_loginUser
 const EASEIM_loginUser = window.localStorage.getItem('EASEIM_loginUser');
-const loginUserFromStorage = JSON.parse(EASEIM_loginUser) || {};
+let loginUserFromStorage = {};
+try {
+  loginUserFromStorage = EASEIM_loginUser ? JSON.parse(EASEIM_loginUser) : {};
+} catch (e) {
+  console.error('[App] EASEIM_loginUser JSON 解析失败，已忽略本地缓存', e);
+}
 
 const handleRelogin = async () => {
   try {
-    await EMClient.open({
+    await openImWithRetry(EMClient, {
       username: loginUserFromStorage.user,
       accessToken: loginUserFromStorage.accessToken,
     });
-  } catch (error) {
+  } catch (raw) {
+    const error = sdkErrorToError(raw);
     // 忽略"You are already logged in"错误
     if (error.message !== 'You are already logged in') {
-      // 确保错误信息是字符串
-      let errorMsg = error.message;
-      if (typeof errorMsg === 'object' && errorMsg !== null) {
-        try {
-          errorMsg = JSON.stringify(errorMsg);
-        } catch (e) {
-          errorMsg = String(errorMsg);
-        }
-      } else if (errorMsg === null || errorMsg === undefined) {
-        errorMsg = '重新登录失败';
-      } else {
-        errorMsg = String(errorMsg);
+      if (isImAuthFailedReason(raw) || isImAuthFailedReason(error)) {
+        console.warn('[App] IM 鉴权失败，跳转登录页');
+        redirectToLoginClearImSession();
+        return;
       }
-      
       ElMessage({
         type: 'error',
         center: true,
-        message: errorMsg,
+        message: error.message || '重新登录失败',
       });
+      console.error('[IM 重新登录失败]', raw);
     } else {
       console.log('用户已登录，忽略重复登录错误');
     }
@@ -59,7 +61,9 @@ const handleRelogin = async () => {
 };
 
 if (loginUserFromStorage?.user && loginUserFromStorage?.accessToken) {
-  handleRelogin();
+  void handleRelogin().catch((e) =>
+    console.error('[App] handleRelogin 未捕获异常', e),
+  );
 }
 
 // 初始化播放铃声功能
@@ -67,10 +71,12 @@ const { isOpenPlayRing, playRing } = usePlayRing();
 
 // 监听新消息事件，播放提示音
 const handleNewMessage = (message) => {
-  // 只有当消息不是自己发送的时候，才播放铃声
-  if (message.from !== EMClient.user && isOpenPlayRing.value) {
-    playRing();
-  }
+  safeSync('handleNewMessage', () => {
+    if (!message || typeof message !== 'object') return;
+    if (message.from !== EMClient.user && isOpenPlayRing.value) {
+      playRing();
+    }
+  });
 };
 
 // 添加事件监听器

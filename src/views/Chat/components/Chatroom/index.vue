@@ -1,12 +1,27 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
+import { useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { EMClient } from '@/IM';
 import { CHAT_TYPE } from '@/IM/constant';
 import router from '@/router';
 import SearchInput from '@/components/SearchInput';
 import Welcome from '@/components/Welcome';
+import eventEmitter from '@/utils/eventEmitter';
+
+/** 列表与已加入列表的 id 可能为 string / number，严格 === 会导致「加入/进入」状态不更新 */
+function normalizeChatroomId(id) {
+  if (id == null || id === '') return '';
+  return String(id);
+}
+
+function normalizeChatroomRecord(item) {
+  if (!item || typeof item !== 'object') return item;
+  const nid = item.id ?? item.chatRoomId ?? item.roomId;
+  if (nid == null) return { ...item };
+  return { ...item, id: nid };
+}
 
 // 缓存已获取的聊天室详情，用于存储准确的成员数
 const chatroomDetailsCache = ref(new Map());
@@ -18,8 +33,7 @@ const fetchChatroomDetail = async (roomId) => {
     const detail = Array.isArray(res.data) ? res.data[0] || {} : res.data || {};
     
     if (detail.id) {
-      // 缓存聊天室详情
-      chatroomDetailsCache.value.set(detail.id, detail);
+      chatroomDetailsCache.value.set(normalizeChatroomId(detail.id), detail);
       console.log(`缓存聊天室${detail.id}的准确详情:`, { affiliations_count: detail.affiliations_count });
     }
     
@@ -31,6 +45,7 @@ const fetchChatroomDetail = async (roomId) => {
 };
 
 const store = useStore();
+const route = useRoute();
 
 const chatroomList = ref([]);
 const joinedChatroomList = ref([]);
@@ -241,15 +256,26 @@ const setupChatroomEventHandler = () => {
   console.log('聊天室事件监听器设置完成');
 };
 
+const isRoomJoined = (roomId) => {
+  const key = normalizeChatroomId(roomId);
+  if (!key) return false;
+  return joinedChatroomList.value.some(
+    (j) => normalizeChatroomId(j.id) === key,
+  );
+};
+
 // ========== 新增：根据聊天室ID获取本地缓存的成员数 ==========
 const getChatroomMemberCountFromLocal = (chatRoomId) => {
-  // 先从已加入列表找
-  const joinedRoom = joinedChatroomList.value.find(item => item.id === chatRoomId);
+  const key = normalizeChatroomId(chatRoomId);
+  const joinedRoom = joinedChatroomList.value.find(
+    (item) => normalizeChatroomId(item.id) === key,
+  );
   if (joinedRoom) {
     return joinedRoom.affiliations_count || 0;
   }
-  // 再从所有列表找
-  const allRoom = chatroomList.value.find(item => item.id === chatRoomId);
+  const allRoom = chatroomList.value.find(
+    (item) => normalizeChatroomId(item.id) === key,
+  );
   return allRoom?.affiliations_count || 0;
 };
 
@@ -301,20 +327,18 @@ const getChatrooms = async () => {
       console.log(`第一个所有聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
     }
     
-    chatroomList.value = (res.data || []).map(item => {
-      // 计算成员数：使用服务器返回的实际数据，允许显示0
+    chatroomList.value = (res.data || []).map((item) => {
       const calculatedCount = Math.max(
         item.affiliations_count || 0,
         item.memberCount || 0,
         item.affiliationsCount || 0,
         item.onlineCount || 0,
-        item.members?.length || 0 // 检查members数组长度
+        item.members?.length || 0,
       );
-      
-      return {
+      return normalizeChatroomRecord({
         ...item,
-        affiliations_count: calculatedCount
-      };
+        affiliations_count: calculatedCount,
+      });
     });
     
     console.log(`所有聊天室列表处理完成:`, JSON.stringify(chatroomList.value, null, 2));
@@ -347,7 +371,10 @@ const getChatrooms = async () => {
       const loginUser = localStorage.getItem('EASEIM_loginUser');
       if (loginUser) {
         console.log('用户已登录，忽略认证错误:', error.message);
-        ElMessage.warning('网络波动，正在重试...');
+        ElMessage.warning({
+          message: '网络波动，正在重试...',
+          grouping: true,
+        });
         // 尝试重新获取已加入聊天室列表
         setTimeout(() => {
           getJoinedChatrooms();
@@ -395,18 +422,19 @@ const getJoinedChatrooms = async () => {
       console.log(`第一个已加入聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
     }
     
-    // 先使用列表数据初始化
-    joinedChatroomList.value = (res.data || []).map(item => ({
-      ...item,
-      affiliations_count: Math.max(
-        item.affiliations_count || 0,
-        item.memberCount || 0,
-        item.affiliationsCount || 0,
-        item.onlineCount || 0,
-        item.members?.length || 0,
-        1 // 至少显示1个成员（当前用户）
-      )
-    }));
+    joinedChatroomList.value = (res.data || []).map((item) =>
+      normalizeChatroomRecord({
+        ...item,
+        affiliations_count: Math.max(
+          item.affiliations_count || 0,
+          item.memberCount || 0,
+          item.affiliationsCount || 0,
+          item.onlineCount || 0,
+          item.members?.length || 0,
+          1,
+        ),
+      }),
+    );
     
     // 为每个已加入的聊天室获取准确的详情
     if (joinedChatroomList.value.length > 0) {
@@ -423,7 +451,9 @@ const getJoinedChatrooms = async () => {
       // 更新列表中的成员数
       joinedChatroomList.value = joinedChatroomList.value.map(item => {
         // 从缓存或刚获取的详情中查找
-        const cachedDetail = chatroomDetailsCache.value.get(item.id);
+        const cachedDetail = chatroomDetailsCache.value.get(
+          normalizeChatroomId(item.id),
+        );
         
         if (cachedDetail?.affiliations_count !== undefined) {
           console.log(`更新聊天室${item.id}的成员数: 从${item.affiliations_count}到${cachedDetail.affiliations_count}`);
@@ -479,7 +509,10 @@ const getJoinedChatrooms = async () => {
       const loginUser = localStorage.getItem('EASEIM_loginUser');
       if (loginUser) {
         console.log('用户已登录，忽略认证错误:', error.message);
-        ElMessage.warning('网络波动，正在重试...');
+        ElMessage.warning({
+          message: '网络波动，正在重试...',
+          grouping: true,
+        });
         // 尝试重新获取已加入聊天室列表
         setTimeout(() => {
           getJoinedChatrooms();
@@ -540,9 +573,26 @@ const joinChatroom = async (roomId) => {
     setupChatroomEventHandler();
     console.log('聊天室事件监听器重新设置完成');
     
-    // 加入后刷新列表，确保affiliations_count更新
     await getChatrooms();
     await getJoinedChatrooms();
+    if (!isRoomJoined(roomId)) {
+      const key = normalizeChatroomId(roomId);
+      const fromAll = chatroomList.value.find(
+        (c) => normalizeChatroomId(c.id) === key,
+      );
+      joinedChatroomList.value = [
+        ...joinedChatroomList.value,
+        normalizeChatroomRecord(
+          fromAll
+            ? { ...fromAll }
+            : {
+                id: roomId,
+                name: String(roomId),
+                affiliations_count: 1,
+              },
+        ),
+      ];
+    }
   } catch (error) {
     console.error(
       `加入聊天室失败:`,
@@ -621,7 +671,10 @@ const leaveChatroom = async (roomId) => {
       `\n已退出聊天室ID:`,
       roomId,
     );
-    // 退出后刷新列表，确保affiliations_count更新
+    const key = normalizeChatroomId(roomId);
+    joinedChatroomList.value = joinedChatroomList.value.filter(
+      (j) => normalizeChatroomId(j.id) !== key,
+    );
     await getJoinedChatrooms();
     await getChatrooms();
   } catch (error) {
@@ -805,15 +858,31 @@ const networkStatus = computed(() => {
 
 let chatroomEventHandler = null;
 
+const refreshChatroomLists = () => {
+  void getChatrooms();
+  void getJoinedChatrooms();
+};
+
+watch(
+  () => route.fullPath,
+  (path, prevPath) => {
+    const base = path.split('?')[0];
+    const listRoot = /\/chat\/chatroom\/?$/.test(base);
+    if (prevPath?.includes('/chatroom/details') && listRoot) {
+      refreshChatroomLists();
+    }
+  },
+);
+
 onMounted(() => {
   getChatrooms();
   getJoinedChatrooms();
-
-  // 调用设置事件监听器的函数
   setupChatroomEventHandler();
+  eventEmitter.on('chatroomMembershipChanged', refreshChatroomLists);
 });
 
 onUnmounted(() => {
+  eventEmitter.off('chatroomMembershipChanged', refreshChatroomLists);
   if (chatroomEventHandler) {
     EMClient.removeEventHandler('CHATROOM');
   }
@@ -864,7 +933,7 @@ onUnmounted(() => {
                 </div>
                 <div class="item_right">
                   <el-button
-                    v-if="!joinedChatroomList.find((j) => j.id === item.id)"
+                    v-if="!isRoomJoined(item.id)"
                     type="primary"
                     size="small"
                     @click="joinChatroom(item.id)"

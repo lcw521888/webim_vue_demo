@@ -2,7 +2,8 @@
 import { ref, reactive, watch, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStorage } from '@vueuse/core';
-import { EMClient } from '@/IM';
+import { EMClient, openImWithRetry } from '@/IM';
+import { sdkErrorToError } from '@/IM/sdkError';
 import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
 import { fetchUserLoginSmsCode, fetchUserLoginToken } from '@/api/login';
 import { useStore } from 'vuex';
@@ -61,9 +62,9 @@ const loginIM = async () => {
   try {
     const res = await fetchUserLoginToken(params);
     if (res?.code === 200) {
-      // 尝试登录，支持多设备登录
+      // open 为异步：必须 await，且仅在成功后再写本地，避免「未连上却已有缓存」导致二次登录才正常
       try {
-        EMClient.open({
+        await openImWithRetry(EMClient, {
           username: res.chatUserName.toLowerCase(),
           accessToken: res.token,
         });
@@ -75,22 +76,23 @@ const loginIM = async () => {
           }),
         );
       } catch (loginError) {
+        const err = sdkErrorToError(loginError);
         // 处理登录错误
-        if (loginError.message === 'You are already logged in' || loginError.message === 'the user is already logged on another device') {
+        if (err.message === 'You are already logged in' || err.message === 'the user is already logged on another device') {
           // 忽略重复登录错误，直接更新本地存储
-          if (loginError.data?.accessToken) {
+          if (err.originalError?.data?.accessToken) {
             window.localStorage.setItem(
               'EASEIM_loginUser',
               JSON.stringify({
                 user: res.chatUserName.toLowerCase(),
-                accessToken: loginError.data.accessToken,
+                accessToken: err.originalError.data.accessToken,
               }),
             );
           }
           console.log('用户已登录，忽略重复登录错误');
           // 跳转到聊天页面
           window.location.href = '/chat';
-        } else if (loginError.message?.includes('devices is overflow') || loginError.message?.includes('device limit')) {
+        } else if (err.message?.includes('devices is overflow') || err.message?.includes('device limit')) {
           // 处理设备数量限制错误
           console.log('设备数量超过限制，尝试强制登录');
           // 这里可以添加强制登录逻辑，或者提示用户
@@ -104,7 +106,11 @@ const loginIM = async () => {
         } else {
           console.error('登录失败:', loginError);
           ElMessage({
-            message: `${loginError?.data?.message || loginError?.message || '登录失败'}`,
+            message: `${
+              err.originalError?.data?.message ||
+              err.message ||
+              '登录失败，请检查网络后重试'
+            }`,
             type: 'error',
             center: true,
           });

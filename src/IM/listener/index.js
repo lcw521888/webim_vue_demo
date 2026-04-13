@@ -5,22 +5,28 @@ import { imContactListener } from './imContactListener';
 import { imGroupListener } from './imGroupListener';
 import { imReadAckListener } from './imReadAckListener';
 import { imMultiDeviceListener } from './imMultiDeviceListener';
-/* mount all listener */
+import { safeSync } from '@/utils/safeCall';
+
+function mountSafe(label, fn) {
+  safeSync(label, fn);
+}
+
+/* mount all listener：单项失败不影响其余监听注册 */
 export const mountAllEMListener = () => {
   const { mountConnectEventListener } = imConnectListener();
-  mountConnectEventListener();
+  mountSafe('imConnectListener', mountConnectEventListener);
   const { mountPresenceEventListener } = imPresenceListener();
-  mountPresenceEventListener();
+  mountSafe('imPresenceListener', mountPresenceEventListener);
   const { mountReviceMessageEventListener } = imReviceMessageListener();
-  mountReviceMessageEventListener();
+  mountSafe('imReciveMessageListener', mountReviceMessageEventListener);
   const { mountContactEventListener } = imContactListener();
-  mountContactEventListener();
+  mountSafe('imContactListener', mountContactEventListener);
   const { mountGroupEventListener } = imGroupListener();
-  mountGroupEventListener();
+  mountSafe('imGroupListener', mountGroupEventListener);
   const { mountReadAckEventListener } = imReadAckListener();
-  mountReadAckEventListener();
+  mountSafe('imReadAckListener', mountReadAckEventListener);
   const { mountMultiDeviceEventListener } = imMultiDeviceListener();
-  mountMultiDeviceEventListener();
+  mountSafe('imMultiDeviceListener', mountMultiDeviceEventListener);
 };
 export {
   imConnectListener,

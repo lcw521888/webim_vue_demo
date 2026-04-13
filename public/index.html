@@ -6,6 +6,56 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <link rel="icon" href="<%= BASE_URL %>favicon.ico" />
     <title><%= htmlWebpackPlugin.options.title %></title>
+    <!-- 早于 webpack 注入的 dev-client 注册，抑制环信 miniCore 空引用导致的全屏 overlay -->
+    <script>
+      (function () {
+        function nullishPropMsg(m) {
+          return (
+            typeof m === 'string' &&
+            (m.indexOf('Cannot read properties of null') !== -1 ||
+              m.indexOf('Cannot read properties of undefined') !== -1 ||
+              m.indexOf("Cannot read property '") !== -1)
+          );
+        }
+        function sdkStack(x) {
+          var s = (x && x.stack) || '';
+          return typeof s === 'string' && s.indexOf('easemob-websdk') !== -1;
+        }
+        window.addEventListener(
+          'error',
+          function (ev) {
+            var err = ev.error;
+            var msg = (err && err.message) || ev.message || '';
+            var fn = ev.filename || '';
+            if (
+              nullishPropMsg(msg) &&
+              (sdkStack(err) || fn.indexOf('easemob-websdk') !== -1)
+            ) {
+              console.error('[IM SDK preload] 空引用（已拦截 overlay）', err || msg);
+              if (err && err.stack) console.error(err.stack);
+              ev.preventDefault();
+              ev.stopPropagation();
+              ev.stopImmediatePropagation();
+            }
+          },
+          true,
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (ev) {
+            var r = ev.reason;
+            var msg = (r && r.message) || '';
+            if (nullishPropMsg(msg) && sdkStack(r)) {
+              console.error('[IM SDK preload] 未处理拒绝（已拦截 overlay）', r);
+              ev.preventDefault();
+              ev.stopPropagation();
+              ev.stopImmediatePropagation();
+            }
+          },
+          true,
+        );
+      })();
+    </script>
     <script
       type="text/javascript"
       src="https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js"

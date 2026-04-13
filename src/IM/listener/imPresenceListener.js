@@ -1,13 +1,19 @@
 import { EMClient } from '../index';
 import store from '@/store';
+import { wrapImEventHandler } from '@/utils/safeCall';
+
 export const imPresenceListener = () => {
   //处理登陆用户状态的变更
   const getUserPresence = (status) => {
     console.log('【DEBUG】收到在线状态变更:', status);
-    store.dispatch('handlePresenceChanges', status);
+    Promise.resolve(store.dispatch('handlePresenceChanges', status)).catch(
+      (err) => console.error('[getUserPresence]', err),
+    );
   };
   const mountPresenceEventListener = () => {
-    EMClient.addEventHandler('presenceStatusChange', {
+    EMClient.addEventHandler(
+      'presenceStatusChange',
+      wrapImEventHandler({
       onPresenceStatusChange: (status) => {
         console.log('【DEBUG】onPresenceStatusChange 回调:', status);
         // 检查 status 是否是数组
@@ -21,7 +27,8 @@ export const imPresenceListener = () => {
           getUserPresence(status);
         }
       },
-    });
+    }),
+    );
   };
   return {
     mountPresenceEventListener,

@@ -3,28 +3,40 @@ import store from '@/store';
 import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
 import { EMClient } from '../index';
 import { usePlayRing } from '@/hooks';
+import { safeSync } from '@/utils/safeCall';
+
 export const imConnectListener = () => {
   const mountConnectEventListener = () => {
     const { isOpenPlayRing, clickRing } = usePlayRing();
     EMClient.addEventHandler('connection', {
       onConnected: () => {
-        store.commit('CHANGE_LOGIN_STATUS', true);
-        if (isOpenPlayRing.value) clickRing();
-        fetchLoginUsersInitData();
-        router.replace('/chat');
+        safeSync('connection.onConnected', () => {
+          store.commit('CHANGE_LOGIN_STATUS', true);
+          if (isOpenPlayRing.value) clickRing();
+          fetchLoginUsersInitData();
+          router.replace('/chat');
+        });
       },
       onDisconnected: () => {
-        router.push('/login');
-        store.commit('CHANGE_LOGIN_STATUS', false);
+        safeSync('connection.onDisconnected', () => {
+          router.push('/login');
+          store.commit('CHANGE_LOGIN_STATUS', false);
+        });
       },
       onOnline: () => {
-        store.commit('CHANGE_NETWORK_STATUS', true);
-      }, // 本机网络连接成功。
+        safeSync('connection.onOnline', () => {
+          store.commit('CHANGE_NETWORK_STATUS', true);
+        });
+      },
       onOffline: () => {
-        store.commit('CHANGE_NETWORK_STATUS', false);
-      }, // 本机网络掉线。
+        safeSync('connection.onOffline', () => {
+          store.commit('CHANGE_NETWORK_STATUS', false);
+        });
+      },
       onError: (error) => {
-        handleSDKErrorNotifi(error.type, error.message);
+        safeSync('connection.onError', () => {
+          handleSDKErrorNotifi(error?.type, error?.message);
+        });
       },
     });
   };
@@ -35,23 +47,33 @@ export const imConnectListener = () => {
     fetchFriendList();
     fetchTheLoginUserBlickList();
     fetchGroupList();
-    //初始化vuex中的会话列表相关数据
-    // store.dispatch('getConversationListFromLocal')
-    store.dispatch('getConversationList');
+    Promise.resolve(store.dispatch('getConversationList')).catch((err) =>
+      console.error('[fetchLoginUsersInitData.getConversationList]', err),
+    );
   };
   //获取登陆用户属性
   const getMyUserInfos = () => {
     const userId = EMClient.user;
-    store.dispatch('getMyUserInfo', userId);
+    Promise.resolve(store.dispatch('getMyUserInfo', userId)).catch((err) =>
+      console.error('[getMyUserInfos]', err),
+    );
   };
   //获取好友列表
   const fetchFriendList = () => {
-    store.dispatch('fetchAllContactsListWithRemarkFromServer');
+    Promise.resolve(
+      store.dispatch('fetchAllContactsListWithRemarkFromServer'),
+    ).catch((err) => console.error('[fetchFriendList]', err));
   };
   //获取黑名单列表
-  const fetchTheLoginUserBlickList = () => store.dispatch('fetchBlackList');
+  const fetchTheLoginUserBlickList = () =>
+    Promise.resolve(store.dispatch('fetchBlackList')).catch((err) =>
+      console.error('[fetchTheLoginUserBlickList]', err),
+    );
   //获取加入的群组列表
-  const fetchGroupList = () => store.dispatch('fetchJoinedGroupListFromServer');
+  const fetchGroupList = () =>
+    Promise.resolve(store.dispatch('fetchJoinedGroupListFromServer')).catch(
+      (err) => console.error('[fetchGroupList]', err),
+    );
   return {
     mountConnectEventListener,
     fetchLoginUsersInitData,

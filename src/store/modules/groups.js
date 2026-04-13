@@ -1,5 +1,9 @@
 import { ElMessage } from 'element-plus';
-import { GROUP_OPERATION_TYPE, GROUP_ROLE_TYPE } from '@/IM/constant';
+import {
+  CHAT_TYPE,
+  GROUP_OPERATION_TYPE,
+  GROUP_ROLE_TYPE,
+} from '@/IM/constant';
 import { EMClient } from '@/IM';
 const Groups = {
   state: {
@@ -258,8 +262,8 @@ const Groups = {
         console.error('>>>>>用户未登录，无法获取群组成员');
         return;
       }
-      // 只在 chatType 是群组时才调用 getGroupInfo
-      if (chatType !== 'groupChat') {
+      // 仅群聊调用 getGroupInfo；与 CHAT_TYPE.GROUP（'groupChat'）对齐
+      if (chatType !== CHAT_TYPE.GROUP) {
         console.log('>>>>>chatType 不是群组，跳过获取群组成员');
         return;
       }

@@ -1,3 +1,6 @@
+// 必须最先执行：在拉取 IM / easemob 之前注册 error 与 unhandledrejection 捕获
+import './utils/globalErrorHandler';
+
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
@@ -9,43 +12,52 @@ import ElementPlus from 'element-plus';
 import './styles/element/index.scss';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 
-// 导入并执行全局错误处理
-import './utils/globalErrorHandler';
-
 const app = createApp(App)
   .use(store)
   .use(router)
   .use(ElementPlus, { locale: zhCn });
 
+app.config.errorHandler = (err, instance, info) => {
+  const message =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'string'
+        ? err
+        : err && typeof err === 'object'
+          ? JSON.stringify(err)
+          : String(err);
+  console.error('[Vue errorHandler]', message, '\ninfo:', info, '\nraw:', err);
+};
+
 // 监听自定义消息撤回事件
 window.addEventListener('hx:messageRecall', (event) => {
   const msg = event.detail;
-  
-  // Update local message status to recalled
+  if (msg == null || typeof msg !== 'object') {
+    console.error('[hx:messageRecall] 无效的 event.detail，已忽略', msg);
+    return;
+  }
   try {
     store.commit('Message/CHANGE_MESSAGE_BODAY', {
       type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
       key: msg.to,
-      mid: msg.id
+      mid: msg.id,
     });
   } catch (error) {
-    console.error('[Vue App] Failed to update local message status:', error);
+    console.error('[Vue App] hx:messageRecall 更新本地状态失败:', error);
   }
 });
 
-// 添加全局错误处理，捕获并处理 SDK 内部错误，如 "Cannot read properties of undefined (reading 'pullCount')"
+// 全局 error：只记录日志，不强制整页跳转（避免一般异常导致应用不可用）
 window.addEventListener('error', (event) => {
-  console.error('[Global Error]', event.error);
-  
-  // 处理 pullCount 相关的错误
-  if (event.error && event.error.message && event.error.message.includes('pullCount')) {
-    console.error('[Global Error] 检测到 pullCount 相关错误，需要清除本地存储并重新登录');
-    
-    // 清除本地存储的登录信息
-    localStorage.removeItem('EASEIM_loginUser');
-    
-    // 跳转到登录页面
-    window.location.href = '/login';
+  console.error('[Global Error]', event.error || event.message, event);
+  if (
+    event.error &&
+    event.error.message &&
+    event.error.message.includes('pullCount')
+  ) {
+    console.error(
+      '[Global Error] pullCount 相关异常，请视情况清除 EASEIM_loginUser 后重新登录；未自动跳转以免打断当前页面。',
+    );
   }
 });
 

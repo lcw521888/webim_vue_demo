@@ -2,11 +2,19 @@ import { EMClient } from '../index';
 import { INFORM_FROM } from '@/constant';
 import store from '@/store';
 import { GROUP_OPERATION_TYPE } from '../constant';
+import { wrapImEventHandler } from '@/utils/safeCall';
+
 export const imGroupListener = () => {
   const submitInformData = (fromType, informContent) => {
-    store.dispatch('createNewInform', { fromType, informContent });
+    Promise.resolve(
+      store.dispatch('createNewInform', { fromType, informContent }),
+    ).catch((err) => console.error('[imGroupListener.createNewInform]', err));
   };
   const onDispatchGroupEvent = (groupevent) => {
+    if (!groupevent || typeof groupevent !== 'object') {
+      console.warn('[onDispatchGroupEvent] 无效 groupevent', groupevent);
+      return;
+    }
     const { operation, id: groupId, from } = groupevent;
     switch (operation) {
       //入群通知
@@ -152,13 +160,16 @@ export const imGroupListener = () => {
     }
   };
   const mountGroupEventListener = () => {
-    EMClient.addEventHandler('groupEvent', {
+    EMClient.addEventHandler(
+      'groupEvent',
+      wrapImEventHandler({
       onGroupEvent: (groupevent) => {
         console.log('groupEvent: ', groupevent);
         submitInformData(INFORM_FROM.GROUP, groupevent);
         onDispatchGroupEvent(groupevent);
       },
-    });
+    }),
+    );
   };
   return {
     mountGroupEventListener,
