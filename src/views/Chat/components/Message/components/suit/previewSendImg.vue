@@ -2,8 +2,9 @@
 import { ref, toRefs } from 'vue';
 import { EMClient } from '@/IM';
 import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
-import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
+import { notifySdkSendError } from '@/utils/handleSomeData';
 import store from '@/store';
+import { ElMessage } from 'element-plus';
 const props = defineProps({
   chatType: {
     type: String,
@@ -53,9 +54,16 @@ const sendImagesMessage = () => {
     width: 0,
     height: 0,
     from: EMClient.user,
-    onFileUploadError: () => {
-      // 图片文件上传失败。
-      console.log('onFileUploadError');
+    onFileUploadError: (error) => {
+      console.error('图片上传失败:', error);
+      if (
+        error?.type === 413 ||
+        error?.data?.error === 'Request Entity Too Large'
+      ) {
+        ElMessage.error('图片大小超过服务器限制');
+      } else {
+        notifySdkSendError(error);
+      }
       emit('onLoadending');
     },
     onFileUploadProgress: (e) => {
@@ -83,11 +91,7 @@ const sendImagesMessage = () => {
       store.dispatch('senedShowTypeMessage', { ...message });
     } catch (error) {
       console.log('>>>>>>error', error);
-      if (error.type && error?.data) {
-        handleSDKErrorNotifi(error.type, error.data.error || 'none');
-      } else {
-        handleSDKErrorNotifi(0, 'none');
-      }
+      notifySdkSendError(error);
     }
   };
   // }

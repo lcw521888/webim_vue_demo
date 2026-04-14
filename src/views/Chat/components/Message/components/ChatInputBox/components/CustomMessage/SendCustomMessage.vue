@@ -43,7 +43,7 @@ import { ElMessage } from 'element-plus';
 import { useUserInfoExt } from '@/hooks';
 import { EMClient } from '@/IM';
 import { MESSAGE_TYPE } from '@/IM/constant';
-import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
+import { notifySdkSendError } from '@/utils/handleSomeData';
 
 const props = defineProps({
   chatType: {
@@ -132,11 +132,7 @@ const sendCustomMessage = async () => {
     onDialogClose();
   } catch (error) {
     console.error('发送自定义消息失败', error);
-    if (error?.type != null && error?.data) {
-      handleSDKErrorNotifi(error.type, error.data?.error || 'none');
-    } else {
-      handleSDKErrorNotifi(0, 'none');
-    }
+    notifySdkSendError(error);
   } finally {
     sending.value = false;
   }

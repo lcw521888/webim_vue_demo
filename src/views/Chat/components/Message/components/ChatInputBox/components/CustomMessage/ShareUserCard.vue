@@ -63,7 +63,7 @@ import { Search, CircleCheckFilled } from '@element-plus/icons-vue';
 import { useGetUserMapInfo, useUserInfoExt } from '@/hooks';
 import { EMClient } from '@/IM';
 import { CHAT_TYPE, MESSAGE_TYPE } from '@/IM/constant';
-import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
+import { notifySdkSendError } from '@/utils/handleSomeData';
 const props = defineProps({
   chatType: {
     type: String,
@@ -141,7 +141,7 @@ const sendShareUserCardMessage = async () => {
     await store.dispatch('senedShowTypeMessage', message);
   } catch (error) {
     console.error('发送信息卡片消息失败', error);
-    handleSDKErrorNotifi(error.type, error.message);
+    notifySdkSendError(error);
   } finally {
     closeDialogVisible();
     searchResultList.value = [];

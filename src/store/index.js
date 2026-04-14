@@ -64,8 +64,9 @@ export default createStore({
     },
     //处理在线状态订阅变更（包含他人的用户状态）
     handlePresenceChanges: ({ commit }, status) => {
-      const { userId, ext: statusType } = status || {};
-      if (userId === EMClient.user) {
+      const presenceUserId = status?.userId ?? status?.uid;
+      const statusType = status?.ext ?? status?.description;
+      if (presenceUserId === EMClient.user) {
         commit(
           'SET_LOGIN_USER_ONLINE_STATUS',
           statusType ? statusType : 'Unset',

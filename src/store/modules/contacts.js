@@ -48,7 +48,10 @@ const Contacts = {
       usersPresenceList.length > 0 &&
         usersPresenceList.forEach((presenceItem) => {
           const commonStatus = handlePresence(presenceItem);
-          state.contactsUsersPresenceMap.set(presenceItem.uid, commonStatus);
+          const mapKey = commonStatus.uid;
+          if (mapKey) {
+            state.contactsUsersPresenceMap.set(mapKey, commonStatus);
+          }
         });
     },
     DELETE_CONTACTS_PRESENCE_TO_MAP: (state, payload) => {

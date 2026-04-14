@@ -35,7 +35,7 @@ export const imConnectListener = () => {
       },
       onError: (error) => {
         safeSync('connection.onError', () => {
-          handleSDKErrorNotifi(error?.type, error?.message);
+          handleSDKErrorNotifi(error?.type, error?.message, error);
         });
       },
     });

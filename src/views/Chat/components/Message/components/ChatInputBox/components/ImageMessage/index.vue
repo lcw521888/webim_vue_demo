@@ -13,7 +13,7 @@
 import { ref, toRefs } from 'vue';
 import { EMClient } from '@/IM';
 import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
-import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
+import { notifySdkSendError } from '@/utils/handleSomeData';
 import { useUserInfoExt } from '@/hooks';
 import store from '@/store';
 import { ElMessage } from 'element-plus';
@@ -61,16 +61,15 @@ const sendImagesMessage = async (type, fileObj) => {
     height: 0,
     from: EMClient.user,
     onFileUploadError: (error) => {
-      // 图片文件上传失败
+      // 被拉黑等错误常在上传阶段返回，不会进入 send 的 catch，需走统一 SDK 错误解析
       console.error('图片上传失败:', error);
-      // 避免递归调用，直接处理错误
       if (
         error?.type === 413 ||
         error?.data?.error === 'Request Entity Too Large'
       ) {
         ElMessage.error('图片大小超过服务器限制');
       } else {
-        ElMessage.error('图片上传失败');
+        notifySdkSendError(error);
       }
       emit('onLoadending');
     },
@@ -112,11 +111,7 @@ const sendImagesMessage = async (type, fileObj) => {
       const { message } = await EMClient.send(msg);
       store.dispatch('senedShowTypeMessage', { ...message });
     } catch (error) {
-      if (error.type && error?.data) {
-        handleSDKErrorNotifi(error.type, error.data.error || 'none');
-      } else {
-        handleSDKErrorNotifi(0, 'none');
-      }
+      notifySdkSendError(error);
     }
   };
 };

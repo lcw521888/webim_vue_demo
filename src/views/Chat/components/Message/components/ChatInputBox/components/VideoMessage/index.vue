@@ -40,6 +40,7 @@
 <script setup>
 import { ref, toRefs, computed, nextTick } from 'vue';
 import { EMClient } from '@/IM';
+import { notifySdkSendError } from '@/utils/handleSomeData';
 import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
 import { useUserInfoExt } from '@/hooks';
 import store from '@/store';
@@ -147,7 +148,7 @@ async function doSendVideoFile(videoFile) {
       if (error?.type === 413 || error?.data?.error === 'Request Entity Too Large') {
         ElMessage.error('视频大小超过服务器限制');
       } else {
-        ElMessage.error('视频上传失败');
+        notifySdkSendError(error);
       }
       emit('onLoadending');
     },
@@ -180,7 +181,7 @@ const sendVideoMessage = async (event) => {
     await doSendVideoFile(videoFile);
   } catch (error) {
     console.log('视频消息发送失败', error);
-    ElMessage.error('视频发送失败');
+    notifySdkSendError(error);
   } finally {
     uploadVideo.value.value = '';
   }

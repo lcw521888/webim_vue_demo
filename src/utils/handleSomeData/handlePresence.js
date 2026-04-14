@@ -24,6 +24,6 @@ export default function (statusBody) {
     statusDetails: handleStatusDetails(
       statusBody.status || statusBody.statusDetails,
     ),
-    ext: statusBody.ext,
+    ext: statusBody.ext ?? statusBody.description ?? '',
   };
 }

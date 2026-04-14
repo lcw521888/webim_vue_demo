@@ -11,15 +11,15 @@ const props = defineProps({
   },
 });
 const { userStatus } = toRefs(props);
-/* 单聊用户在线状态 */
+/* 单聊用户在线状态：优先展示对方发布的 presence（ext/description），再回退到设备在线数 */
 const userInfoStatus = computed(() => {
-  //定义后续返回的状态对象
   const statusObj = {
     ext: '',
     style: '',
     label: '',
-    onlineDeviceCount: 0, //在线设备数
-    deviceType: '', //在线设备类型
+    onlineDeviceCount: 0,
+    deviceType: '',
+    showDevicePrefix: true,
   };
   const onlineStatus = [];
   const offlineStatus = [];
@@ -37,37 +37,36 @@ const userInfoStatus = computed(() => {
       }
     });
   }
-  //赋值ext
-  userStatus.value.ext && (statusObj.ext = userStatus.value.ext);
-
-  //onlineStatus 有值
-  if (onlineStatus.length > 0) {
-    //如果ext有自己定义的就尝试匹配自定义的状态，否则就直接判定在线,label同样。
-    statusObj.style =
-      (userStatus.value.ext &&
-        onLineStatus[userStatus.value.ext] &&
-        onLineStatus[userStatus.value.ext].style) ||
-      onLineStatus['Online'].style;
-    statusObj.label =
-      (userStatus.value.ext &&
-        onLineStatus[userStatus.value.ext] &&
-        onLineStatus[userStatus.value.ext].label) ||
-      onLineStatus['Online'].label;
-    //赋值在线设备数
-    statusObj.onlineDeviceCount = onlineStatus.length;
-    //如果在线设备为1则赋予设备类型
-    onlineStatus.length === 1 &&
-      (statusObj.deviceType = onlineStatus[0].device.split('_')[0]);
-    //如果在此判断中ext设定为Offline,状态直接设定为离线样式
-    if (userStatus.value.ext === 'Offline') {
-      statusObj.style = onLineStatus['Offline'].style;
-      statusObj.label = onLineStatus['Offline'].label;
-    }
+  const ext = userStatus.value?.ext || '';
+  statusObj.ext = ext;
+  statusObj.onlineDeviceCount = onlineStatus.length;
+  if (onlineStatus.length === 1) {
+    statusObj.deviceType = onlineStatus[0].device.split('_')[0];
   }
-  //如若offlineStatus里有值,并且onlineStatus无，也说明订阅的目标id，本质也是处于离线状态。
+
+  const preset = ext && onLineStatus[ext];
+  if (preset) {
+    statusObj.style = preset.style;
+    statusObj.label = preset.label;
+    statusObj.showDevicePrefix = ext === 'Online';
+    return statusObj;
+  }
+  if (ext) {
+    statusObj.style = onLineStatus.Online.style;
+    statusObj.label = ext;
+    statusObj.showDevicePrefix = onlineStatus.length > 0;
+    return statusObj;
+  }
+
+  if (onlineStatus.length > 0) {
+    statusObj.style = onLineStatus.Online.style;
+    statusObj.label = onLineStatus.Online.label;
+    return statusObj;
+  }
   if (offlineStatus.length > 0 && onlineStatus.length === 0) {
-    statusObj.style = onLineStatus['Offline'].style;
-    statusObj.label = onLineStatus['Offline'].label;
+    statusObj.style = onLineStatus.Offline.style;
+    statusObj.label = onLineStatus.Offline.label;
+    statusObj.showDevicePrefix = false;
   }
 
   return statusObj;
@@ -77,9 +76,11 @@ const userInfoStatus = computed(() => {
   <div class="user_status_box">
     <span class="status_icon" :style="userInfoStatus.style"></span>
     <span class="os_type">{{
-      userInfoStatus.onlineDeviceCount > 1
-        ? `多设备${userInfoStatus.label}`
-        : `${userInfoStatus.deviceType.toUpperCase()}${userInfoStatus.label}`
+      !userInfoStatus.showDevicePrefix
+        ? userInfoStatus.label
+        : userInfoStatus.onlineDeviceCount > 1
+          ? `多设备${userInfoStatus.label}`
+          : `${(userInfoStatus.deviceType || '').toUpperCase()}${userInfoStatus.label}`
     }}</span>
   </div>
 </template>

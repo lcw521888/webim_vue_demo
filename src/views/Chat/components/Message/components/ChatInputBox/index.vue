@@ -1,7 +1,11 @@
 <script setup>
 import { ref, toRefs, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import { handleSDKErrorNotifi, setMessageKey } from '@/utils/handleSomeData';
+import {
+  handleSDKErrorNotifi,
+  notifySdkSendError,
+  setMessageKey,
+} from '@/utils/handleSomeData';
 import { ElLoading, ElMessageBox, ElMessage } from 'element-plus';
 import { onClickOutside } from '@vueuse/core';
 import { useUserInfoExt } from '@/hooks';
@@ -181,11 +185,7 @@ const sendAudioMessages = async (audioData) => {
     store.dispatch('senedShowTypeMessage', { ...message });
     isShowRecordBox.value = false;
   } catch (error) {
-    if (error.type && error?.data) {
-      handleSDKErrorNotifi(error.type, error.data.error || 'none');
-    } else {
-      handleSDKErrorNotifi(0, 'none');
-    }
+    notifySdkSendError(error);
     isShowRecordBox.value = false;
   }
 };
@@ -381,7 +381,7 @@ const sendCombineMessage = async () => {
     await store.dispatch('senedShowTypeMessage', message);
   } catch (error) {
     console.error('发送合并消息失败:', error);
-    handleSDKErrorNotifi(error.type, error.message);
+    notifySdkSendError(error);
   }
 };
 

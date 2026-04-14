@@ -12,7 +12,7 @@
 import { ref, toRefs } from 'vue';
 import { EMClient } from '@/IM';
 import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
-import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
+import { notifySdkSendError } from '@/utils/handleSomeData';
 import { useUserInfoExt } from '@/hooks';
 import store from '@/store';
 import { ElMessage } from 'element-plus';
@@ -74,16 +74,14 @@ const sendFilesMessages = async () => {
     chatType: chatType.value,
     file: file,
     onFileUploadError: (error) => {
-      // 文件上传失败
       console.error('文件上传失败:', error);
-      // 避免递归调用，直接处理错误
       if (
         error?.type === 413 ||
         error?.data?.error === 'Request Entity Too Large'
       ) {
         ElMessage.error('文件大小超过服务器限制');
       } else {
-        ElMessage.error('文件上传失败');
+        notifySdkSendError(error);
       }
       emit('onLoadending');
     },
@@ -104,13 +102,9 @@ const sendFilesMessages = async () => {
     const { message } = await EMClient.send(msg);
     console.log('message', message);
     store.dispatch('senedShowTypeMessage', { ...message });
-  } catch (error) {
-    if (error.type && error?.data) {
-      handleSDKErrorNotifi(error.type, error.data.error || 'none');
-    } else {
-      handleSDKErrorNotifi(0, 'none');
-    }
-  } finally {
+    } catch (error) {
+      notifySdkSendError(error);
+    } finally {
     if (uploadFiles.value) {
       uploadFiles.value.value = null;
     }

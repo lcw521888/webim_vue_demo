@@ -5,7 +5,7 @@ import { MENTION_ALL } from '@/constant';
 import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
 import { useGetUserMapInfo, useUserInfoExt } from '@/hooks';
 import store from '@/store';
-import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
+import { notifySdkSendError } from '@/utils/handleSomeData';
 //vue at
 import VueAt from 'vue-at/dist/vue-at-textarea'; // for textarea
 import { EMClient } from '@/IM';
@@ -169,7 +169,7 @@ const sendTextMessage = _.debounce(async () => {
     await store.dispatch('senedShowTypeMessage', message);
   } catch (error) {
     console.error('发送文本消息失败', error);
-    handleSDKErrorNotifi(error.type, error.message);
+    notifySdkSendError(error);
   } finally {
     isAtAll.value = false;
     atMembers.value = [];
