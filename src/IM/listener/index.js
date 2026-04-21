@@ -1,6 +1,7 @@
 import { imConnectListener } from './imConnectListener';
 import { imReviceMessageListener } from './imReciveMessageListener';
 import { imPresenceListener } from './imPresenceListener';
+import { imReactionListener } from './imReactionListener';
 import { imContactListener } from './imContactListener';
 import { imGroupListener } from './imGroupListener';
 import { imReadAckListener } from './imReadAckListener';
@@ -17,6 +18,8 @@ export const mountAllEMListener = () => {
   mountSafe('imConnectListener', mountConnectEventListener);
   const { mountPresenceEventListener } = imPresenceListener();
   mountSafe('imPresenceListener', mountPresenceEventListener);
+  const { mountReactionEventListener } = imReactionListener();
+  mountSafe('imReactionListener', mountReactionEventListener);
   const { mountReviceMessageEventListener } = imReviceMessageListener();
   mountSafe('imReciveMessageListener', mountReviceMessageEventListener);
   const { mountContactEventListener } = imContactListener();
@@ -31,6 +34,7 @@ export const mountAllEMListener = () => {
 export {
   imConnectListener,
   imPresenceListener,
+  imReactionListener,
   imReviceMessageListener,
   imContactListener,
   imGroupListener,

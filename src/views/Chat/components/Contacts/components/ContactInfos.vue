@@ -6,9 +6,10 @@ import { useStore } from 'vuex';
 import router from '@/router';
 import { useRoute } from 'vue-router';
 import { ArrowLeft } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 import { useGetUserMapInfo } from '@/hooks';
 /* 组件 */
-// import UserStatus from '@/components/UserStatus'
+import UserStatus from '@/components/UserStatus';
 import ContactsRemark from './ContactsRemark.vue';
 /* store */
 const store = useStore();
@@ -44,12 +45,22 @@ const getContactsAvatar = computed(() => {
 /* 单人黑名单状态的处理 */
 const blackStatus = ref(false);
 const switchStatus = ref(false);
+const isLoadingPresence = ref(false);
+const isSubscribingPresence = ref(false);
+const isUnsubscribingPresence = ref(false);
 //判断单聊联系人是否在黑名单
 const isInBlackList = computed(() => {
   const result = Array.from(store.state.Contacts.friendBlackList).includes(
     route.query.id,
   );
   return result;
+});
+const currentPresenceStatus = computed(() => {
+  return store.getters.getContactsUsersPresenceMap.get(route.query.id) ?? {};
+});
+const hasSubscribedPresence = computed(() => {
+  if (!route.query.id) return false;
+  return store.getters.getContactsUsersPresenceMap.has(route.query.id);
 });
 //首次onMounted进行黑名单状态的初始赋值
 onMounted(() => {
@@ -109,6 +120,49 @@ const toChatMessage = () => {
     },
   });
 };
+
+const refreshCurrentPresence = async () => {
+  if (!route.query.id || route.query.chatType !== CHAT_TYPE.SINGLE) return;
+  isLoadingPresence.value = true;
+  try {
+    const result = await store.dispatch('fetchPresenceStatusByUsers', [
+      route.query.id,
+    ]);
+    ElMessage.success(
+      result.length > 0 ? '在线状态已刷新' : '未查询到该用户在线状态',
+    );
+  } catch (error) {
+    ElMessage.error('在线状态刷新失败，请稍后重试');
+  } finally {
+    isLoadingPresence.value = false;
+  }
+};
+
+const subscribeCurrentPresence = async () => {
+  if (!route.query.id || route.query.chatType !== CHAT_TYPE.SINGLE) return;
+  isSubscribingPresence.value = true;
+  try {
+    await store.dispatch('subFriendsPresence', [route.query.id]);
+    ElMessage.success('已订阅该用户在线状态');
+  } catch (error) {
+    ElMessage.error('订阅失败，请稍后重试');
+  } finally {
+    isSubscribingPresence.value = false;
+  }
+};
+
+const unsubscribeCurrentPresence = async () => {
+  if (!route.query.id || route.query.chatType !== CHAT_TYPE.SINGLE) return;
+  isUnsubscribingPresence.value = true;
+  try {
+    await store.dispatch('unsubFriendsPresence', route.query.id);
+    ElMessage.success('已取消订阅该用户在线状态');
+  } catch (error) {
+    ElMessage.error('取消订阅失败，请稍后重试');
+  } finally {
+    isUnsubscribingPresence.value = false;
+  }
+};
 </script>
 
 <template>
@@ -149,6 +203,36 @@ const toChatMessage = () => {
               <ContactsRemark :userId="$route.query.id">
                 <el-divider />
               </ContactsRemark>
+              <div class="presence_status_box">
+                <p>当前在线状态</p>
+                <div class="presence_status_actions">
+                  <UserStatus :userStatus="currentPresenceStatus" />
+                  <el-button
+                    size="small"
+                    :loading="isSubscribingPresence"
+                    @click="subscribeCurrentPresence"
+                  >
+                    订阅在线状态
+                  </el-button>
+                  <el-button
+                    size="small"
+                    plain
+                    :disabled="!hasSubscribedPresence"
+                    :loading="isUnsubscribingPresence"
+                    @click="unsubscribeCurrentPresence"
+                  >
+                    取消订阅
+                  </el-button>
+                  <el-button
+                    size="small"
+                    :loading="isLoadingPresence"
+                    @click="refreshCurrentPresence"
+                  >
+                    刷新状态
+                  </el-button>
+                </div>
+              </div>
+              <el-divider />
               <div class="add_black_list">
                 <p>加入黑名单</p>
                 <el-switch
@@ -254,10 +338,24 @@ const toChatMessage = () => {
           width: 100%;
 
           .single_func {
-            height: 100px;
-            // background: #000;
+            min-height: 150px;
             margin-top: 25px;
             cursor: pointer;
+
+            .presence_status_box {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              min-height: 40px;
+            }
+
+            .presence_status_actions {
+              display: flex;
+              align-items: center;
+              flex-wrap: wrap;
+              gap: 8px;
+              justify-content: flex-end;
+            }
 
             .add_black_list {
               display: flex;

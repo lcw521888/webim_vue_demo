@@ -88,10 +88,12 @@ const modalType = ref('');
 const isShowPopover = ref(false);
 //新建功能相关icon
 const createGroupIcon = require('@/assets/images/tabbar/1461654066965_.pic.jpg');
+const createChatroomIcon = require('@/assets/images/tabbar/session2x.png');
 const applyJoinGroupIcon = require('@/assets/images/tabbar/1471654067125_.pic.jpg');
 const applyAddFriendIcon = require('@/assets/images/tabbar/1481654067168_.pic.jpg');
 const showInputModal = (type) => {
   modalType.value = type;
+  isShowPopover.value = false;
   settingComp.value.dialogVisible = true;
 };
 
@@ -209,6 +211,12 @@ const toSendFeedback = () => window.open('mailto:yunying@easemob.com');
               <img :src="createGroupIcon" alt="" />
             </span>
             <span class="setting_fun_text">创建群组</span>
+          </div>
+          <div class="func_item" @click="showInputModal('createNewChatroom')">
+            <span class="settting_fun_icon">
+              <img :src="createChatroomIcon" alt="" />
+            </span>
+            <span class="setting_fun_text">创建聊天室</span>
           </div>
           <div class="func_item" @click="showInputModal('applyJoinGroups')">
             <span class="settting_fun_icon">

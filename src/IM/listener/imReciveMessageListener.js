@@ -40,6 +40,21 @@ export const imReviceMessageListener = () => {
       console.error('[pushNewMessage.processMessageExt]', err);
     });
   };
+  const pushStreamMessage = (message) => {
+    if (message == null || typeof message !== 'object') {
+      console.warn('【IM】忽略空流式消息事件:', message);
+      return;
+    }
+    console.log('【Stream Message】收到流式消息分片:', {
+      id: message.id,
+      chatType: message.chatType,
+      from: message.from,
+      to: message.to,
+      msg: message.msg,
+      stream: message.stream,
+    });
+    pushNewMessage(message);
+  };
   //收到他人的撤回指令
   const otherRecallMessage = (message) => {
     if (message == null || typeof message !== 'object') {
@@ -127,6 +142,9 @@ export const imReviceMessageListener = () => {
       onVideoMessage: function (message) {
         pushNewMessage(message);
       }, // 收到视频消息。
+      onStreamMessage: function (message) {
+        pushStreamMessage(message);
+      }, // 收到流式消息。
       onGroupMessage: function (message) {
         pushNewMessage(message);
       }, // 收到群组消息。
@@ -145,6 +163,7 @@ export const imReviceMessageListener = () => {
   return {
     mountReviceMessageEventListener,
     pushNewMessage,
+    pushStreamMessage,
     otherModifyMessage,
     otherRecallMessage,
   };

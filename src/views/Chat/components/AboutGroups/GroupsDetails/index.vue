@@ -33,15 +33,16 @@ const getGroupDetailFromGroupList = computed(() => {
       return groupItem;
     }
   });
-  return group[0];
+  return group[0] || {};
 });
 /* 群组展示相关核心数据获取 */
 //权限判断（黑名单以及禁言列表的获取，只有群主管理员）
 const memberRole = computed(() => {
+  const role = getGroupDetailFromGroupList.value?.role;
   //判断是否在权限名单内
   if (
-    getGroupDetailFromGroupList.value.role === GROUP_ROLE_TYPE.ADMIN ||
-    getGroupDetailFromGroupList.value.role === GROUP_ROLE_TYPE.OWNER
+    role === GROUP_ROLE_TYPE.ADMIN ||
+    role === GROUP_ROLE_TYPE.OWNER
   ) {
     return true;
   } else {

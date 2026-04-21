@@ -53,6 +53,7 @@ const emit = defineEmits([
   'reEditMessage',
   'messageQuote',
 ]);
+const REACTION_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '👏'];
 
 // 组件挂载状态标志
 const isMounted = ref(true);
@@ -279,6 +280,20 @@ const handleNickName = (msgBody) => {
   if (chatType === CHAT_TYPE.GROUP) {
     return getUserDisplayNameById(userId, groupId);
   }
+};
+const isStreamMessage = (msgBody) => {
+  return !!(msgBody && msgBody.stream && typeof msgBody.stream === 'object');
+};
+const getStreamStatusText = (msgBody) => {
+  const status = msgBody?.stream?.status;
+  const statusMap = {
+    START: '生成开始',
+    START_AND_COMPLETE: '单片完成',
+    IN_PROGRESS: '生成中',
+    COMPLETED: '已完成',
+    ERROR: '异常结束',
+  };
+  return statusMap[status] || '流式消息';
 };
 /* 处理时间显示间隔 */
 // 使用缓存避免重复计算
@@ -574,6 +589,122 @@ const onMsgQuote = (msg) => {
     emit('messageQuote', msg);
   }
 };
+const reactionLoadingMap = ref({});
+const messageListConversationKey = computed(() => routeQueryData.value.id || '');
+const getMessageReactions = (msgBody) => {
+  return Array.isArray(msgBody?.reactions) ? msgBody.reactions : [];
+};
+const getExistingReactionItem = (msgBody, reaction) => {
+  return getMessageReactions(msgBody).find((item) => item.reaction === reaction);
+};
+const setReactionLoading = (messageId, reaction, loading) => {
+  const key = `${messageId}_${reaction}`;
+  reactionLoadingMap.value = {
+    ...reactionLoadingMap.value,
+    [key]: loading,
+  };
+};
+const isReactionLoading = (messageId, reaction) => {
+  return !!reactionLoadingMap.value[`${messageId}_${reaction}`];
+};
+const addReactionToMessage = async (msgBody, reaction) => {
+  if (!msgBody?.id || !reaction) return;
+  const existingReaction = getExistingReactionItem(msgBody, reaction);
+  if (existingReaction?.isAddedBySelf) {
+    await removeReactionFromMessage(msgBody, reaction);
+    return;
+  }
+  setReactionLoading(msgBody.id, reaction, true);
+  try {
+    await store.dispatch('addMessageReaction', {
+      key: messageListConversationKey.value,
+      messageId: msgBody.id,
+      reaction,
+      chatType: routeQueryData.value.chatType,
+      groupId:
+        routeQueryData.value.chatType === CHAT_TYPE.GROUP
+          ? routeQueryData.value.id
+          : undefined,
+    });
+  } catch (error) {
+    console.error('[Reaction] addMessageReaction 失败', error);
+    handleSDKErrorNotifi(error?.type, error?.message || 'Reaction 添加失败');
+  } finally {
+    setReactionLoading(msgBody.id, reaction, false);
+  }
+};
+const removeReactionFromMessage = async (msgBody, reaction) => {
+  if (!msgBody?.id || !reaction) return;
+  setReactionLoading(msgBody.id, reaction, true);
+  try {
+    await store.dispatch('deleteMessageReaction', {
+      key: messageListConversationKey.value,
+      messageId: msgBody.id,
+      reaction,
+      chatType: routeQueryData.value.chatType,
+      groupId:
+        routeQueryData.value.chatType === CHAT_TYPE.GROUP
+          ? routeQueryData.value.id
+          : undefined,
+    });
+  } catch (error) {
+    console.error('[Reaction] deleteMessageReaction 失败', error);
+    handleSDKErrorNotifi(error?.type, error?.message || 'Reaction 删除失败');
+  } finally {
+    setReactionLoading(msgBody.id, reaction, false);
+  }
+};
+const toggleReaction = async (msgBody, reactionItem) => {
+  if (!reactionItem?.reaction) return;
+  if (reactionItem.isAddedBySelf) {
+    await removeReactionFromMessage(msgBody, reactionItem.reaction);
+    return;
+  }
+  await addReactionToMessage(msgBody, reactionItem.reaction);
+};
+const reactionDetailDialogVisible = ref(false);
+const reactionDetailLoading = ref(false);
+const reactionDetailMsgBody = ref(null);
+const selectedReactionDetail = ref('');
+const reactionDetailUsers = ref([]);
+const openReactionDetailDialog = async (msgBody) => {
+  reactionDetailMsgBody.value = msgBody;
+  reactionDetailDialogVisible.value = true;
+  const reactions = getMessageReactions(msgBody);
+  if (reactions.length > 0) {
+    await loadReactionDetail(msgBody, reactions[0].reaction);
+  } else {
+    selectedReactionDetail.value = '';
+    reactionDetailUsers.value = [];
+  }
+};
+const loadReactionDetail = async (msgBody, reaction) => {
+  if (!msgBody?.id || !reaction) return;
+  reactionDetailLoading.value = true;
+  selectedReactionDetail.value = reaction;
+  try {
+    const res = await store.dispatch('fetchMessageReactionDetail', {
+      messageId: msgBody.id,
+      reaction,
+      cursor: null,
+      pageSize: 100,
+    });
+    const data = res?.data || {};
+    reactionDetailUsers.value = Array.isArray(data?.userList)
+      ? data.userList
+      : Array.isArray(data?.users)
+        ? data.users
+        : [];
+  } catch (error) {
+    reactionDetailUsers.value = [];
+    handleSDKErrorNotifi(
+      error?.type,
+      error?.message || 'Reaction 详情获取失败',
+    );
+  } finally {
+    reactionDetailLoading.value = false;
+  }
+};
 </script>
 <template>
   <div>
@@ -611,9 +742,18 @@ const onMsgQuote = (msg) => {
           </div>
           <!-- 普通消息内容 -->
           <div class="message_box_card">
-            <span v-show="!msgBody._isMyself" class="message_box_nickname">{{
-              handleNickName(msgBody)
-            }}</span>
+            <div class="message_box_meta">
+              <span v-show="!msgBody._isMyself" class="message_box_nickname">{{
+                handleNickName(msgBody)
+              }}</span>
+              <span
+                v-if="isStreamMessage(msgBody)"
+                class="message_stream_badge"
+                :title="`当前状态：${getStreamStatusText(msgBody)}`"
+              >
+                流式消息
+              </span>
+            </div>
             <el-dropdown
               class="message_box_content"
               :class="[
@@ -645,6 +785,15 @@ const onMsgQuote = (msg) => {
                     <span v-html="paseLink(msgBody.msg).msg"> </span
                   ></template>
                 </p>
+                <div
+                  v-if="isStreamMessage(msgBody)"
+                  class="message_stream_hint"
+                >
+                  <span>{{ getStreamStatusText(msgBody) }}</span>
+                  <span v-if="msgBody?.stream?.customType">
+                    {{ msgBody.stream.customType }}
+                  </span>
+                </div>
                 <!-- 图片类型消息 -->
                 <el-image
                   v-if="msgBody.type === MESSAGE_TYPE.IMAGE"
@@ -823,6 +972,12 @@ const onMsgQuote = (msg) => {
                   <el-dropdown-item @click="onMsgQuote(msgBody)">
                     引用
                   </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="getMessageReactions(msgBody).length > 0"
+                    @click="openReactionDetailDialog(msgBody)"
+                  >
+                    Reaction详情
+                  </el-dropdown-item>
                   <el-dropdown-item @click="pinMessage(msgBody)">
                     置顶
                   </el-dropdown-item>
@@ -852,6 +1007,47 @@ const onMsgQuote = (msg) => {
                   msgBody?.ext?.msgQuote?.msgPreview
                 }}
               </p>
+            </div>
+            <div class="message_reaction_bar">
+              <div
+                v-if="getMessageReactions(msgBody).length > 0"
+                class="message_reaction_list"
+              >
+                <button
+                  v-for="reactionItem in getMessageReactions(msgBody)"
+                  :key="`${msgBody.id}_${reactionItem.reaction}`"
+                  class="message_reaction_chip"
+                  :class="reactionItem.isAddedBySelf && 'is-active'"
+                  :disabled="
+                    isReactionLoading(msgBody.id, reactionItem.reaction)
+                  "
+                  @click="toggleReaction(msgBody, reactionItem)"
+                >
+                  <span>{{ reactionItem.reaction }}</span>
+                  <span>{{ reactionItem.count }}</span>
+                </button>
+              </div>
+              <el-popover
+                trigger="click"
+                placement="bottom"
+                :width="220"
+                popper-class="message_reaction_picker_popover"
+              >
+                <template #reference>
+                  <button class="message_reaction_entry">+ 表情</button>
+                </template>
+                <div class="message_reaction_picker">
+                  <button
+                    v-for="reaction in REACTION_PRESETS"
+                    :key="reaction"
+                    class="message_reaction_picker_item"
+                    :disabled="isReactionLoading(msgBody.id, reaction)"
+                    @click="addReactionToMessage(msgBody, reaction)"
+                  >
+                    {{ reaction }}
+                  </button>
+                </div>
+              </el-popover>
             </div>
           </div>
           <!-- 消息状态展示 -->
@@ -909,6 +1105,47 @@ const onMsgQuote = (msg) => {
     </div>
     <ReportMessage ref="reportMessage" />
     <ModifyMessage ref="modifyMessageRef" />
+    <el-dialog
+      v-model="reactionDetailDialogVisible"
+      width="420px"
+      title="Reaction 详情"
+      :destroy-on-close="false"
+    >
+      <template v-if="reactionDetailMsgBody">
+        <div class="reaction_detail_dialog">
+          <div class="reaction_detail_selector">
+            <button
+              v-for="reactionItem in getMessageReactions(reactionDetailMsgBody)"
+              :key="`detail_${reactionDetailMsgBody.id}_${reactionItem.reaction}`"
+              class="message_reaction_chip"
+              :class="
+                selectedReactionDetail === reactionItem.reaction && 'is-active'
+              "
+              @click="loadReactionDetail(reactionDetailMsgBody, reactionItem.reaction)"
+            >
+              <span>{{ reactionItem.reaction }}</span>
+              <span>{{ reactionItem.count }}</span>
+            </button>
+          </div>
+          <div v-loading="reactionDetailLoading" class="reaction_detail_user_list">
+            <template v-if="reactionDetailUsers.length > 0">
+              <div
+                v-for="userId in reactionDetailUsers"
+                :key="userId"
+                class="reaction_detail_user_item"
+              >
+                {{ userId }}
+              </div>
+            </template>
+            <el-empty
+              v-else
+              :image-size="60"
+              description="暂无用户详情"
+            />
+          </div>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

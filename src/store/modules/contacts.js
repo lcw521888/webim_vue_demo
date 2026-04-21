@@ -8,6 +8,7 @@ const Contacts = {
     contactsWithRemarkMap: new Map(),
     contactsUserInfosMap: new Map(),
     contactsUsersPresenceMap: new Map(),
+    subscribedPresenceList: [],
     friendBlackList: [],
   },
   mutations: {
@@ -43,6 +44,9 @@ const Contacts = {
     },
     SET_BLACK_LIST: (state, payload) => {
       state.friendBlackList = _.assign([], payload);
+    },
+    SET_SUBSCRIBED_PRESENCE_LIST: (state, payload) => {
+      state.subscribedPresenceList = _.assign([], payload);
     },
     SET_CONTACTS_PRESENCE_TO_MAP: (state, usersPresenceList) => {
       usersPresenceList.length > 0 &&
@@ -137,6 +141,8 @@ const Contacts = {
           const userIds = _.map(data, 'userId');
           if (userIds?.length > 0) {
             dispatch('fetchContactsUserInfos', userIds);
+            // 登录后批量订阅好友在线状态，之后对方 publishPresence / 上下线会触发 onPresenceStatusChange
+            dispatch('subFriendsPresence', userIds);
           }
         }
       } catch (error) {
@@ -157,6 +163,7 @@ const Contacts = {
       console.log('>>>>>新增联系人', newContactParams);
       commit('ADD_NEW_CONTACT', newContactParams);
       dispatch('fetchContactsUserInfos', [userId]);
+      dispatch('subFriendsPresence', [userId]);
     },
     //好友关系解除
     onDeleteContact: async ({ dispatch, commit }, params) => {
@@ -224,11 +231,21 @@ const Contacts = {
           );
         const resultData = await Promise.all(requestTask);
         const usersPresenceList = _.flattenDeep(_.map(resultData, 'result')); //返回值是个二维数组，flattenDeep处理为一维数组
-        const tobeCommitRes =
-          usersPresenceList.length > 0 &&
-          usersPresenceList.filter((p) => p.uid !== '');
-        commit('SET_CONTACTS_PRESENCE_TO_MAP', tobeCommitRes);
-      } catch (error) {}
+        const list =
+          usersPresenceList.length > 0
+            ? usersPresenceList.filter((p) => p.uid !== '')
+            : [];
+        if (list.length > 0) {
+          commit('SET_CONTACTS_PRESENCE_TO_MAP', list);
+        }
+        console.log('[环信 Presence] subscribePresence 已请求', {
+          订阅的用户名列表: users,
+          返回快照条数: list.length,
+          快照: list,
+        });
+      } catch (error) {
+        console.error('[环信 Presence] subscribePresence 失败', error);
+      }
     },
     //取消订阅
     unsubFriendsPresence: async ({ commit }, user) => {
@@ -236,10 +253,44 @@ const Contacts = {
         const option = {
           usernames: [user],
         };
-        const res = await EMClient.unsubscribePresence(option);
+        await EMClient.unsubscribePresence(option);
         commit('DELETE_CONTACTS_PRESENCE_TO_MAP', user);
-      } catch {
+      } catch (error) {
         console.error('取消订阅好友状态失败', error);
+      }
+    },
+    //查询已订阅用户列表
+    fetchSubscribedPresenceList: async (
+      { commit },
+      option = { pageNum: 0, pageSize: 50 },
+    ) => {
+      try {
+        const res = await EMClient.getSubscribedPresencelist(option);
+        const rawList = res?.result || res?.data || [];
+        const list = Array.isArray(rawList) ? rawList : [];
+        commit('SET_SUBSCRIBED_PRESENCE_LIST', list);
+        return list;
+      } catch (error) {
+        console.error('[环信 Presence] getSubscribedPresencelist 失败', error);
+        commit('SET_SUBSCRIBED_PRESENCE_LIST', []);
+        return [];
+      }
+    },
+    //主动查询指定用户当前在线状态
+    fetchPresenceStatusByUsers: async ({ commit }, users = []) => {
+      try {
+        const usernames = Array.isArray(users) ? users : [users];
+        if (usernames.length === 0) return [];
+        const res = await EMClient.getPresenceStatus({ usernames });
+        const rawList = res?.result || res?.data || [];
+        const list = Array.isArray(rawList) ? rawList : [];
+        if (list.length > 0) {
+          commit('SET_CONTACTS_PRESENCE_TO_MAP', list);
+        }
+        return list.map((item) => handlePresence(item));
+      } catch (error) {
+        console.error('[环信 Presence] getPresenceStatus 失败', error);
+        return [];
       }
     },
     //设置联系人备注
@@ -287,6 +338,9 @@ const Contacts = {
     },
     getContactsUsersPresenceMap: (state) => {
       return state.contactsUsersPresenceMap;
+    },
+    getSubscribedPresenceList: (state) => {
+      return state.subscribedPresenceList;
     },
   },
 };

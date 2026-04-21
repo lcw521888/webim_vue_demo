@@ -1,8 +1,10 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
 import { usePlayRing, useSetEMLogConfig } from '@/hooks';
+import { RefreshRight } from '@element-plus/icons-vue';
 import store from '@/store';
+
 const dialogVisible = ref(false);
 const { isOpenPlayRing } = usePlayRing();
 const { isOpenedEMLog, donwLoadEMLog } = useSetEMLogConfig();
@@ -10,9 +12,45 @@ const conversationFromMethod = useLocalStorage(
   'CONVERSATION_FROM_LOCAL',
   false,
 );
+const presencePageNum = ref(0);
+const presencePageSize = 50;
+const loadingSubscribedPresence = ref(false);
+const loadingBlackList = ref(false);
+const subscribedPresenceList = computed(
+  () => store.getters.getSubscribedPresenceList,
+);
+const friendBlackList = computed(() => store.state.Contacts.friendBlackList || []);
+
+const refreshSubscribedPresenceList = async () => {
+  loadingSubscribedPresence.value = true;
+  try {
+    await store.dispatch('fetchSubscribedPresenceList', {
+      pageNum: presencePageNum.value,
+      pageSize: presencePageSize,
+    });
+  } finally {
+    loadingSubscribedPresence.value = false;
+  }
+};
+
+const refreshBlackList = async () => {
+  loadingBlackList.value = true;
+  try {
+    await store.dispatch('fetchBlackList');
+  } finally {
+    loadingBlackList.value = false;
+  }
+};
+
 watch(conversationFromMethod, () => {
   store.commit('GET_CONVERSATION_LIST_FROM');
   store.dispatch('getConversationList');
+});
+watch(dialogVisible, (visible) => {
+  if (visible) {
+    refreshSubscribedPresenceList();
+    refreshBlackList();
+  }
 });
 defineExpose({
   dialogVisible,
@@ -85,6 +123,69 @@ defineExpose({
           inactive-text="服务端获取"
         />
       </div>
+      <div class="presence_section">
+        <div class="presence_section_header">
+          <span>在线状态订阅列表</span>
+          <el-button
+            link
+            type="primary"
+            :icon="RefreshRight"
+            :loading="loadingSubscribedPresence"
+            @click="refreshSubscribedPresenceList"
+          >
+            刷新
+          </el-button>
+        </div>
+        <el-scrollbar max-height="220px">
+          <div
+            v-if="subscribedPresenceList.length > 0"
+            class="presence_list"
+          >
+            <div
+              v-for="item in subscribedPresenceList"
+              :key="item.userId || item.uid || item"
+              class="presence_list_item"
+            >
+              {{ item.userId || item.uid || item }}
+            </div>
+          </div>
+          <el-empty
+            v-else
+            :image-size="60"
+            description="暂无已订阅用户"
+          />
+        </el-scrollbar>
+      </div>
+      <div class="presence_section">
+        <div class="presence_section_header">
+          <span>黑名单列表</span>
+          <el-button
+            link
+            type="primary"
+            :icon="RefreshRight"
+            :loading="loadingBlackList"
+            @click="refreshBlackList"
+          >
+            刷新
+          </el-button>
+        </div>
+        <el-scrollbar max-height="220px">
+          <div v-if="friendBlackList.length > 0" class="presence_list">
+            <div
+              v-for="item in friendBlackList"
+              :key="item"
+              class="presence_list_item"
+            >
+              {{ item }}
+            </div>
+          </div>
+          <el-empty
+            v-else
+            :image-size="60"
+            description="暂无黑名单用户"
+          />
+        </el-scrollbar>
+      </div>
       <!-- <div>
                 <span>新消息系统推送</span>
                 <el-switch v-model="" active-text="开启" inactive-text="关闭" />
@@ -103,6 +204,36 @@ defineExpose({
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+  }
+
+  .presence_section {
+    margin-top: 18px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 14px;
+
+    .presence_section_header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .presence_list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .presence_list_item {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #f7f8fa;
+      font-size: 13px;
+      color: #333;
+      word-break: break-all;
+    }
   }
 }
 </style>

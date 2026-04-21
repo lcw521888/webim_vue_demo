@@ -2,26 +2,41 @@
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
 import { onLineStatus } from '@/constant';
-import { ElNotification, ElInput } from 'element-plus';
+import { ElNotification } from 'element-plus';
 import { EMClient } from '@/IM';
 
 const store = useStore();
 const loginUserOnlineStatus = computed(() => store.state.loginUserOnlineStatus);
 const customStatus = ref('');
 
-const selectOnlineMode = async (statusType) => {
+const publishPresenceStatus = async (statusType, successMessage) => {
   const option = {
     description: statusType,
   };
   try {
     await EMClient.publishPresence(option);
+    store.commit('SET_LOGIN_USER_ONLINE_STATUS', statusType);
+    if (successMessage) {
+      ElNotification({
+        title: 'Easemob',
+        message: successMessage,
+        type: 'success',
+      });
+    }
   } catch (error) {
+    console.error('[Presence] publishPresence failed', error);
     ElNotification({
       title: 'Easemob',
       message: '在线状态修改失败，请稍后重试！',
       type: 'error',
     });
+    return false;
   }
+  return true;
+};
+
+const selectOnlineMode = async (statusType) => {
+  await publishPresenceStatus(statusType, '在线状态修改成功！');
 };
 
 const publishCustomPresence = async () => {
@@ -34,24 +49,13 @@ const publishCustomPresence = async () => {
     return;
   }
   
-  const option = {
-    description: customStatus.value.trim(),
-  };
-  
-  try {
-    await EMClient.publishPresence(option);
-    ElNotification({
-      title: 'Easemob',
-      message: '自定义在线状态发布成功！',
-      type: 'success',
-    });
+  const nextStatus = customStatus.value.trim();
+  const success = await publishPresenceStatus(
+    nextStatus,
+    '自定义在线状态发布成功！',
+  );
+  if (success) {
     customStatus.value = '';
-  } catch (error) {
-    ElNotification({
-      title: 'Easemob',
-      message: '自定义在线状态发布失败，请稍后重试！',
-      type: 'error',
-    });
   }
 };
 </script>
@@ -61,8 +65,8 @@ const publishCustomPresence = async () => {
       <li
         class="chat_status_change_item"
         :class="loginUserOnlineStatus === itemKey && 'active_status_style'"
-        v-for="(item, itemKey, index) in onLineStatus"
-        :key="item"
+        v-for="(item, itemKey) in onLineStatus"
+        :key="itemKey"
         @click="selectOnlineMode(itemKey)"
       >
         <span class="icon" :style="item.style"></span>

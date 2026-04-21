@@ -5,6 +5,8 @@ import { useStorage } from '@vueuse/core';
 import { EMClient, openImWithRetry } from '@/IM';
 import { sdkErrorToError } from '@/IM/sdkError';
 import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
+import { redirectToLoginClearImSession } from '@/utils/imAuthRedirect';
+import { isAlreadyLoggedInError } from '@/IM/openWithRetry';
 import { fetchUserLoginSmsCode, fetchUserLoginToken } from '@/api/login';
 import { useStore } from 'vuex';
 import { usePlayRing } from '@/hooks';
@@ -78,20 +80,14 @@ const loginIM = async () => {
       } catch (loginError) {
         const err = sdkErrorToError(loginError);
         // 处理登录错误
-        if (err.message === 'You are already logged in' || err.message === 'the user is already logged on another device') {
-          // 忽略重复登录错误，直接更新本地存储
-          if (err.originalError?.data?.accessToken) {
-            window.localStorage.setItem(
-              'EASEIM_loginUser',
-              JSON.stringify({
-                user: res.chatUserName.toLowerCase(),
-                accessToken: err.originalError.data.accessToken,
-              }),
-            );
-          }
-          console.log('用户已登录，忽略重复登录错误');
-          // 跳转到聊天页面
-          window.location.href = '/chat';
+        if (isAlreadyLoggedInError(err)) {
+          console.warn('SDK 返回已登录态，但本次 open 未成功，保留在登录页并提示用户重试');
+          ElMessage({
+            message: '检测到残留登录态，请稍后重试；若仍失败，请刷新页面后再登录',
+            type: 'warning',
+            center: true,
+          });
+          redirectToLoginClearImSession();
         } else if (err.message?.includes('devices is overflow') || err.message?.includes('device limit')) {
           // 处理设备数量限制错误
           console.log('设备数量超过限制，尝试强制登录');
@@ -104,6 +100,16 @@ const loginIM = async () => {
           // 跳转到聊天页面
           window.location.href = '/chat';
         } else {
+          if (
+            err.originalError?.type === 28 ||
+            err.originalError?.type === 401 ||
+            err.message?.includes('INVALID_TOKEN') ||
+            err.message?.includes('Invalid token') ||
+            err.message?.includes('Unauthorized') ||
+            err.message?.includes('Auth failed')
+          ) {
+            redirectToLoginClearImSession();
+          }
           console.error('登录失败:', loginError);
           ElMessage({
             message: `${

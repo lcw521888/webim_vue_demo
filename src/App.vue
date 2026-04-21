@@ -3,6 +3,7 @@ import '@/utils/globalErrorHandler';
 import { ref, onMounted, onUnmounted } from 'vue';
 import { mountAllEMListener } from '@/IM/listener';
 import { EMClient, openImWithRetry } from '@/IM';
+import { isAlreadyLoggedInError } from '@/IM/openWithRetry';
 import { sdkErrorToError } from '@/IM/sdkError';
 import {
   isImAuthFailedReason,
@@ -41,22 +42,22 @@ const handleRelogin = async () => {
     });
   } catch (raw) {
     const error = sdkErrorToError(raw);
-    // 忽略"You are already logged in"错误
-    if (error.message !== 'You are already logged in') {
-      if (isImAuthFailedReason(raw) || isImAuthFailedReason(error)) {
-        console.warn('[App] IM 鉴权失败，跳转登录页');
-        redirectToLoginClearImSession();
-        return;
-      }
-      ElMessage({
-        type: 'error',
-        center: true,
-        message: error.message || '重新登录失败',
-      });
-      console.error('[IM 重新登录失败]', raw);
-    } else {
-      console.log('用户已登录，忽略重复登录错误');
+    if (isAlreadyLoggedInError(error)) {
+      console.warn('[App] 检测到残留登录态，但自动恢复 open 未成功，返回登录页');
+      redirectToLoginClearImSession();
+      return;
     }
+    if (isImAuthFailedReason(raw) || isImAuthFailedReason(error)) {
+      console.warn('[App] IM 鉴权失败，跳转登录页');
+      redirectToLoginClearImSession();
+      return;
+    }
+    ElMessage({
+      type: 'error',
+      center: true,
+      message: error.message || '重新登录失败',
+    });
+    console.error('[IM 重新登录失败]', raw);
   }
 };
 

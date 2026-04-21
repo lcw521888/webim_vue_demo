@@ -113,9 +113,11 @@ const initEMClient = () => {
           error?.message?.includes('INVALID_TOKEN') ||
           error?.message?.includes('Invalid token')
         ) {
-          console.error(
-            '连接错误: 未授权或令牌无效，请自行前往登录页或清除 EASEIM_loginUser；未自动跳转以免页面不可用。',
+          console.warn(
+            '[IM] 连接错误: 未授权或令牌无效，将清除本地登录状态并返回登录页。',
           );
+          redirectToLoginClearImSession();
+          return;
         }
       });
     },
@@ -611,6 +613,29 @@ if (Object.keys(miniCore).length) {
       const customEvent = new CustomEvent('hx:messageRead', { detail: message });
       window.dispatchEvent(customEvent);
       console.log('[IM SDK Event] Custom Event hx:messageRead Sent');
+    },
+    // 收到会话已读回执
+    onChannelMessage: (message) => {
+      const eventName = 'onChannelMessage';
+      let eventResult = '成功';
+
+      console.log(
+        '[IM SDK Event] Conversation Read Receipt Event (onChannelMessage) Triggered',
+      );
+      console.log('事件名:', eventName);
+      console.log('事件结果:', eventResult);
+      console.log('Message Details:', {
+        from: message.from,
+        to: message.to,
+        chatType: message.chatType,
+        type: message.type,
+        originalMessage: message,
+      });
+      const customEvent = new CustomEvent('hx:channelMessage', {
+        detail: message,
+      });
+      window.dispatchEvent(customEvent);
+      console.log('[IM SDK Event] Custom Event hx:channelMessage Sent');
     },
     // 收到统计消息（离线时收到的回执）
     onStatisticMessage: (message) => {

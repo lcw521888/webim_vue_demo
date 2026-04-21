@@ -3,6 +3,8 @@ import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
 import router from '@/router';
 import _ from 'lodash';
+import { RefreshRight } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
 /* 相关组件 */
 import SearchInput from '@/components/SearchInput';
 import Welcome from '@/components/Welcome';
@@ -61,6 +63,7 @@ const CONTACTS_TYPE = {
   GROUP: '2',
 };
 const activeName = ref(CONTACTS_TYPE.FRIEND);
+const loadingContacts = ref(false);
 //处理滚动加载更多
 const loadingStatus = ref(false);
 const loadMore = async () => {
@@ -88,6 +91,18 @@ const onScrollToBottom = (event) => {
     loadMore();
   }
 };
+
+const refreshContactsList = async () => {
+  loadingContacts.value = true;
+  try {
+    await store.dispatch('fetchAllContactsListWithRemarkFromServer');
+    ElMessage.success('好友列表已刷新');
+  } catch (error) {
+    ElMessage.error('好友列表刷新失败，请稍后重试');
+  } finally {
+    loadingContacts.value = false;
+  }
+};
 </script>
 
 <template>
@@ -98,6 +113,18 @@ const onScrollToBottom = (event) => {
         :searchData="searchInputSrourceData"
         @toContacts="toContacts"
       />
+      <div class="contacts_toolbar">
+        <span class="contacts_toolbar_title">好友列表</span>
+        <el-button
+          link
+          type="primary"
+          :icon="RefreshRight"
+          :loading="loadingContacts"
+          @click="refreshContactsList"
+        >
+          刷新好友列表
+        </el-button>
+      </div>
       <el-scrollbar
         ref="scrollbarComp"
         class="contacts_collapse"
@@ -166,8 +193,24 @@ const onScrollToBottom = (event) => {
   user-select: none;
 
   .contacts_collapse {
-    height: calc(100% - 60px);
+    height: calc(100% - 102px);
     overflow: auto;
+  }
+}
+
+.contacts_toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  height: 42px;
+  background: rgba(255, 255, 255, 0.65);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+
+  .contacts_toolbar_title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
   }
 }
 

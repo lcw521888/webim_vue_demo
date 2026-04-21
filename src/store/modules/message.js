@@ -9,6 +9,42 @@ import {
   MAX_MESSAGE_LIST_COUNT,
 } from '@/constant';
 import eventEmitter from '@/utils/eventEmitter';
+
+const normalizeReactionList = (reactions = []) => {
+  if (!Array.isArray(reactions)) return [];
+  return reactions
+    .filter((item) => item && item.reaction)
+    .map((item) => ({
+      reaction: item.reaction,
+      count: Number(item.count) || 0,
+      userList: Array.isArray(item.userList) ? item.userList : [],
+      isAddedBySelf: !!item.isAddedBySelf,
+      op: Array.isArray(item.op) ? item.op : [],
+    }));
+};
+
+const updateMessageReactionByKey = (state, listKey, messageId, reactions) => {
+  if (!state.messageList[listKey]) return false;
+  const message = _.find(state.messageList[listKey], (o) => o.id === messageId);
+  if (!message) return false;
+  message.reactions = normalizeReactionList(reactions);
+  return true;
+};
+
+const updateMessageReactionInAllLists = (state, messageId, reactions) => {
+  let found = false;
+  Object.keys(state.messageList).forEach((listKey) => {
+    const updated = updateMessageReactionByKey(
+      state,
+      listKey,
+      messageId,
+      reactions,
+    );
+    if (updated) found = true;
+  });
+  return found;
+};
+
 const Message = {
   state: {
     messageList: {},
@@ -181,6 +217,15 @@ const Message = {
           break;
       }
     },
+    UPDATE_MESSAGE_REACTIONS: (state, payload) => {
+      const { messageId, reactions, key } = payload;
+      if (!messageId) return;
+      if (key) {
+        const updated = updateMessageReactionByKey(state, key, messageId, reactions);
+        if (updated) return;
+      }
+      updateMessageReactionInAllLists(state, messageId, reactions);
+    },
     // 更新消息送达状态
     UPDATE_MESSAGE_DELIVERED: (state, payload) => {
       console.log('更新消息送达状态:', payload);
@@ -311,6 +356,19 @@ const Message = {
               firstMessageId: messages?.length > 0 ? messages[0].id : '无',
               lastMessageId: messages?.length > 0 ? messages[messages.length - 1].id : '无'
             });
+            const reactionMessages = (messages || []).filter(
+              (item) => Array.isArray(item?.reactions) && item.reactions.length > 0,
+            );
+            if (reactionMessages.length > 0) {
+              console.log(
+                '[Reaction] getHistoryMessages 返回的消息包含 Reaction 概览',
+                reactionMessages.map((item) => ({
+                  messageId: item.id,
+                  chatType: item.chatType,
+                  reactions: item.reactions,
+                })),
+              );
+            }
             messages?.length > 0 &&
               messages.forEach((item) => {
                 item.read = true;
@@ -507,6 +565,108 @@ const Message = {
           .catch((error) => {
             reject(error);
           });
+      });
+    },
+    fetchMessageReactionList: async ({ commit }, params) => {
+      const { messageId, chatType, groupId, key } = params || {};
+      if (!messageId || !chatType) return [];
+      try {
+        console.log('[Reaction] getReactionlist 请求', {
+          messageId,
+          chatType,
+          groupId,
+        });
+        const res = await EMClient.getReactionlist({
+          messageId,
+          chatType,
+          groupId,
+        });
+        console.log('[Reaction] getReactionlist 返回', res);
+        const rawList = Array.isArray(res?.data) ? res.data : [];
+        const target = rawList.find((item) => item?.messageId === messageId) || {};
+        const reactions = normalizeReactionList(target?.reactions || []);
+        commit('UPDATE_MESSAGE_REACTIONS', {
+          key,
+          messageId,
+          reactions,
+        });
+        return reactions;
+      } catch (error) {
+        console.error('[Reaction] getReactionlist 失败', error);
+        return [];
+      }
+    },
+    fetchMessageReactionDetail: async (_, params) => {
+      const { messageId, reaction, cursor = null, pageSize = 20 } = params || {};
+      if (!messageId || !reaction) return null;
+      try {
+        console.log('[Reaction] getReactionDetail 请求', {
+          messageId,
+          reaction,
+          cursor,
+          pageSize,
+        });
+        const res = await EMClient.getReactionDetail({
+          messageId,
+          reaction,
+          cursor,
+          pageSize,
+        });
+        console.log('[Reaction] getReactionDetail 返回', res);
+        return res;
+      } catch (error) {
+        console.error('[Reaction] getReactionDetail 失败', error);
+        throw error;
+      }
+    },
+    handleReactionChange: ({ commit }, payload) => {
+      if (!payload?.messageId) return;
+      commit('UPDATE_MESSAGE_REACTIONS', {
+        messageId: payload.messageId,
+        reactions: payload.reactions || [],
+      });
+    },
+    addMessageReaction: async ({ dispatch }, params) => {
+      const { messageId, reaction, chatType, groupId, key } = params || {};
+      if (!messageId || !reaction) {
+        throw new Error('addMessageReaction 缺少参数');
+      }
+      try {
+        console.log('[Reaction] addReaction 请求', { messageId, reaction });
+        await EMClient.addReaction({ messageId, reaction });
+        console.log('[Reaction] addReaction 成功', { messageId, reaction });
+      } catch (error) {
+        // 1101 表示当前用户已对同一条消息添加过该 Reaction。
+        // 这属于幂等场景，刷新列表后直接返回，避免把它当成真正失败。
+        if (
+          error?.type === 1101 ||
+          error?.message?.includes('already operation this message')
+        ) {
+          console.warn('[Reaction] 已添加过该表情，改为刷新当前 Reaction 列表');
+        } else {
+          throw error;
+        }
+      }
+      return dispatch('fetchMessageReactionList', {
+        messageId,
+        chatType,
+        groupId,
+        key,
+      });
+    },
+    deleteMessageReaction: async ({ dispatch }, params) => {
+      const { messageId, reaction, chatType, groupId, key } = params || {};
+      if (!messageId || !reaction) {
+        throw new Error('deleteMessageReaction 缺少参数');
+      }
+      console.log('[Reaction] deleteReaction 请求', { messageId, reaction });
+      await EMClient.deleteReaction({ messageId, reaction });
+      console.log('[Reaction] deleteReaction 成功', { messageId, reaction });
+      return dispatch('fetchMessageReactionList', {
+        messageId,
+        chatType,
+        groupId,
+        key,
       });
     },
   },

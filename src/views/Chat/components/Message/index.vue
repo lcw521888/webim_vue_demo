@@ -137,6 +137,9 @@ onMounted(() => {
   // 监听消息已读回执事件
   window.addEventListener('hx:messageRead', handleMessageRead);
   
+  // 监听会话已读回执事件
+  window.addEventListener('hx:channelMessage', handleChannelMessage);
+  
   // 监听统计消息事件（离线回执）
   window.addEventListener('hx:statisticMessage', handleStatisticMessage);
 });
@@ -193,6 +196,12 @@ const handleMessageRead = (event) => {
   });
 };
 
+// 处理会话已读回执
+const handleChannelMessage = (event) => {
+  const message = event.detail;
+  console.log('收到会话已读回执:', message);
+};
+
 // 处理统计消息事件（离线回执）
 const handleStatisticMessage = (event) => {
   const message = event.detail;
@@ -226,6 +235,7 @@ onBeforeRouteLeave(() => {
   window.removeEventListener('hx:messageReceived', handleMessageReceived);
   window.removeEventListener('hx:messageDelivered', handleMessageDelivered);
   window.removeEventListener('hx:messageRead', handleMessageRead);
+  window.removeEventListener('hx:channelMessage', handleChannelMessage);
   window.removeEventListener('hx:statisticMessage', handleStatisticMessage);
 });
 const closeWarningTips = () => store.commit('CLOSE_WARNING_TIPS');

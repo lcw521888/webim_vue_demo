@@ -9,6 +9,8 @@ import { ElMessage } from 'element-plus';
 import { EMClient, openImWithRetry } from '@/IM';
 import { useStore } from 'vuex';
 import { usePlayRing } from '@/hooks';
+import { redirectToLoginClearImSession } from '@/utils/imAuthRedirect';
+import { isAlreadyLoggedInError } from '@/IM/openWithRetry';
 const store = useStore();
 const loginValue = reactive({
   username: '',
@@ -56,30 +58,15 @@ const loginIM = async () => {
     window.location.href = '/chat';
   } catch (error) {
     console.log(error);
-    
-    // 检查用户是否已经登录成功
-    const loginUser = localStorage.getItem('EASEIM_loginUser');
-    if (loginUser) {
-      console.log('用户已登录，忽略错误:', error.message);
-      // 跳转到聊天页面
-      window.location.href = '/chat';
-      return;
-    }
-    
-    if (error.message === 'You are already logged in' || error.message === 'the user is already logged on another device') {
-      // 忽略重复登录错误，直接更新本地存储
-      if (error.data?.accessToken) {
-        window.localStorage.setItem(
-          `EASEIM_loginUser`,
-          JSON.stringify({
-            user: loginValue.username.toLowerCase(),
-            accessToken: error.data.accessToken,
-          }),
-        );
-      }
-      console.log('用户已登录，忽略重复登录错误');
-      // 跳转到聊天页面
-      window.location.href = '/chat';
+
+    if (isAlreadyLoggedInError(error)) {
+      console.warn('SDK 返回已登录态，但本次 open 未成功，保留在登录页并提示用户重试');
+      ElMessage({
+        message: '检测到残留登录态，请稍后重试；若仍失败，请刷新页面后再登录',
+        type: 'warning',
+        center: true,
+      });
+      redirectToLoginClearImSession();
     } else if (error.message?.includes('devices is overflow') || error.message?.includes('device limit')) {
       // 处理设备数量限制错误
       console.log('设备数量超过限制，尝试强制登录');
@@ -92,42 +79,20 @@ const loginIM = async () => {
       // 跳转到聊天页面
       window.location.href = '/chat';
     } else if (error.type === 28 || error.message === 'INVALID_TOKEN' || error.message?.includes('Invalid token')) {
-      // 处理无效令牌错误
-      console.log('INVALID_TOKEN错误，检查用户是否已经登录成功');
-      // 检查用户是否已经登录成功
-      const loginUserAfterError = localStorage.getItem('EASEIM_loginUser');
-      if (loginUserAfterError) {
-        console.log('用户已登录，忽略INVALID_TOKEN错误');
-        // 跳转到聊天页面
-        window.location.href = '/chat';
-        return;
-      }
-      // 如果用户未登录，显示错误信息并清除本地存储
       ElMessage({
         title: '登录过期',
         message: '登录令牌无效或已过期，请重新登录',
         type: 'error',
         center: true,
       });
-      // 清除本地存储的登录信息
-      localStorage.removeItem('EASEIM_loginUser');
+      redirectToLoginClearImSession();
     } else if (error.type === 2 || error.message?.includes('Auth failed')) {
-      // 处理Auth failed错误，可能是临时错误，尝试继续
-      console.log('Auth failed错误，可能是临时错误，尝试继续');
-      // 检查是否已经有登录信息
-      const loginUserAfterError = localStorage.getItem('EASEIM_loginUser');
-      if (loginUserAfterError) {
-        console.log('用户已登录，忽略Auth failed错误');
-        // 跳转到聊天页面
-        window.location.href = '/chat';
-        return;
-      }
-      // 显示错误信息
       ElMessage({
         message: '认证失败，请检查用户名和密码',
         type: 'error',
         center: true,
       });
+      redirectToLoginClearImSession();
     } else {
       // 显示实际的登录错误信息
       ElMessage({
