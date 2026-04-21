@@ -9,13 +9,13 @@ export const imReadAckListener = () => {
     EMClient.addEventHandler(
       'aboutReadAckMessage',
       wrapImEventHandler({
-      onReadMessage: (message) => {
-        updateMessageReadStatus(message);
-      },
-      onChannelMessage: (message) => {
-        updateConversationReadStatus(message);
-      },
-    }),
+        onReadMessage: (message) => {
+          updateMessageReadStatus(message);
+        },
+        onChannelMessage: (message) => {
+          updateConversationReadStatus(message);
+        },
+      }),
     );
   };
   //根据收到的单条消息已读回执更新消息已读状态状态
@@ -46,6 +46,7 @@ export const imReadAckListener = () => {
       type: MESSAGE_STATUS_TYPE.CHANLE_STATUS,
     };
     store.commit('UPDATE_MESSAGE_IDS_COLLECTION', payload);
+    store.commit('CLEAR_CONVERSATION_ITEM_UNREAD_COUNT', key);
   };
   return {
     mountReadAckEventListener,

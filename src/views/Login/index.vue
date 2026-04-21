@@ -3,6 +3,10 @@ import { ref, onMounted } from 'vue';
 import { EMClient } from '@/IM';
 import { useStorage } from '@vueuse/core';
 import CustomImConfig from '@/views/Login/components/CustomImConfig';
+import {
+  IM_ENVIRONMENTS,
+  IM_ENV_OPTIONS,
+} from '@/views/Login/components/CustomImConfig/imEnvPresets';
 import LoginInput from './components/LoginInput';
 import RegisterInput from './components/RegisterInput';
 import ResetPassword from './components/ResetPassword';
@@ -32,8 +36,12 @@ const isShowCustomServerConfig = useStorage(
   'IM_IS_OPEN_CUSTOM_SERVER_CONFIG',
   false,
 );
-const customImConfig = ref(null);
 const CUSTOM_CONFIG = JSON.parse(localStorage.getItem('webimConfig')) || {};
+const selectedEnvironment = useStorage(
+  'IM_LOGIN_ENVIRONMENT',
+  CUSTOM_CONFIG.environment || IM_ENVIRONMENTS.NGI,
+);
+const customImConfig = ref(null);
 onMounted(() => {
   if (!isProd && !CUSTOM_CONFIG?.appKey) {
     //非生产环境下，默认开启自定义服务器配置
@@ -45,8 +53,10 @@ const goToCustomImConfig = () => {
   isShowDevWarning.value = false;
   customImConfig.value.centerDialogVisible = true;
 };
-const showCustomImConfigModal = () => {
-  customImConfig.value.centerDialogVisible = true;
+const handleEnvironmentSelect = (environment) => {
+  selectedEnvironment.value = environment;
+  isShowDevWarning.value = false;
+  customImConfig.value.openWithEnvironment(environment);
 };
 let clickCount = 0; // 计数器，记录点击次数
 
@@ -89,16 +99,26 @@ const IM_SDK_VERSION = EMClient.version;
             :is="componType[0]"
             @changeToLogin="changeToLogin"
           ></component>
-          <el-link
-            v-if="!isProd || isShowCustomServerConfig"
-            class="custom_config"
-            @click="showCustomImConfigModal"
-            >服务器配置</el-link
-          >
+          <div class="environment_selector">
+            <span class="environment_label">服务配置</span>
+            <el-select
+              v-model="selectedEnvironment"
+              class="environment_select"
+              placeholder="请选择服务配置"
+              @change="handleEnvironmentSelect"
+            >
+              <el-option
+                v-for="item in IM_ENV_OPTIONS"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+                @click="handleEnvironmentSelect(item.value)"
+              />
+            </el-select>
+          </div>
           <el-col v-show="showComponent !== 2">
             <div class="function_button_extra">
               <!-- <el-link class="reset_password" @click="showComponent = 2">重置密码</el-link> -->
-              <!-- <el-link class="custom_config" @click="showCustomImConfigModal">服务器配置</el-link> -->
               <!-- <p class="login_text">
                 <span class="login_text_isuserid" v-show="showComponent === 0">没有账号？</span>
                 <span class="login_text_isuserid" v-show="showComponent === 1">已有账号？</span>
@@ -206,7 +226,33 @@ const IM_SDK_VERSION = EMClient.version;
         padding: 0 10px;
       }
 
-      .custom_config,
+      .environment_selector {
+        width: 400px;
+        margin: 2px 0 8px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 10px;
+        box-sizing: border-box;
+
+        .environment_label {
+          color: #ffffff;
+          min-width: 76px;
+          font-size: 16px;
+          font-weight: 500;
+          opacity: 0.92;
+        }
+
+        .environment_select {
+          flex: 1;
+        }
+
+        :deep(.el-input__wrapper) {
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.92);
+        }
+      }
+
       .reset_password {
         margin-left: 20px;
         font-family: 'PingFang SC';

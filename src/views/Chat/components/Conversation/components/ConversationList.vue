@@ -101,6 +101,7 @@ const handleLastMsgNickName = computed(() => {
 //处理lastmsg预览内容
 const handleLastMsgContent = computed(() => {
   return (msgBody) => {
+    if (!msgBody) return '';
     const { type, msg } = msgBody;
     let resultContent = '';
     //如果消息类型，在预设非展示文本类型中，就返回预设值
@@ -180,13 +181,16 @@ const pinConversation = async (conversationItem) => {
     await EMClient.pinConversation({
       conversationId,
       conversationType,
-      isPinned: !isPinned
+      isPinned: !isPinned,
     });
-    // 更新本地会话的置顶状态
-    conversationItem.isPinned = !isPinned;
-    // 重新排序会话列表
-    await store.dispatch('getConversationListFromServer', { isInit: true });
-    
+    store.commit('UPDATE_CONVERSATION_PIN_STATUS', [
+      {
+        conversationId,
+        isPinned: !isPinned,
+        pinnedTime: !isPinned ? Date.now() : 0,
+      },
+    ]);
+
     ElMessage.success(isPinned ? '取消置顶成功' : '置顶成功');
   } catch (error) {
     console.error('置顶/取消置顶会话失败', error);
@@ -212,31 +216,31 @@ const toggleConversationMark = async (conversationItem) => {
       // 添加标记
       await EMClient.addConversationMark({
         conversations: [
-          { conversationId, conversationType }
+          { conversationId, conversationType },
         ],
-        mark: 2 // 使用标记2表示标星
+        mark: 2, // 使用标记2表示标星
       });
-      // 更新本地会话的标记状态
-      if (!conversationItem.marks) {
-        conversationItem.marks = [];
-      }
-      conversationItem.marks.push(2);
+      store.commit('UPDATE_CONVERSATION_MARK_STATUS', {
+        conversationId,
+        mark: 2,
+        isMarked: true,
+      });
       ElMessage.success('标星成功');
     } else {
       // 移除标记
       await EMClient.removeConversationMark({
         conversations: [
-          { conversationId, conversationType }
+          { conversationId, conversationType },
         ],
-        mark: 2 // 使用标记2表示标星
+        mark: 2, // 使用标记2表示标星
       });
-      // 更新本地会话的标记状态
-      conversationItem.marks = conversationItem.marks.filter(mark => mark !== 2);
+      store.commit('UPDATE_CONVERSATION_MARK_STATUS', {
+        conversationId,
+        mark: 2,
+        isMarked: false,
+      });
       ElMessage.success('取消标星成功');
     }
-    
-    // 重新获取会话列表以确保数据同步
-    await store.dispatch('getConversationListFromServer', { isInit: true });
   } catch (error) {
     console.error('标记/取消标记会话失败', error);
     ElMessage.error(hasMark ? '取消标星失败' : '标星失败');
@@ -252,12 +256,17 @@ const loadMoreConversation = () => {
   if (loadingStatus.value) return;
   //如果存在游标则容许加载更多
   if (conversationListFromServerCursor.value) {
-    store.dispatch('getConversationListFromServer', { isInit: false });
+    loadingStatus.value = true;
+    store
+      .dispatch('getConversationListFromServer', { isInit: false })
+      .finally(() => {
+        loadingStatus.value = false;
+      });
   }
 };
 const onScrollToBottom = (event) => {
-  //当前会话获取模式如果不为server模式则不容许加载更多，因为本地会话列表是一次拉取并不需要分页。
-  if (!conversationFromMethod.value) return;
+  // 本地会话列表一次拉取；仅服务端会话列表需要按 cursor 分页。
+  if (conversationFromMethod.value) return;
   const { scrollTop } = event;
   // 获取滚动条的容器元素
   const scrollWrap = scrollbarComp.value?.wrapRef;
@@ -364,7 +373,9 @@ const onScrollToBottom = (event) => {
               </div>
               <div class="item_body item_right">
                 <span class="time">{{
-                  dateFormater('MM/DD/HH:mm', item?.lastMessage?.time)
+                  item?.lastMessage?.time
+                    ? dateFormater('MM/DD/HH:mm', item.lastMessage.time)
+                    : ''
                 }}</span>
                 <span class="unReadNum_box" v-if="item.unReadCount >= 1">
                   <sup

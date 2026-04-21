@@ -3,6 +3,10 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { EMClient } from '@/IM';
+import {
+  CHATROOM_EVENT_OPERATIONS,
+  createChatroomEventHandler,
+} from '@/utils/chatroomEvents';
 
 const route = useRoute();
 const router = useRouter();
@@ -49,6 +53,118 @@ const checkLoginStatus = () => {
     return false;
   }
   return true;
+};
+
+const stringifyErrorData = (data) => {
+  if (!data) return '';
+  if (typeof data === 'string') return data;
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return String(data);
+  }
+};
+
+const getChatroomFriendlyErrorMessage = (error, fallback) => {
+  const errorText = [
+    error?.message,
+    error?.error,
+    error?.error_description,
+    stringifyErrorData(error?.data),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (error?.type === 52 || errorText.includes('authenticate')) {
+    return '认证失败，请重新登录';
+  }
+
+  if (
+    errorText.includes('group_authorization') ||
+    errorText.includes('authorization') ||
+    errorText.includes('no permission') ||
+    errorText.includes('permission')
+  ) {
+    return '权限不足：只有聊天室所有者或管理员可以执行该操作';
+  }
+
+  if (errorText.includes('user not found')) {
+    return '用户不存在，请检查用户 ID 是否正确';
+  }
+
+  if (errorText.includes('not in group') || errorText.includes('not member')) {
+    return '该用户不在当前聊天室中';
+  }
+
+  return fallback;
+};
+
+const logChatroomActionError = (action, error, params = {}) => {
+  console.groupCollapsed(`[ChatroomActionError] ${action}`);
+  console.error('原始错误：', error);
+  console.log('方法入参：', params);
+  console.log('错误详情：', {
+    type: error?.type,
+    code: error?.code,
+    message: error?.message,
+    data: error?.data,
+    error: error?.error,
+    error_description: error?.error_description,
+    stack: error?.stack,
+  });
+  console.groupEnd();
+};
+
+const getChatroomDetails = async () => {
+  if (!checkLoginStatus()) return;
+  if (!chatRoomId.value) {
+    ElMessage.error('聊天室ID不存在');
+    return;
+  }
+
+  const GET_CHAT_ROOM_DETAILS_METHOD = 'getChatRoomDetails';
+  const chatRoomDetailParams = { chatRoomId: chatRoomId.value };
+  loading.value = true;
+  try {
+    console.log(
+      `开始获取聊天室详情:`,
+      `\n调用方法: ${GET_CHAT_ROOM_DETAILS_METHOD}`,
+      `\n方法入参:`,
+      chatRoomDetailParams,
+      `\n当前用户:`,
+      EMClient.user,
+      `\n聊天室ID:`,
+      chatRoomId.value,
+    );
+    const res = await EMClient.getChatRoomDetails(chatRoomDetailParams);
+    console.log(
+      `获取聊天室详情成功:`,
+      `\n事件：聊天室详情查询`,
+      `\n返回值:`,
+      res,
+    );
+
+    chatroomDetails.value = Array.isArray(res.data)
+      ? res.data[0] || {}
+      : res.data || {};
+  } catch (error) {
+    console.error(
+      `获取聊天室详情失败:`,
+      `\n调用方法: ${GET_CHAT_ROOM_DETAILS_METHOD}`,
+      `\n方法入参:`,
+      chatRoomDetailParams,
+      `\n错误详情:`,
+      error,
+    );
+    if (error.type === 52 || error.message?.includes('authenticate')) {
+      ElMessage.error('认证失败，请重新登录');
+    } else {
+      ElMessage.error('获取聊天室详情失败');
+    }
+  } finally {
+    loading.value = false;
+  }
 };
 //获取聊天室成员
 const getChatRoomMembers = async () => {
@@ -387,24 +503,21 @@ const addToBlocklist = async (username) => {
     return;
   }
   const trimmedUsername = username.trim();
+  const blockParams = {
+    chatRoomId: chatRoomId.value,
+    usernames: [trimmedUsername],
+  };
   console.log('添加到黑名单 - chatRoomId:', chatRoomId.value, 'usernames:', [
     trimmedUsername,
   ]);
   try {
-    await EMClient.blockChatRoomMembers({
-      chatRoomId: chatRoomId.value,
-      usernames: [trimmedUsername],
-    });
+    await EMClient.blockChatRoomMembers(blockParams);
     ElMessage.success('添加到黑名单成功');
     blocklistInput.value = '';
     getChatRoomBlocklist();
   } catch (error) {
-    console.error('添加到黑名单失败', error);
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else {
-      ElMessage.error(`添加到黑名单失败: ${error.message || '未知错误'}`);
-    }
+    logChatroomActionError('添加到黑名单失败', error, blockParams);
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '添加到黑名单失败'));
   }
 };
 
@@ -434,26 +547,8 @@ const removeFromBlocklist = async (username) => {
     ElMessage.success('从黑名单移除成功');
     getChatRoomBlocklist();
   } catch (error) {
-    console.error(
-      `从黑名单移除失败:`,
-      `\n调用方法: ${UNBLOCK_CHAT_ROOM_MEMBERS_METHOD}`,
-      `\n方法入参:`,
-      unblockParams,
-      `\n当前用户:`,
-      EMClient.user,
-      `\n错误类型:`,
-      error.type,
-      `\n错误消息:`,
-      error.message,
-      `\n完整错误信息:`,
-      error,
-    );
-    EMClient.error('从黑名单移除失败');
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else {
-      ElMessage.error('从黑名单移除失败');
-    }
+    logChatroomActionError('从黑名单移除失败', error, unblockParams);
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '从黑名单移除失败'));
   }
 };
 
@@ -469,44 +564,38 @@ const addToAllowlist = async (username) => {
     return;
   }
   const trimmedUsername = username.trim();
+  const allowlistParams = {
+    chatRoomId: chatRoomId.value,
+    users: [trimmedUsername],
+  };
   console.log('添加到白名单 - chatRoomId:', chatRoomId.value, 'users:', [
     trimmedUsername,
   ]);
   try {
-    await EMClient.addUsersToChatRoomAllowlist({
-      chatRoomId: chatRoomId.value,
-      users: [trimmedUsername],
-    });
+    await EMClient.addUsersToChatRoomAllowlist(allowlistParams);
     ElMessage.success('添加到白名单成功');
     allowlistInput.value = '';
     getChatRoomAllowlist();
   } catch (error) {
-    console.error('添加到白名单失败', error);
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else {
-      ElMessage.error(`添加到白名单失败: ${error.message || '未知错误'}`);
-    }
+    logChatroomActionError('添加到白名单失败', error, allowlistParams);
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '添加到白名单失败'));
   }
 };
 
 const removeFromAllowlist = async (username) => {
   if (!checkLoginStatus()) return;
+  const removeAllowlistParams = {
+    chatRoomId: chatRoomId.value,
+    userName: username,
+  };
 
   try {
-    await EMClient.removeChatRoomAllowlistMember({
-      chatRoomId: chatRoomId.value,
-      userName: username,
-    });
+    await EMClient.removeChatRoomAllowlistMember(removeAllowlistParams);
     ElMessage.success('从白名单移除成功');
     getChatRoomAllowlist();
   } catch (error) {
-    console.error('从白名单移除失败', error);
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else {
-      ElMessage.error('从白名单移除失败');
-    }
+    logChatroomActionError('从白名单移除失败', error, removeAllowlistParams);
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '从白名单移除失败'));
   }
 };
 
@@ -518,42 +607,42 @@ const muteMember = async (username, duration = -1000) => {
     return;
   }
   const trimmedUsername = username.trim();
+  const muteParams = {
+    chatRoomId: chatRoomId.value,
+    username: trimmedUsername,
+    muteDuration: duration,
+  };
   try {
-    await EMClient.muteChatRoomMember({
-      chatRoomId: chatRoomId.value,
-      username: trimmedUsername,
-      muteDuration: duration,
-    });
+    await EMClient.muteChatRoomMember(muteParams);
     ElMessage.success('禁言成功');
     muteInput.value = '';
     getChatRoomMutelist();
   } catch (error) {
-    console.error('禁言失败', error);
-    if (error.type === 52 || error.message?.includes('authenticate')) {
-      ElMessage.error('认证失败，请重新登录');
-    } else if (error.type === 702) {
+    logChatroomActionError('禁言失败', error, muteParams);
+    if (error.type === 702) {
       if (error.message?.includes('are not members of this group')) {
         ElMessage.error(`用户 ${trimmedUsername} 不是聊天室成员，无法禁言`);
       } else {
         ElMessage.error('禁言失败：参数错误');
       }
     } else {
-      ElMessage.error('禁言失败');
+      ElMessage.error(getChatroomFriendlyErrorMessage(error, '禁言失败'));
     }
   }
 };
 
 const unmuteMember = async (username) => {
+  const unmuteParams = {
+    chatRoomId: chatRoomId.value,
+    username,
+  };
   try {
-    await EMClient.unmuteChatRoomMember({
-      chatRoomId: chatRoomId.value,
-      username,
-    });
+    await EMClient.unmuteChatRoomMember(unmuteParams);
     ElMessage.success('解除禁言成功');
     getChatRoomMutelist();
   } catch (error) {
-    console.error('解除禁言失败', error);
-    ElMessage.error('解除禁言失败');
+    logChatroomActionError('解除禁言失败', error, unmuteParams);
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '解除禁言失败'));
   }
 };
 
@@ -564,7 +653,8 @@ const muteAllMembers = async () => {
   }
 
   try {
-    await EMClient.disableSendChatRoomMsg({ chatRoomId: chatRoomId.value });
+    const muteAllParams = { chatRoomId: chatRoomId.value };
+    await EMClient.disableSendChatRoomMsg(muteAllParams);
     isMuteAll.value = true;
     ElMessage.success('全员禁言成功');
 
@@ -572,8 +662,10 @@ const muteAllMembers = async () => {
     await Promise.all([getChatRoomMembers(), getChatRoomAdmin()]);
     getChatRoomMutelist();
   } catch (error) {
-    console.error('全员禁言失败', error);
-    ElMessage.error('全员禁言失败');
+    logChatroomActionError('全员禁言失败', error, {
+      chatRoomId: chatRoomId.value,
+    });
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '全员禁言失败'));
   }
 };
 
@@ -584,13 +676,16 @@ const unmuteAllMembers = async () => {
   }
 
   try {
-    await EMClient.enableSendChatRoomMsg({ chatRoomId: chatRoomId.value });
+    const unmuteAllParams = { chatRoomId: chatRoomId.value };
+    await EMClient.enableSendChatRoomMsg(unmuteAllParams);
     isMuteAll.value = false;
     ElMessage.success('取消全员禁言成功');
     getChatRoomMutelist();
   } catch (error) {
-    console.error('取消全员禁言失败', error);
-    ElMessage.error('取消全员禁言失败');
+    logChatroomActionError('取消全员禁言失败', error, {
+      chatRoomId: chatRoomId.value,
+    });
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '取消全员禁言失败'));
   }
 };
 
@@ -627,51 +722,37 @@ const setAdmin = async (username) => {
     'username:',
     trimmedUsername,
   );
+  const setAdminParams = {
+    chatRoomId: chatRoomId.value,
+    username: trimmedUsername,
+  };
   try {
-    await EMClient.setChatRoomAdmin({
-      chatRoomId: chatRoomId.value,
-      username: trimmedUsername,
-    });
+    await EMClient.setChatRoomAdmin(setAdminParams);
     ElMessage.success('设置管理员成功');
     adminInput.value = '';
     // 更新管理员列表和成员列表中的角色信息
     await getChatRoomAdmin();
     await getChatRoomMembers();
   } catch (error) {
-    console.error('设置管理员失败', error);
-    // 处理权限错误
-    let errorMsg = '设置管理员失败';
-    if (error?.data) {
-      const errorData = typeof error.data === 'string' ? error.data : JSON.stringify(error.data);
-      if (errorData.includes('group_authorization') || errorData.includes('group owner permission')) {
-        errorMsg = '没有权限设置管理员，只有聊天室所有者才能执行此操作';
-      }
-    }
-    ElMessage.error(errorMsg);
+    logChatroomActionError('设置管理员失败', error, setAdminParams);
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '设置管理员失败'));
   }
 };
 
 const removeAdmin = async (username) => {
+  const removeAdminParams = {
+    chatRoomId: chatRoomId.value,
+    username,
+  };
   try {
-    await EMClient.removeChatRoomAdmin({
-      chatRoomId: chatRoomId.value,
-      username,
-    });
+    await EMClient.removeChatRoomAdmin(removeAdminParams);
     ElMessage.success('移除管理员成功');
     // 更新管理员列表和成员列表中的角色信息
     await getChatRoomAdmin();
     await getChatRoomMembers();
   } catch (error) {
-    console.error('移除管理员失败', error);
-    // 处理权限错误
-    let errorMsg = '移除管理员失败';
-    if (error?.data) {
-      const errorData = typeof error.data === 'string' ? error.data : JSON.stringify(error.data);
-      if (errorData.includes('group_authorization') || errorData.includes('group owner permission')) {
-        errorMsg = '没有权限移除管理员，只有聊天室所有者才能执行此操作';
-      }
-    }
-    ElMessage.error(errorMsg);
+    logChatroomActionError('移除管理员失败', error, removeAdminParams);
+    ElMessage.error(getChatroomFriendlyErrorMessage(error, '移除管理员失败'));
   }
 };
 
@@ -718,154 +799,87 @@ const removeMember = async (username) => {
         chatRoomId: chatRoomId.value,
         username,
       };
-      console.error(
-        `移出聊天室成员失败:`,
-        `\n调用方法: ${REMOVE_CHAT_ROOM_MEMBER_METHOD}`,
-        `\n方法入参:`,
-        removeMemberParams,
-        `\n待移出成员:`,
-        username,
-        `\n操作聊天室ID:`,
-        chatRoomId.value,
-        `\n操作执行用户:`,
-        EMClient.user,
-        `\n错误类型:`,
-        error.type,
-        `\n错误消息:`,
-        error.message,
-        `\n完整错误信息:`,
+      logChatroomActionError(
+        `移出聊天室成员失败:${REMOVE_CHAT_ROOM_MEMBER_METHOD}`,
         error,
+        removeMemberParams,
       );
 
       // 根据错误类型提供更友好的提示
-      if (error.type === 17 && error.message?.includes('group_authorization')) {
-        ElMessage.error('权限不足：只有聊天室所有者或管理员才能执行该操作');
-      } else {
-        ElMessage.error('移出聊天室失败');
-      }
+      ElMessage.error(getChatroomFriendlyErrorMessage(error, '移出聊天室失败'));
     }
   }
 };
 
 let chatroomEventHandler;
 
-const getChatroomDetails = async () => {
-  if (!checkLoginStatus()) return;
-  if (!chatRoomId.value) return;
-  try {
-    console.log('开始获取聊天室详情，chatRoomId:', chatRoomId.value);
-    const res = await EMClient.getChatRoomDetails({
-      chatRoomId: chatRoomId.value,
-    });
-    const chatroomDetail = Array.isArray(res.data)
-      ? res.data[0] || {}
-      : res.data || {};
-    chatroomDetails.value = chatroomDetail; // 保存聊天室详情，包括所有者信息
-    isMuteAll.value = chatroomDetail.mute === true; // 同步全员禁言状态
-    console.log('更新全员禁言状态为:', isMuteAll.value);
-    console.log('聊天室所有者:', chatroomDetail.owner);
-  } catch (error) {
-    console.error('获取聊天室详情失败', error);
+const registerChatroomMemberManagementHandler = () => {
+  if (chatroomEventHandler) {
+    EMClient.removeEventHandler('CHATROOM_MEMBER_MANAGEMENT');
   }
+
+  chatroomEventHandler = EMClient.addEventHandler(
+    'CHATROOM_MEMBER_MANAGEMENT',
+    createChatroomEventHandler('ChatroomMemberManagement', (e, normalizedEvent) => {
+      if (normalizedEvent.roomId !== String(chatRoomId.value || '')) return;
+
+      switch (e.operation) {
+        case CHATROOM_EVENT_OPERATIONS.UNMUTE_ALL_MEMBERS:
+          isMuteAll.value = false;
+          getChatRoomMutelist();
+          break;
+        case CHATROOM_EVENT_OPERATIONS.MUTE_ALL_MEMBERS:
+          isMuteAll.value = true;
+          getChatRoomMutelist();
+          break;
+        case CHATROOM_EVENT_OPERATIONS.SET_ADMIN:
+        case CHATROOM_EVENT_OPERATIONS.REMOVE_ADMIN:
+          getChatRoomAdmin();
+          break;
+        case CHATROOM_EVENT_OPERATIONS.MUTE_MEMBER:
+        case CHATROOM_EVENT_OPERATIONS.UNMUTE_MEMBER:
+          getChatRoomMutelist();
+          break;
+        case CHATROOM_EVENT_OPERATIONS.ADD_USER_TO_ALLOWLIST:
+        case CHATROOM_EVENT_OPERATIONS.REMOVE_ALLOWLIST_MEMBER:
+          getChatRoomAllowlist();
+          break;
+        case CHATROOM_EVENT_OPERATIONS.REMOVE_MEMBER:
+        case CHATROOM_EVENT_OPERATIONS.UNBLOCK_MEMBER:
+          getChatRoomBlocklist();
+          getChatRoomMembers();
+          break;
+        default:
+          break;
+      }
+    }),
+  );
 };
 
 onMounted(() => {
   getChatRoomMembers();
   getChatroomDetails();
-
-  // 添加聊天室事件监听器
-  chatroomEventHandler = EMClient.addEventHandler(
-    'CHATROOM_MEMBER_MANAGEMENT',
-    {
-      onChatroomEvent: (e) => {
-        console.log(`【聊天室事件】:`, e);
-        if (e.id === chatRoomId.value) {
-          switch (e.operation) {
-            case 'unmuteAllMembers':
-              isMuteAll.value = false;
-              getChatRoomMutelist();
-              break;
-            case 'muteAllMembers':
-              isMuteAll.value = true;
-              getChatRoomMutelist();
-              break;
-            case 'setAdmin':
-              console.log('收到设置管理员事件，更新管理员列表');
-              getChatRoomAdmin();
-              break;
-            case 'removeAdmin':
-              getChatRoomAdmin();
-              break;
-            case 'muteMember':
-              getChatRoomMutelist();
-              break;
-            case 'unmuteMember':
-              getChatRoomMutelist();
-              break;
-          }
-        }
-      },
-    },
-  );
+  registerChatroomMemberManagementHandler();
 });
 
 onUnmounted(() => {
-  // 在组件卸载时移除事件监听器
   if (chatroomEventHandler) {
     EMClient.removeEventHandler('CHATROOM_MEMBER_MANAGEMENT');
   }
 });
 
-// 监听路由参数变化
 watch(
   () => route.query.roomId,
   (newRoomId, oldRoomId) => {
     if (newRoomId && newRoomId !== oldRoomId) {
       chatRoomId.value = newRoomId;
-      // 重新初始化数据
       getChatRoomMembers();
       getChatroomDetails();
-
-      // 重新注册事件监听器
-      if (chatroomEventHandler) {
-        EMClient.removeEventHandler('CHATROOM_MEMBER_MANAGEMENT');
-      }
-      chatroomEventHandler = EMClient.addEventHandler(
-        'CHATROOM_MEMBER_MANAGEMENT',
-        {
-          onChatroomEvent: (e) => {
-            console.log(`【聊天室事件】:`, e);
-            if (e.id === chatRoomId.value) {
-              switch (e.operation) {
-                case 'unmuteAllMembers':
-                  isMuteAll.value = false;
-                  getChatRoomMutelist();
-                  break;
-                case 'muteAllMembers':
-                  isMuteAll.value = true;
-                  getChatRoomMutelist();
-                  break;
-                case 'setAdmin':
-                  console.log('收到设置管理员事件，更新管理员列表');
-                  getChatRoomAdmin();
-                  break;
-                case 'removeAdmin':
-                  getChatRoomAdmin();
-                  break;
-                case 'muteMember':
-                  getChatRoomMutelist();
-                  break;
-                case 'unmuteMember':
-                  getChatRoomMutelist();
-                  break;
-              }
-            }
-          },
-        },
-      );
+      registerChatroomMemberManagementHandler();
     }
   },
 );
+
 </script>
 
 <template>

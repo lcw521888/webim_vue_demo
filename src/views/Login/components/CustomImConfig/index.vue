@@ -3,24 +3,37 @@ import { ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import _ from 'lodash';
 import { useStorage } from '@vueuse/core';
+import {
+  IM_ENVIRONMENTS,
+  IM_ENV_OPTIONS,
+  createImEnvironmentConfig,
+  normalizeImEnvironmentConfig,
+} from './imEnvPresets';
 const centerDialogVisible = ref(false);
-const webimConfig = useStorage('webimConfig', {
-  appKey: '',
-  isPrivate: false,
-  imServer: '',
-  port: '',
-  restServer: '',
-});
+const webimConfig = useStorage(
+  'webimConfig',
+  createImEnvironmentConfig(IM_ENVIRONMENTS.NGI),
+);
 const configRef = ref(null);
-const configForm = ref({
-  appKey: '',
-  isPrivate: false,
-  imServer: '',
-  port: '',
-  restServer: '',
-});
+const configForm = ref(createImEnvironmentConfig(IM_ENVIRONMENTS.NGI));
+const pendingEnvironment = ref('');
 const initConfigForm = () => {
-  _.merge(configForm.value, webimConfig.value);
+  if (pendingEnvironment.value) {
+    configForm.value = createImEnvironmentConfig(pendingEnvironment.value);
+    pendingEnvironment.value = '';
+    return;
+  }
+  configForm.value = normalizeImEnvironmentConfig(webimConfig.value);
+};
+const openWithEnvironment = (environment) => {
+  pendingEnvironment.value = environment;
+  centerDialogVisible.value = true;
+};
+const handleEnvironmentChange = (environment) => {
+  configForm.value = {
+    ...configForm.value,
+    ...createImEnvironmentConfig(environment),
+  };
 };
 // appley rules
 const appKeyRules = ref([
@@ -36,12 +49,20 @@ const saveImConfig = (configRef) => {
   if (!configRef) return;
   configRef.validate((valid, fields) => {
     if (valid) {
-      webimConfig.value = _.cloneDeep(configForm.value);
+      webimConfig.value = normalizeImEnvironmentConfig(
+        _.cloneDeep(configForm.value),
+      );
+      window.localStorage.setItem(
+        'IM_LOGIN_ENVIRONMENT',
+        webimConfig.value.environment,
+      );
+      window.localStorage.setItem('IM_IS_OPEN_CUSTOM_SERVER_CONFIG', 'true');
+      window.localStorage.removeItem('EASEIM_loginUser');
       resetForm(configRef);
 
       ElMessage({
         type: 'success',
-        message: '配置保存成功~',
+        message: '配置保存成功，正在刷新并使用最新配置登录~',
       });
       //配置保存成功浏览器重载
       window.location.reload();
@@ -58,7 +79,7 @@ const resetForm = (configRef) => {
   configRef.resetFields();
   centerDialogVisible.value = false;
 };
-defineExpose({ centerDialogVisible });
+defineExpose({ centerDialogVisible, openWithEnvironment });
 </script>
 <template>
   <el-dialog
@@ -71,11 +92,29 @@ defineExpose({ centerDialogVisible });
     @open="initConfigForm"
   >
     <el-form ref="configRef" :model="configForm" label-width="120px">
+      <el-form-item prop="environment" label="环境">
+        <el-select
+          v-model="configForm.environment"
+          placeholder="请选择环境"
+          style="width: 100%"
+          @change="handleEnvironmentChange"
+        >
+          <el-option
+            v-for="item in IM_ENV_OPTIONS"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item prop="appKey" label="AppKey" :rules="appKeyRules">
         <el-input v-model="configForm.appKey" />
       </el-form-item>
       <el-form-item prop="isPrivate" label="私有化配置">
-        <el-switch v-model="configForm.isPrivate" />
+        <el-switch
+          v-model="configForm.isPrivate"
+          :disabled="configForm.environment === IM_ENVIRONMENTS.NGI"
+        />
       </el-form-item>
       <el-form-item
         v-if="configForm.isPrivate"

@@ -469,13 +469,32 @@ const Message = {
       }
       
       const key = setMessageKey(params);
+      const deleteOptions = {
+        targetId: to,
+        chatType: chatType,
+        messageIds: [mid],
+      };
+      console.log('[Message Delete] removeHistoryMessages 请求参数', {
+        event: '聊天室/会话消息删除',
+        messageId: mid,
+        targetId: deleteOptions.targetId,
+        conversationKey: key,
+        chatType,
+        to,
+        from: params?.from,
+        sdkOptions: deleteOptions,
+        rawMessage: params,
+      });
       return new Promise((resolve, reject) => {
-        EMClient.removeHistoryMessages({
-          targetId: to,
-          chatType: chatType,
-          messageIds: [mid],
-        })
+        EMClient.removeHistoryMessages(deleteOptions)
           .then((res) => {
+            console.log('[Message Delete] removeHistoryMessages 成功', {
+              messageId: mid,
+              targetId: deleteOptions.targetId,
+              conversationKey: key,
+              chatType,
+              response: res,
+            });
             commit('CHANGE_MESSAGE_BODAY', {
               type: CHANGE_MESSAGE_BODAY_TYPE.DELETE,
               key: key,
@@ -488,6 +507,17 @@ const Message = {
             resolve('OK');
           })
           .catch((error) => {
+            console.error('[Message Delete] removeHistoryMessages 失败', {
+              messageId: mid,
+              targetId: deleteOptions.targetId,
+              conversationKey: key,
+              chatType,
+              to,
+              from: params?.from,
+              sdkOptions: deleteOptions,
+              rawMessage: params,
+              error,
+            });
             reject(error);
           });
       });
@@ -631,6 +661,9 @@ const Message = {
       if (!messageId || !reaction) {
         throw new Error('addMessageReaction 缺少参数');
       }
+      if (chatType === CHAT_TYPE.CHATROOM) {
+        throw new Error('聊天室暂不支持 Reaction');
+      }
       try {
         console.log('[Reaction] addReaction 请求', { messageId, reaction });
         await EMClient.addReaction({ messageId, reaction });
@@ -658,6 +691,9 @@ const Message = {
       const { messageId, reaction, chatType, groupId, key } = params || {};
       if (!messageId || !reaction) {
         throw new Error('deleteMessageReaction 缺少参数');
+      }
+      if (chatType === CHAT_TYPE.CHATROOM) {
+        throw new Error('聊天室暂不支持 Reaction');
       }
       console.log('[Reaction] deleteReaction 请求', { messageId, reaction });
       await EMClient.deleteReaction({ messageId, reaction });

@@ -123,57 +123,73 @@ const isShowWarningTips = computed(() => store.state.isShowWarningTips);
 const randomTips = computed(() => {
   return _.toString(_.sampleSize(SWINDLER_GO_DIE, 1));
 });
+
+const getCurrentConversation = () => {
+  const { id } = routeQueryData.value;
+  if (!id) return null;
+  const list = store.state.Conversation.conversationFromMethod
+    ? store.state.Conversation.conversationListFromLocal
+    : store.state.Conversation.conversationListFromServer;
+  return list.find((item) => item.conversationId === id) || null;
+};
+
+const markConversationReadIfNeeded = (options = {}) => {
+  const { id, chatType } = routeQueryData.value;
+  if (!id || !chatType || chatType === CHAT_TYPE.CHATROOM) return;
+
+  const conversation = getCurrentConversation();
+  if (!options.force && (!conversation || conversation.unReadCount <= 0)) {
+    return;
+  }
+
+  store.dispatch('clearConversationUnreadCount', {
+    conversationId: id,
+    chatType,
+  });
+};
+
+const isMessageInCurrentConversation = (message) => {
+  if (!message || !routeQueryData.value.id) return false;
+  if (message.from === EMClient.user) return false;
+  const { id, chatType } = routeQueryData.value;
+  if (chatType === CHAT_TYPE.SINGLE) {
+    return message.chatType === CHAT_TYPE.SINGLE && message.from === id;
+  }
+  return message.chatType === chatType && message.to === id;
+};
+
 /* warterMark */
 onMounted(() => {
   const chatContainer = document.querySelector('.chat_message_main');
   chatContainer && waterMark({ container: chatContainer });
-  
-  // 监听消息接收事件
-  window.addEventListener('hx:messageReceived', handleMessageReceived);
-  
+
   // 监听消息送达回执事件
   window.addEventListener('hx:messageDelivered', handleMessageDelivered);
-  
+
   // 监听消息已读回执事件
   window.addEventListener('hx:messageRead', handleMessageRead);
-  
+
   // 监听会话已读回执事件
   window.addEventListener('hx:channelMessage', handleChannelMessage);
-  
+
   // 监听统计消息事件（离线回执）
   window.addEventListener('hx:statisticMessage', handleStatisticMessage);
 });
-
-// 处理消息接收事件
-const handleMessageReceived = (event) => {
-  const message = event.detail;
-  console.log('收到新消息:', message);
-  
-  // 发送已读回执
-  if (message.chatType === CHAT_TYPE.SINGLE) {
-    store.commit('SEND_MESSAGE_READ_RECEIPT', {
-      messageId: message.id,
-      to: message.from,
-      chatType: message.chatType
-    });
-  }
-};
 
 // 处理消息送达回执
 const handleMessageDelivered = (event) => {
   const message = event.detail;
   console.log('收到消息送达回执:', message);
-  
+
   // 确定会话 ID
-  const conversationId = message.chatType === CHAT_TYPE.SINGLE 
-    ? message.from 
-    : message.to;
-  
+  const conversationId =
+    message.chatType === CHAT_TYPE.SINGLE ? message.from : message.to;
+
   // 更新消息送达状态
   store.commit('UPDATE_MESSAGE_DELIVERED', {
     messageId: message.id,
     conversationId: conversationId,
-    chatType: message.chatType
+    chatType: message.chatType,
   });
 };
 
@@ -181,18 +197,17 @@ const handleMessageDelivered = (event) => {
 const handleMessageRead = (event) => {
   const message = event.detail;
   console.log('收到消息已读回执:', message);
-  
+
   // 确定会话 ID
-  const conversationId = message.chatType === CHAT_TYPE.SINGLE 
-    ? message.from 
-    : message.to;
-  
+  const conversationId =
+    message.chatType === CHAT_TYPE.SINGLE ? message.from : message.to;
+
   // 更新消息已读状态
   store.commit('UPDATE_MESSAGE_READ', {
     messageId: message.id,
     conversationId: conversationId,
     chatType: message.chatType,
-    groupReadCount: message.groupReadCount
+    groupReadCount: message.groupReadCount,
   });
 };
 
@@ -232,7 +247,6 @@ const handleStatisticMessage = (event) => {
 // 离开该路由销毁事件监听
 onBeforeRouteLeave(() => {
   stopWatchRoute();
-  window.removeEventListener('hx:messageReceived', handleMessageReceived);
   window.removeEventListener('hx:messageDelivered', handleMessageDelivered);
   window.removeEventListener('hx:messageRead', handleMessageRead);
   window.removeEventListener('hx:channelMessage', handleChannelMessage);
@@ -262,10 +276,15 @@ const stopWatchRoute = watch(
   },
 );
 
-//离开该路由销毁route监听
-onBeforeRouteLeave(() => {
-  stopWatchRoute();
-});
+watch(
+  () => getCurrentConversation()?.unReadCount || 0,
+  (unReadCount) => {
+    if (unReadCount > 0) {
+      markConversationReadIfNeeded();
+    }
+  },
+);
+
 /* 消息相关 */
 const loadingHistoryMsg = ref(false); //是否正在加载中
 const isMoreHistoryMsg = ref(true); //加载文案展示为加载更多还是已无更多。
@@ -347,6 +366,7 @@ watch(
         newRouteQuery.id !== oldRouteQuery.id
       ) {
         await fechHistoryMessage('fistLoad');
+        markConversationReadIfNeeded();
       }
     }
   },
@@ -376,9 +396,10 @@ const scrollMessageList = (direction) => {
 watch(
   () => messageData.value.length,
   (newLength, oldLength) => {
+    const isLoadingHistory = notScrollBottom.value;
     nextTick(() => {
       // 判断拉取漫游导致的消息变化不需要执行滚动置底
-      if (notScrollBottom.value) {
+      if (isLoadingHistory) {
         return;
       }
       // 新消息到达或首次加载时滚动到底部
@@ -386,6 +407,16 @@ watch(
         scrollMessageList('bottom');
       }
     });
+
+    const latestMessage = messageData.value[newLength - 1];
+    if (
+      !isLoadingHistory &&
+      oldLength !== undefined &&
+      newLength > oldLength &&
+      isMessageInCurrentConversation(latestMessage)
+    ) {
+      markConversationReadIfNeeded({ force: true });
+    }
   },
   {
     immediate: true,

@@ -9,6 +9,11 @@ import router from '@/router';
 import SearchInput from '@/components/SearchInput';
 import Welcome from '@/components/Welcome';
 import eventEmitter from '@/utils/eventEmitter';
+import {
+  CHATROOM_EVENT_OPERATIONS,
+  createChatroomEventHandler,
+  logChatroomOperation,
+} from '@/utils/chatroomEvents';
 
 /** 列表与已加入列表的 id 可能为 string / number，严格 === 会导致「加入/进入」状态不更新 */
 function normalizeChatroomId(id) {
@@ -16,11 +21,133 @@ function normalizeChatroomId(id) {
   return String(id);
 }
 
+function resolveChatroomId(item) {
+  if (!item || typeof item !== 'object') return '';
+  return normalizeChatroomId(
+    item.id || item.chatroomid || item.chatRoomId || item.roomId,
+  );
+}
+
+function resolveChatroomName(item) {
+  if (!item || typeof item !== 'object') return '';
+  return item.name || item.title || item.chatRoomName || item.roomName || '';
+}
+
+function resolveChatroomDescription(item) {
+  if (!item || typeof item !== 'object') return '';
+  return item.description || item.desc || '';
+}
+
+function resolveChatroomMemberCount(item) {
+  if (!item || typeof item !== 'object') return 0;
+  return Math.max(
+    Number(item.affiliations_count || 0),
+    Number(item.affiliationsCount || 0),
+    Number(item.memberCount || 0),
+    Number(item.onlineCount || 0),
+    Array.isArray(item.members) ? item.members.length : 0,
+    0,
+  );
+}
+
+function isSuspiciousEmptyChatroom(item) {
+  const normalized = normalizeChatroomRecord(item);
+  if (!normalized?.id) return true;
+
+  const hasName = Boolean(normalized.name?.trim());
+  const hasDescription = Boolean(normalized.description?.trim());
+  const memberCount = Number(normalized.affiliations_count || 0);
+
+  return !hasName && !hasDescription && memberCount <= 0;
+}
+
+function isChatroomNotFoundError(error) {
+  const text = [
+    error?.message,
+    error?.data,
+    error?.error,
+    error?.error_description,
+    error?.description,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    text.includes('chat room dose not exist') ||
+    text.includes('chat room does not exist') ||
+    text.includes('chatroom does not exist') ||
+    text.includes('muc_not_exist') ||
+    text.includes('not exist')
+  );
+}
+
 function normalizeChatroomRecord(item) {
-  if (!item || typeof item !== 'object') return item;
-  const nid = item.id ?? item.chatRoomId ?? item.roomId;
-  if (nid == null) return { ...item };
-  return { ...item, id: nid };
+  if (!item || typeof item !== 'object') return null;
+  const id = resolveChatroomId(item);
+  if (!id) return null;
+  return {
+    ...item,
+    id,
+    name: resolveChatroomName(item),
+    description: resolveChatroomDescription(item),
+    affiliations_count: resolveChatroomMemberCount(item),
+  };
+}
+
+function dedupeChatroomList(list = []) {
+  const seen = new Set();
+  return list.reduce((result, item) => {
+    const normalized = normalizeChatroomRecord(item);
+    const roomId = normalized?.id;
+    if (!roomId || seen.has(roomId)) return result;
+    seen.add(roomId);
+    result.push(normalized);
+    return result;
+  }, []);
+}
+
+function mergeChatroomRecord(baseItem, detailItem) {
+  const base = normalizeChatroomRecord(baseItem);
+  const detail = normalizeChatroomRecord(detailItem);
+  const merged = {
+    ...(base || {}),
+    ...(detail || {}),
+  };
+  const id = detail?.id || base?.id || '';
+  if (!id) return null;
+  return {
+    ...merged,
+    id,
+    name: detail?.name || base?.name || id,
+    description: detail?.description || base?.description || '',
+    affiliations_count: Math.max(
+      base?.affiliations_count || 0,
+      detail?.affiliations_count || 0,
+    ),
+  };
+}
+
+function removeInvalidChatroomFromState(roomId) {
+  const key = normalizeChatroomId(roomId);
+  if (!key) return;
+  chatroomList.value = chatroomList.value.filter(
+    (item) => normalizeChatroomId(item.id) !== key,
+  );
+  joinedChatroomList.value = joinedChatroomList.value.filter(
+    (item) => normalizeChatroomId(item.id) !== key,
+  );
+  chatroomDetailsCache.value.delete(key);
+}
+
+function markChatroomAsInvalid(roomId, reason = '') {
+  const key = normalizeChatroomId(roomId);
+  if (!key) return;
+  invalidChatroomIds.value.add(key);
+  removeInvalidChatroomFromState(key);
+  if (reason) {
+    console.warn(`聊天室 ${key} 已标记为失效，原因：${reason}`);
+  }
 }
 
 // 缓存已获取的聊天室详情，用于存储准确的成员数
@@ -31,16 +158,34 @@ const fetchChatroomDetail = async (roomId) => {
   try {
     const res = await EMClient.getChatRoomDetails({ chatRoomId: roomId });
     const detail = Array.isArray(res.data) ? res.data[0] || {} : res.data || {};
-    
-    if (detail.id) {
-      chatroomDetailsCache.value.set(normalizeChatroomId(detail.id), detail);
-      console.log(`缓存聊天室${detail.id}的准确详情:`, { affiliations_count: detail.affiliations_count });
+    const normalizedDetail = normalizeChatroomRecord(detail);
+
+    if (normalizedDetail?.id) {
+      chatroomDetailsCache.value.set(
+        normalizeChatroomId(normalizedDetail.id),
+        normalizedDetail,
+      );
+      console.log(`缓存聊天室${normalizedDetail.id}的准确详情:`, {
+        affiliations_count: normalizedDetail.affiliations_count,
+      });
     }
-    
-    return detail;
+
+    return {
+      exists: true,
+      detail: normalizedDetail,
+    };
   } catch (error) {
-    console.error(`获取聊天室${roomId}详情失败:`, error);
-    return null;
+    if (isChatroomNotFoundError(error)) {
+      markChatroomAsInvalid(roomId, '详情接口返回聊天室不存在');
+      console.warn(`聊天室 ${roomId} 详情不存在，已从列表中过滤`);
+    } else {
+      console.error(`获取聊天室${roomId}详情失败:`, error);
+    }
+    return {
+      exists: !isChatroomNotFoundError(error),
+      detail: null,
+      error,
+    };
   }
 };
 
@@ -49,6 +194,9 @@ const route = useRoute();
 
 const chatroomList = ref([]);
 const joinedChatroomList = ref([]);
+const invalidChatroomIds = ref(new Set());
+const locallyJoinedChatroomIds = ref(new Set());
+const locallyLeftChatroomIds = ref(new Set());
 const loading = ref(false);
 const searchKeyword = ref('');
 
@@ -58,6 +206,32 @@ const CHATROOM_TYPE = {
 };
 
 const activeName = ref(CHATROOM_TYPE.ALL);
+
+function markRoomJoined(roomId) {
+  const key = normalizeChatroomId(roomId);
+  if (!key) return;
+  locallyLeftChatroomIds.value.delete(key);
+  locallyJoinedChatroomIds.value.add(key);
+}
+
+function markRoomLeft(roomId) {
+  const key = normalizeChatroomId(roomId);
+  if (!key) return;
+  locallyJoinedChatroomIds.value.delete(key);
+  locallyLeftChatroomIds.value.add(key);
+}
+
+function syncRoomJoinOverride(roomId, joined) {
+  const key = normalizeChatroomId(roomId);
+  if (!key) return;
+  if (joined) {
+    locallyJoinedChatroomIds.value.delete(key);
+    locallyLeftChatroomIds.value.delete(key);
+    return;
+  }
+  if (locallyJoinedChatroomIds.value.has(key)) return;
+  locallyLeftChatroomIds.value.delete(key);
+}
 
 const checkLoginStatus = () => {
   if (!EMClient.user) {
@@ -70,195 +244,97 @@ const checkLoginStatus = () => {
 
 // 设置聊天室事件监听器
 const setupChatroomEventHandler = () => {
-  console.log('===== 设置聊天室事件监听器 =====');
-  console.log('当前时间:', new Date().toISOString());
-  console.log('当前用户:', EMClient.user);
-  console.log('连接状态:', EMClient.connectionState || '未知');
-  console.log('是否已有事件监听器:', !!chatroomEventHandler);
-  
   if (chatroomEventHandler) {
-    console.log('移除旧的事件监听器...');
     EMClient.removeEventHandler('CHATROOM');
-    console.log('已移除旧的事件监听器');
   }
-  
-  console.log('添加新的事件监听器...');
-  chatroomEventHandler = EMClient.addEventHandler('CHATROOM', {
-    onChatroomEvent: (e) => {
-      console.log('===== 收到聊天室事件 =====');
-      console.log('当前时间:', new Date().toISOString());
-      // 事件名
-      const eventName = e.operation;
-      // 事件结果默认设为成功
-      let eventResult = '成功';
-      
-      console.log('事件名:', eventName);
-      console.log('事件结果:', eventResult);
-      console.log('完整事件数据:', e);
-      console.log('事件对象所有属性:', Object.keys(e));
-      console.log('事件对象详细信息:', JSON.stringify(e, null, 2));
-      console.log('服务端返回原数据:', e?.data || e?.rawData || e?.serverData || e?.payload || e?.body || '无');
-      console.log('===================');
 
-      // 获取聊天室ID（兼容不同字段名）
-      const chatRoomId = e.chatRoomId || e.roomId || e.id;
+  chatroomEventHandler = EMClient.addEventHandler(
+    'CHATROOM',
+    createChatroomEventHandler('ChatroomIndex', (e, normalizedEvent) => {
+      const chatRoomId = normalizedEvent.roomId;
       // 从本地缓存获取真实成员数
       const realMemberCount = getChatroomMemberCountFromLocal(chatRoomId);
 
       switch (e.operation) {
-        case 'memberPresence':
-          console.log(
-            '成员加入事件 - 用户:',
-            e.from,
-            '扩展信息:',
-            e.ext,
-            '当前人数(本地):',
-            realMemberCount,
-          );
+        case CHATROOM_EVENT_OPERATIONS.MEMBER_PRESENCE:
           // 使用本地缓存的真实人数
           getChatrooms();
           getJoinedChatrooms();
           break;
-        case 'memberAbsence':
-          console.log(
-            '成员离开事件 - 用户:',
-            e.from,
-             e.chatRoomId,
-            '当前人数(本地):',
-            realMemberCount,
-          );
+        case CHATROOM_EVENT_OPERATIONS.MEMBER_ABSENCE:
           // 使用本地缓存的真实人数
           ElMessage.info(`有成员离开聊天室，当前人数：${realMemberCount}`);
           getChatrooms();
           getJoinedChatrooms();
           break;
-        case 'destroy':
-          console.log('聊天室解散事件 - 聊天室ID:', e.chatRoomId);
+        case CHATROOM_EVENT_OPERATIONS.DESTROY:
           ElMessage.warning('聊天室已解散');
           getChatrooms();
           getJoinedChatrooms();
           break;
-        case 'removeMember':
-          console.log('成员被移出事件 - 被移出用户:', e.from, '操作者:', e.to);
+        case CHATROOM_EVENT_OPERATIONS.REMOVE_MEMBER:
           ElMessage.warning('你已被移出聊天室');
           getJoinedChatrooms();
           break;
-        case 'updateInfo':
-          console.log('聊天室信息更新事件 - 聊天室ID:', e.chatRoomId);
+        case CHATROOM_EVENT_OPERATIONS.UNBLOCK_MEMBER:
+          ElMessage.info('你已被移出聊天室黑名单');
+          getJoinedChatrooms();
+          break;
+        case CHATROOM_EVENT_OPERATIONS.UPDATE_INFO:
           ElMessage.info('聊天室信息已更新');
           getChatrooms();
           break;
-        case 'muteAllMembers':
-          console.log(
-            '全员禁言事件 - 操作者:',
-            e.from,
-            '聊天室ID:',
-            e.chatRoomId,
-          );
+        case CHATROOM_EVENT_OPERATIONS.MUTE_ALL_MEMBERS:
           ElMessage.warning('聊天室已开启全员禁言');
           break;
-        case 'unmuteAllMembers':
-          console.log(
-            '解除全员禁言事件 - 操作者:',
-            e.from,
-            '聊天室ID:',
-            e.chatRoomId,
-          );
+        case CHATROOM_EVENT_OPERATIONS.UNMUTE_ALL_MEMBERS:
           ElMessage.success('聊天室已解除全员禁言');
           break;
-        case 'addUserToAllowlist':
-          console.log(
-            '添加到白名单事件 - 用户:',
-            e.from,
-            '聊天室ID:',
-            e.chatRoomId,
-          );
+        case CHATROOM_EVENT_OPERATIONS.ADD_USER_TO_ALLOWLIST:
           ElMessage.success('你已被添加到聊天室白名单');
           break;
-        case 'removeAllowlistMember':
-          console.log(
-            '移出白名单事件 - 用户:',
-            e.from,
-            '聊天室ID:',
-            e.chatRoomId,
-          );
+        case CHATROOM_EVENT_OPERATIONS.REMOVE_ALLOWLIST_MEMBER:
           ElMessage.warning('你已被移出聊天室白名单');
           break;
-        case 'updateAnnouncement':
-          console.log(
-            '更新公告事件 - 聊天室ID:',
-            e.chatRoomId,
-            '公告内容:',
-            e.announcement,
-          );
+        case CHATROOM_EVENT_OPERATIONS.UPDATE_ANNOUNCEMENT:
           ElMessage.info('聊天室公告已更新');
           break;
-        case 'deleteAnnouncement':
-          console.log('删除公告事件 - 聊天室ID:', e.chatRoomId);
+        case CHATROOM_EVENT_OPERATIONS.DELETE_ANNOUNCEMENT:
           ElMessage.info('聊天室公告已删除');
           break;
-        case 'muteMember':
-          console.log('禁言成员事件 - 被禁言用户:', e.from, '操作者:', e.to);
+        case CHATROOM_EVENT_OPERATIONS.MUTE_MEMBER:
           ElMessage.warning('你已被禁言');
           break;
-        case 'unmuteMember':
-          console.log('解除禁言事件 - 用户:', e.from, '操作者:', e.to);
+        case CHATROOM_EVENT_OPERATIONS.UNMUTE_MEMBER:
           ElMessage.success('你已被解除禁言');
           break;
-        case 'setAdmin':
-          console.log('设置管理员事件 - 新管理员:', e.from, '操作者:', e.to);
+        case CHATROOM_EVENT_OPERATIONS.SET_ADMIN:
           ElMessage.success('你已被设置为管理员');
           break;
-        case 'removeAdmin':
-          console.log(
-            '移除管理员事件 - 被移除管理员:',
-            e.from,
-            '操作者:',
-            e.to,
-          );
+        case CHATROOM_EVENT_OPERATIONS.REMOVE_ADMIN:
           ElMessage.warning('你已被移除管理员');
           break;
-        case 'changeOwner':
-          console.log(
-            '变更所有者事件 - 新所有者:',
-            e.from,
-            '旧所有者:',
-            e.to,
-            '聊天室ID:',
-            e.chatRoomId,
-          );
+        case CHATROOM_EVENT_OPERATIONS.CHANGE_OWNER:
           ElMessage.info('聊天室所有者已变更');
           break;
-        case 'updateChatRoomAttributes':
-          console.log(
-            '更新自定义属性事件 - 聊天室ID:',
-            e.chatRoomId,
-            '属性:',
-            e.attributes,
-          );
+        case CHATROOM_EVENT_OPERATIONS.UPDATE_CHATROOM_ATTRIBUTES:
           ElMessage.info('聊天室自定义属性已更新');
           break;
-        case 'removeChatRoomAttributes':
-          console.log(
-            '删除自定义属性事件 - 聊天室ID:',
-            e.chatRoomId,
-            '属性键:',
-            e.attributeKeys,
-          );
+        case CHATROOM_EVENT_OPERATIONS.REMOVE_CHATROOM_ATTRIBUTES:
           ElMessage.info('聊天室自定义属性已删除');
           break;
         default:
-          console.log('未知聊天室事件:', e.operation, e);
           break;
       }
-    },
-  });
-  console.log('聊天室事件监听器设置完成');
+    }),
+  );
 };
 
 const isRoomJoined = (roomId) => {
   const key = normalizeChatroomId(roomId);
   if (!key) return false;
+  if (locallyLeftChatroomIds.value.has(key)) return false;
+  if (locallyJoinedChatroomIds.value.has(key)) return true;
   return joinedChatroomList.value.some(
     (j) => normalizeChatroomId(j.id) === key,
   );
@@ -277,22 +353,6 @@ const getChatroomMemberCountFromLocal = (chatRoomId) => {
     (item) => normalizeChatroomId(item.id) === key,
   );
   return allRoom?.affiliations_count || 0;
-};
-
-// ========== 新增：获取单个聊天室的实际成员数量 ==========
-const getChatroomMemberCount = async (roomId) => {
-  try {
-    // 简化方法：只使用最基本的保底逻辑
-    // 避免调用不存在的方法导致SDK内部错误
-    console.log(`获取聊天室${roomId}成员数量: 使用保底值1`);
-    
-    // 不再尝试调用可能不存在的方法，避免SDK内部错误
-    // 如果API返回0，我们至少显示1个成员（当前用户）
-    return 1;
-  } catch (error) {
-    console.error(`获取聊天室${roomId}成员数量失败:`, error);
-    return 1; // 出错时默认返回至少有当前用户
-  }
 };
 
 const getChatrooms = async () => {
@@ -321,26 +381,43 @@ const getChatrooms = async () => {
       `\n第一个聊天室的数据结构:`,
       res.data && res.data.length > 0 ? JSON.stringify(res.data[0], null, 2) : '无数据',
     );
-    // 修复成员数量显示问题：将可能的memberCount字段映射到affiliations_count
-    // 添加日志查看实际数据
     if (res.data && res.data.length > 0) {
       console.log(`第一个所有聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
     }
-    
-    chatroomList.value = (res.data || []).map((item) => {
-      const calculatedCount = Math.max(
-        item.affiliations_count || 0,
-        item.memberCount || 0,
-        item.affiliationsCount || 0,
-        item.onlineCount || 0,
-        item.members?.length || 0,
-      );
-      return normalizeChatroomRecord({
-        ...item,
-        affiliations_count: calculatedCount,
-      });
-    });
-    
+
+    const rawChatrooms = dedupeChatroomList(res.data || []);
+    const hiddenRoomIds = [];
+
+    chatroomList.value = rawChatrooms
+      .filter((item) => {
+        const roomId = normalizeChatroomId(item.id);
+        if (!roomId) return false;
+
+        if (invalidChatroomIds.value.has(roomId)) {
+          hiddenRoomIds.push(roomId);
+          return false;
+        }
+
+        if (isSuspiciousEmptyChatroom(item)) {
+          markChatroomAsInvalid(roomId, '列表返回空名称且成员数为 0');
+          hiddenRoomIds.push(roomId);
+          return false;
+        }
+
+        return true;
+      })
+      .map((item) => {
+        const cachedDetail = chatroomDetailsCache.value.get(
+          normalizeChatroomId(item.id),
+        );
+        return mergeChatroomRecord(item, cachedDetail || item);
+      })
+      .filter(Boolean);
+
+    if (hiddenRoomIds.length > 0) {
+      console.warn('已过滤失效聊天室：', hiddenRoomIds);
+    }
+
     console.log(`所有聊天室列表处理完成:`, JSON.stringify(chatroomList.value, null, 2));
   } catch (error) {
     console.error(
@@ -416,59 +493,74 @@ const getJoinedChatrooms = async () => {
       `\n方法入参:`,
       chatRoomParams,
     );
-    // 修复成员数量显示问题：将可能的memberCount字段映射到affiliations_count
-    // 添加日志查看实际数据
     if (res.data && res.data.length > 0) {
       console.log(`第一个已加入聊天室的原始数据:`, JSON.stringify(res.data[0], null, 2));
     }
-    
-    joinedChatroomList.value = (res.data || []).map((item) =>
-      normalizeChatroomRecord({
-        ...item,
-        affiliations_count: Math.max(
-          item.affiliations_count || 0,
-          item.memberCount || 0,
-          item.affiliationsCount || 0,
-          item.onlineCount || 0,
-          item.members?.length || 0,
-          1,
-        ),
-      }),
+
+    joinedChatroomList.value = dedupeChatroomList(
+      (res.data || [])
+        .map((item) => ({
+          ...item,
+          affiliations_count: Math.max(resolveChatroomMemberCount(item), 1),
+        }))
+        .filter((item) => {
+          const roomId = normalizeChatroomId(item.id);
+          return roomId && !locallyLeftChatroomIds.value.has(roomId);
+        }),
     );
-    
-    // 为每个已加入的聊天室获取准确的详情
+
     if (joinedChatroomList.value.length > 0) {
       console.log('开始为已加入聊天室获取准确详情...');
-      
-      // 并发获取所有聊天室的详情
-      const detailPromises = joinedChatroomList.value.map(item => 
-        fetchChatroomDetail(item.id)
+
+      const detailResults = await Promise.all(
+        joinedChatroomList.value.map((item) => fetchChatroomDetail(item.id)),
       );
-      
-      // 等待所有详情获取完成
-      const details = await Promise.all(detailPromises);
-      
-      // 更新列表中的成员数
-      joinedChatroomList.value = joinedChatroomList.value.map(item => {
-        // 从缓存或刚获取的详情中查找
-        const cachedDetail = chatroomDetailsCache.value.get(
-          normalizeChatroomId(item.id),
-        );
-        
-        if (cachedDetail?.affiliations_count !== undefined) {
-          console.log(`更新聊天室${item.id}的成员数: 从${item.affiliations_count}到${cachedDetail.affiliations_count}`);
-          return {
-            ...item,
-            affiliations_count: cachedDetail.affiliations_count
-          };
-        }
-        
-        return item;
+
+      joinedChatroomList.value = joinedChatroomList.value
+        .map((item, index) => {
+          const detailResult = detailResults[index];
+          if (detailResult && detailResult.exists === false) {
+            markChatroomAsInvalid(item.id, '已加入列表详情校验失败');
+            return null;
+          }
+
+          const cachedDetail = chatroomDetailsCache.value.get(
+            normalizeChatroomId(item.id),
+          );
+
+          if (cachedDetail) {
+            console.log(
+              `更新聊天室${item.id}的成员数: 从${item.affiliations_count}到${cachedDetail.affiliations_count}`,
+            );
+            return mergeChatroomRecord(item, cachedDetail);
+          }
+
+          if (detailResult?.detail) {
+            return mergeChatroomRecord(item, detailResult.detail);
+          }
+
+          return mergeChatroomRecord(item, item);
+        })
+        .filter(Boolean);
+
+      joinedChatroomList.value.forEach((item) => {
+        syncRoomJoinOverride(item.id, true);
       });
-      
+
+      const invalidJoinedCount = detailResults.filter(
+        (item) => item && item.exists === false,
+      ).length;
+
+      if (invalidJoinedCount > 0) {
+        ElMessage.warning({
+          message: `已移除 ${invalidJoinedCount} 个失效聊天室`,
+          grouping: true,
+        });
+      }
+
       console.log('已加入聊天室详情获取完成');
     }
-    
+
     console.log(`已加入聊天室列表处理完成:`, JSON.stringify(joinedChatroomList.value, null, 2));
   } catch (error) {
     // 检查是否是断网导致的页面显示错误
@@ -553,7 +645,18 @@ const joinChatroom = async (roomId) => {
       `\n目标聊天室ID:`,
       roomId,
     );
+    markRoomJoined(roomId);
     const res = await EMClient.joinChatRoom(joinChatRoomParams);
+    logChatroomOperation(
+      'ChatroomIndex',
+      CHATROOM_EVENT_OPERATIONS.MEMBER_PRESENCE,
+      joinChatRoomParams,
+      res,
+      {
+        from: EMClient.user,
+        note: '本地加入聊天室操作日志；SDK 的 memberPresence 通常推送给聊天室内其他成员。',
+      },
+    );
     ElMessage.success('加入聊天室成功');
     console.log(
       `加入聊天室成功:`,
@@ -582,18 +685,22 @@ const joinChatroom = async (roomId) => {
       );
       joinedChatroomList.value = [
         ...joinedChatroomList.value,
-        normalizeChatroomRecord(
-          fromAll
-            ? { ...fromAll }
-            : {
-                id: roomId,
-                name: String(roomId),
-                affiliations_count: 1,
-              },
+        mergeChatroomRecord(
+          fromAll || {
+            id: roomId,
+            name: String(roomId),
+            affiliations_count: 1,
+          },
+          fromAll || {
+            id: roomId,
+            name: String(roomId),
+            affiliations_count: 1,
+          },
         ),
-      ];
+      ].filter(Boolean);
     }
   } catch (error) {
+    locallyJoinedChatroomIds.value.delete(normalizeChatroomId(roomId));
     console.error(
       `加入聊天室失败:`,
       `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
@@ -639,6 +746,9 @@ const joinChatroom = async (roomId) => {
       ElMessage.error('您没有权限加入该聊天室');
     } else if (error.data?.includes('forbidden_op')) {
       ElMessage.error('操作被禁止，您可能已被禁言或限制');
+    } else if (isChatroomNotFoundError(error)) {
+      markChatroomAsInvalid(roomId, '加入时接口返回聊天室不存在');
+      ElMessage.error('聊天室不存在，已从列表移除');
     } else if (error.type === 503) {
       // 错误类型 503 通常表示服务器内部错误或暂时无法处理请求
       ElMessage.error('加入聊天室失败：服务器暂时无法处理请求，请稍后再试');
@@ -660,6 +770,16 @@ const leaveChatroom = async (roomId) => {
       type: 'warning',
     });
     const res = await EMClient.leaveChatRoom(leaveChatRoomParams);
+    logChatroomOperation(
+      'ChatroomIndex',
+      CHATROOM_EVENT_OPERATIONS.MEMBER_ABSENCE,
+      leaveChatRoomParams,
+      res,
+      {
+        from: EMClient.user,
+        note: '本地退出聊天室操作日志；SDK 的 memberAbsence 通常推送给聊天室内其他成员。',
+      },
+    );
     ElMessage.success('退出聊天室成功');
     console.log(
       `退出聊天室成功:`,
@@ -672,13 +792,14 @@ const leaveChatroom = async (roomId) => {
       roomId,
     );
     const key = normalizeChatroomId(roomId);
+    markRoomLeft(roomId);
     joinedChatroomList.value = joinedChatroomList.value.filter(
       (j) => normalizeChatroomId(j.id) !== key,
     );
     await getJoinedChatrooms();
-    await getChatrooms();
   } catch (error) {
     if (error !== 'cancel') {
+      locallyLeftChatroomIds.value.delete(normalizeChatroomId(roomId));
       console.error(
         `退出聊天室失败:`,
         `\n调用方法: ${LEAVE_CHAT_ROOM_METHOD}`,

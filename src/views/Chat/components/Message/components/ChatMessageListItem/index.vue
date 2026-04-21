@@ -594,6 +594,13 @@ const messageListConversationKey = computed(() => routeQueryData.value.id || '')
 const getMessageReactions = (msgBody) => {
   return Array.isArray(msgBody?.reactions) ? msgBody.reactions : [];
 };
+const canUseReaction = (msgBody) => {
+  return (
+    !!msgBody?.id &&
+    !msgBody.isRecall &&
+    routeQueryData.value.chatType !== CHAT_TYPE.CHATROOM
+  );
+};
 const getExistingReactionItem = (msgBody, reaction) => {
   return getMessageReactions(msgBody).find((item) => item.reaction === reaction);
 };
@@ -608,7 +615,7 @@ const isReactionLoading = (messageId, reaction) => {
   return !!reactionLoadingMap.value[`${messageId}_${reaction}`];
 };
 const addReactionToMessage = async (msgBody, reaction) => {
-  if (!msgBody?.id || !reaction) return;
+  if (!canUseReaction(msgBody) || !reaction) return;
   const existingReaction = getExistingReactionItem(msgBody, reaction);
   if (existingReaction?.isAddedBySelf) {
     await removeReactionFromMessage(msgBody, reaction);
@@ -634,7 +641,7 @@ const addReactionToMessage = async (msgBody, reaction) => {
   }
 };
 const removeReactionFromMessage = async (msgBody, reaction) => {
-  if (!msgBody?.id || !reaction) return;
+  if (!canUseReaction(msgBody) || !reaction) return;
   setReactionLoading(msgBody.id, reaction, true);
   try {
     await store.dispatch('deleteMessageReaction', {
@@ -668,6 +675,7 @@ const reactionDetailMsgBody = ref(null);
 const selectedReactionDetail = ref('');
 const reactionDetailUsers = ref([]);
 const openReactionDetailDialog = async (msgBody) => {
+  if (!canUseReaction(msgBody)) return;
   reactionDetailMsgBody.value = msgBody;
   reactionDetailDialogVisible.value = true;
   const reactions = getMessageReactions(msgBody);
@@ -679,7 +687,7 @@ const openReactionDetailDialog = async (msgBody) => {
   }
 };
 const loadReactionDetail = async (msgBody, reaction) => {
-  if (!msgBody?.id || !reaction) return;
+  if (!canUseReaction(msgBody) || !reaction) return;
   reactionDetailLoading.value = true;
   selectedReactionDetail.value = reaction;
   try {
@@ -704,6 +712,12 @@ const loadReactionDetail = async (msgBody, reaction) => {
   } finally {
     reactionDetailLoading.value = false;
   }
+};
+const getReactionUserName = (userId) => {
+  return getUserDisplayNameById(userId) || userId;
+};
+const getReactionUserAvatar = (userId) => {
+  return getUserDisplayAvatarById(userId) || defaultAvatar;
 };
 </script>
 <template>
@@ -973,10 +987,10 @@ const loadReactionDetail = async (msgBody, reaction) => {
                     引用
                   </el-dropdown-item>
                   <el-dropdown-item
-                    v-if="getMessageReactions(msgBody).length > 0"
+                    v-if="canUseReaction(msgBody) && getMessageReactions(msgBody).length > 0"
                     @click="openReactionDetailDialog(msgBody)"
                   >
-                    Reaction详情
+                    表情回复详情
                   </el-dropdown-item>
                   <el-dropdown-item @click="pinMessage(msgBody)">
                     置顶
@@ -1008,7 +1022,11 @@ const loadReactionDetail = async (msgBody, reaction) => {
                 }}
               </p>
             </div>
-            <div class="message_reaction_bar">
+            <div
+              v-if="canUseReaction(msgBody)"
+              class="message_reaction_bar"
+              :class="msgBody._isMyself && 'is-mine'"
+            >
               <div
                 v-if="getMessageReactions(msgBody).length > 0"
                 class="message_reaction_list"
@@ -1029,18 +1047,28 @@ const loadReactionDetail = async (msgBody, reaction) => {
               </div>
               <el-popover
                 trigger="click"
-                placement="bottom"
-                :width="220"
+                :placement="msgBody._isMyself ? 'bottom-end' : 'bottom-start'"
+                :width="248"
                 popper-class="message_reaction_picker_popover"
+                :show-arrow="false"
               >
                 <template #reference>
-                  <button class="message_reaction_entry">+ 表情</button>
+                  <button class="message_reaction_entry" title="添加表情回复">
+                    <span class="reaction_entry_icon">☺</span>
+                  </button>
                 </template>
                 <div class="message_reaction_picker">
+                  <div class="message_reaction_picker_title">
+                    选择表情回复
+                  </div>
                   <button
                     v-for="reaction in REACTION_PRESETS"
                     :key="reaction"
                     class="message_reaction_picker_item"
+                    :class="
+                      getExistingReactionItem(msgBody, reaction)?.isAddedBySelf &&
+                      'is-active'
+                    "
                     :disabled="isReactionLoading(msgBody.id, reaction)"
                     @click="addReactionToMessage(msgBody, reaction)"
                   >
@@ -1134,7 +1162,18 @@ const loadReactionDetail = async (msgBody, reaction) => {
                 :key="userId"
                 class="reaction_detail_user_item"
               >
-                {{ userId }}
+                <el-avatar
+                  :size="30"
+                  :src="getReactionUserAvatar(userId)"
+                />
+                <div class="reaction_detail_user_meta">
+                  <div class="reaction_detail_user_name">
+                    {{ getReactionUserName(userId) }}
+                  </div>
+                  <div class="reaction_detail_user_id">
+                    {{ userId }}
+                  </div>
+                </div>
               </div>
             </template>
             <el-empty
