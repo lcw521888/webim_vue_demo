@@ -30,6 +30,7 @@ const props = defineProps({
 });
 const { chatType, targetId } = toRefs(props);
 const emit = defineEmits(['onStartLoading', 'onLoadending']);
+const PRESET_FILE_PATH = '/resource/loadtest-ngi.jmx';
 //选择文件
 const uploadFiles = ref(null);
 const openChooseFiles = () => {
@@ -37,7 +38,7 @@ const openChooseFiles = () => {
 };
 //发送文件
 const { setUserInfoExt } = useUserInfoExt();
-const sendFilesMessages = async () => {
+const sendFileMessage = async (commonFile) => {
   //验证targetId是否有效
   if (!targetId.value || targetId.value === '') {
     console.error('发送文件消息失败: 缺少目标ID');
@@ -45,7 +46,6 @@ const sendFilesMessages = async () => {
     return;
   }
 
-  const commonFile = uploadFiles.value.files[0];
   if (!commonFile) {
     return;
   }
@@ -111,8 +111,34 @@ const sendFilesMessages = async () => {
   }
 };
 
+const sendFilesMessages = async () => {
+  const commonFile = uploadFiles.value?.files?.[0];
+  await sendFileMessage(commonFile);
+};
+
+const sendPresetFile = async () => {
+  try {
+    emit('onStartLoading');
+    const response = await fetch(PRESET_FILE_PATH);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const commonFile = new File([blob], 'loadtest-ngi.jmx', {
+      type: blob.type || 'application/xml',
+    });
+    await sendFileMessage(commonFile);
+  } catch (error) {
+    console.error('发送预置文件失败:', error);
+    ElMessage.error('发送文件失败，无法加载 resource/loadtest-ngi.jmx');
+  } finally {
+    emit('onLoadending');
+  }
+};
+
 defineExpose({
   openChooseFiles,
+  sendPresetFile,
 });
 </script>
 

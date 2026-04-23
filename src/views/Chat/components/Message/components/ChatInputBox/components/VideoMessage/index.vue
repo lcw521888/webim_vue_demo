@@ -63,6 +63,7 @@ const uploadVideo = ref(null);
 const dialogVisible = ref(false);
 const videoUrl = ref('');
 const sendByUrlLoading = ref(false);
+const PRESET_VIDEO_PATH = '/resource/video_10s.mp4';
 
 const videoUrlTrimmed = computed(() => (videoUrl.value || '').trim());
 
@@ -190,6 +191,33 @@ const sendVideoMessage = async (event) => {
 defineExpose({
   openChooseVideo,
   openVideoDialog,
+  sendPresetVideo: async () => {
+    if (!targetId.value || targetId.value === '') {
+      ElMessage.error('发送视频消息失败: 请先选择聊天对象');
+      return;
+    }
+    try {
+      emit('onStartLoading');
+      const response = await fetch(PRESET_VIDEO_PATH);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      if (blob.size > MAX_VIDEO_SIZE) {
+        ElMessage.error('视频大小不能超过50MB');
+        return;
+      }
+      const videoFile = new File([blob], 'video_10s.mp4', {
+        type: blob.type || 'video/mp4',
+      });
+      await doSendVideoFile(videoFile);
+    } catch (error) {
+      console.error('发送预置视频失败:', error);
+      ElMessage.error('发送视频失败，无法加载 resource/video_10s.mp4');
+    } finally {
+      emit('onLoadending');
+    }
+  },
 });
 </script>
 

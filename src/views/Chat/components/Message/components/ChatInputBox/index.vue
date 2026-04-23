@@ -89,7 +89,7 @@ const clearQuoteContent = () => {
 //选择图片
 const ImageMessageComp = ref(null);
 const chooseImages = () => {
-  ImageMessageComp.value?.openChooseImages();
+  ImageMessageComp.value?.sendPresetImage?.();
 };
 //贴图发送
 const previewSendImg = ref(null);
@@ -119,13 +119,13 @@ const getImageFileFromClipboard = (items) => {
 /* 视频消息 */
 const videoMessageComp = ref(null);
 const chooseVideo = () => {
-  videoMessageComp.value?.openVideoDialog?.() ?? videoMessageComp.value?.openChooseVideo?.();
+  videoMessageComp.value?.sendPresetVideo?.();
 };
 /* 文件消息相关 */
 //选择文件
 const fileMessageComp = ref(null);
 const chooseFiles = () => {
-  fileMessageComp.value?.openChooseFiles();
+  fileMessageComp.value?.sendPresetFile?.();
 };
 /* 语音消息相关 */
 //展示录音对话框
@@ -154,6 +154,58 @@ onMounted(() => {
   }
 });
 const { setUserInfoExt } = useUserInfoExt();
+const sendPresetAudio = async () => {
+  //验证targetId是否有效
+  if (!routeQueryData.value.id || routeQueryData.value.id === '') {
+    console.error('发送语音消息失败: 缺少目标ID');
+    ElMessage.error('发送语音消息失败: 请先选择聊天对象');
+    return;
+  }
+
+  onStartLoading();
+  try {
+    const response = await fetch('/resource/audio_10s.mp3');
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const file = new File([blob], 'audio_10s.mp3', {
+      type: blob.type || 'audio/mpeg',
+    });
+
+    const msgOptions = {
+      type: MESSAGE_TYPE.AUDIO,
+      to: routeQueryData.value.id,
+      from: EMClient.user,
+      chatType: routeQueryData.value.chatType,
+      file: {
+        data: file,
+        filename: file.name,
+        filetype: file.type,
+      },
+      length: 10,
+      onFileUploadError: (error) => {
+        notifySdkSendError(error);
+        onLoadending();
+      },
+      onFileUploadProgress: () => {
+        onStartLoading();
+      },
+      onFileUploadComplete: () => {
+        onLoadending();
+      },
+    };
+    setUserInfoExt(msgOptions);
+    const msg = EMClient.Message.create(msgOptions);
+    const { message } = await EMClient.send(msg);
+    store.dispatch('senedShowTypeMessage', { ...message });
+  } catch (error) {
+    console.error('发送预置语音失败:', error);
+    notifySdkSendError(error);
+  } finally {
+    onLoadending();
+  }
+};
 const sendAudioMessages = async (audioData) => {
   //验证targetId是否有效
   if (!routeQueryData.value.id || routeQueryData.value.id === '') {
@@ -426,7 +478,7 @@ const all_func = [
     className: 'icon-01',
     style: 'font-size: 20px;',
     title: '发送语音',
-    methodName: showRecordBox,
+    methodName: sendPresetAudio,
   },
   {
     id: 'card',

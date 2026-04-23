@@ -32,12 +32,13 @@ const props = defineProps({
 const { chatType, targetId } = toRefs(props);
 const emit = defineEmits(['onStartLoading', 'onLoadending']);
 const uploadImgs = ref(null);
+const PRESET_IMAGE_PATH = '/resource/image_1080p.jpg';
 const openChooseImages = () => {
   uploadImgs.value.click();
 };
 //发送图片
 const { setUserInfoExt } = useUserInfoExt();
-const sendImagesMessage = async (type, fileObj) => {
+const sendImageFile = async (imgFile) => {
   //验证targetId是否有效
   if (!targetId.value || targetId.value === '') {
     console.error('发送图片消息失败: 缺少目标ID');
@@ -86,7 +87,6 @@ const sendImagesMessage = async (type, fileObj) => {
   //在消息体内携带该用户的昵称头像信息
   setUserInfoExt(msgOptions);
   //读取图片的宽高
-  const imgFile = uploadImgs.value.files[0];
   if (!imgFile) {
     return;
   }
@@ -115,8 +115,37 @@ const sendImagesMessage = async (type, fileObj) => {
     }
   };
 };
+
+const sendImagesMessage = async () => {
+  const imgFile = uploadImgs.value?.files?.[0];
+  if (!imgFile) {
+    return;
+  }
+  await sendImageFile(imgFile);
+};
+
+const sendPresetImage = async () => {
+  try {
+    emit('onStartLoading');
+    const response = await fetch(PRESET_IMAGE_PATH);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const imgFile = new File([blob], 'image_1080p.jpg', {
+      type: blob.type || 'image/jpeg',
+    });
+    await sendImageFile(imgFile);
+  } catch (error) {
+    console.error('发送预置图片失败:', error);
+    ElMessage.error('发送图片失败，无法加载 resource/image_1080p.jpg');
+  } finally {
+    emit('onLoadending');
+  }
+};
 defineExpose({
   openChooseImages,
+  sendPresetImage,
 });
 </script>
 
