@@ -1,5 +1,4 @@
 import _ from 'lodash';
-import { useLocalStorage } from '@vueuse/core';
 import {
   createInform,
   checkLastMsgIsHasMention,
@@ -39,7 +38,7 @@ const sortConversationList = (conversationList) => {
 const Conversation = {
   state: {
     informDetail: [],
-    conversationFromMethod: useLocalStorage('CONVERSATION_FROM_LOCAL', false), //false为服务端获取，true为本地获取。
+    conversationFromMethod: false, // 按文档推荐默认走服务端会话列表
     conversationListFromLocal: [],
     conversationListFromServer: [],
     conversationListFromServerPageSize: 50,
@@ -47,12 +46,8 @@ const Conversation = {
   },
   mutations: {
     //获取会话列表获取方式
-    GET_CONVERSATION_LIST_FROM: (state, payload) => {
-      const conversationFromMethod = useLocalStorage(
-        'CONVERSATION_FROM_LOCAL',
-        false,
-      );
-      state.conversationFromMethod = conversationFromMethod;
+    GET_CONVERSATION_LIST_FROM: (state) => {
+      state.conversationFromMethod = false;
     },
     //清空系统通知
     CLEAR_INFORM_LIST: (state) => {
@@ -164,9 +159,12 @@ const Conversation = {
     },
     //更新会话置顶状态
     UPDATE_CONVERSATION_PIN_STATUS: (state, pinnedConversations) => {
-      if (!pinnedConversations || !pinnedConversations.length) return;
+      state.conversationListFromServer.forEach((conversation) => {
+        conversation.isPinned = false;
+        conversation.pinnedTime = 0;
+      });
 
-      pinnedConversations.forEach((pinnedItem) => {
+      (pinnedConversations || []).forEach((pinnedItem) => {
         const existingConversation = state.conversationListFromServer.find(
           (c) => c.conversationId === pinnedItem.conversationId,
         );
@@ -225,20 +223,36 @@ const Conversation = {
             subscribed: '你们已成为你的好友,开始聊天吧',
           },
           group: {
+            [GROUP_OPERATION_TYPE.CREATE]: `${baseMsg.fromName}创建了群组`,
             [GROUP_OPERATION_TYPE.MEMBER_PRESENCE]: `${baseMsg.fromName}加入了群组`,
+            [GROUP_OPERATION_TYPE.MEMBERS_PRESENCE]: `${baseMsg.fromName}邀请成员加入了群组`,
             [GROUP_OPERATION_TYPE.MEMBER_ABSENCE]: `${baseMsg.fromName}退出了群组`,
+            [GROUP_OPERATION_TYPE.MEMBERS_ABSENCE]: `${baseMsg.fromName}移除了多个群成员`,
             [GROUP_OPERATION_TYPE.UPDATE_ANNOUNCEMENT]: `${baseMsg.fromName}更新了群组公告，去看看更新的什么吧~`,
+            [GROUP_OPERATION_TYPE.DELETE_ANNOUNCEMENT]: `${baseMsg.fromName}删除了群组公告`,
             [GROUP_OPERATION_TYPE.SET_ADMIN]: `${baseMsg.fromName}设定${baseMsg.toName}为管理员~`,
             [GROUP_OPERATION_TYPE.REMOVE_ADMIN]: `${baseMsg.fromName}移除了${baseMsg.toName}的管理员身份~`,
+            [GROUP_OPERATION_TYPE.CHANGE_OWNER]: `${baseMsg.fromName}转让了群组`,
+            [GROUP_OPERATION_TYPE.INVITE_TO_JOIN]: `${baseMsg.fromName}邀请你加入群组`,
+            [GROUP_OPERATION_TYPE.ACCEPT_INVITE]: `${baseMsg.fromName}接受了入群邀请`,
+            [GROUP_OPERATION_TYPE.REJECT_INVITE]: `${baseMsg.fromName}拒绝了入群邀请`,
+            [GROUP_OPERATION_TYPE.REQUEST_TO_JOIN]: `${baseMsg.fromName}申请加入群组`,
+            [GROUP_OPERATION_TYPE.JOIN_PUBLIC_GROUP_DECLINED]: `${baseMsg.fromName}的入群申请被拒绝`,
             [GROUP_OPERATION_TYPE.MUTE_MEMBER]: `${
               baseMsg.fromName
             }禁言了${config.getTargetName()}~`,
             [GROUP_OPERATION_TYPE.UNMUTE_MEMBER]: `${
               baseMsg.fromName
             }取消了${config.getTargetName()}的禁言~`,
+            [GROUP_OPERATION_TYPE.MUTE_ALL_MEMBERS]: `${baseMsg.fromName}开启了全员禁言`,
+            [GROUP_OPERATION_TYPE.UNMUTE_ALL_MEMBERS]: `${baseMsg.fromName}关闭了全员禁言`,
+            [GROUP_OPERATION_TYPE.ADD_USER_TO_ALLOWLIST]: `${baseMsg.fromName}添加了群白名单成员`,
+            [GROUP_OPERATION_TYPE.REMOVE_ALLOWLIST_MEMBER]: `${baseMsg.fromName}移除了群白名单成员`,
+            [GROUP_OPERATION_TYPE.UNBLOCK_MEMBER]: `${baseMsg.fromName}将成员移出了黑名单`,
             [GROUP_OPERATION_TYPE.REMOVE_MEMBER]: `${baseMsg.fromName}将你移出了群组${baseMsg.toName}~`,
             [GROUP_OPERATION_TYPE.DESTROY]: `${baseMsg.fromName}解散了该群~`,
             [GROUP_OPERATION_TYPE.UPDATE_INFO]: `${baseMsg.fromName}更新了群组详情~`,
+            [GROUP_OPERATION_TYPE.DIRECT_JOINED]: `${baseMsg.fromName}直接将你加入了群组`,
             [GROUP_OPERATION_TYPE.MEMBER_ATTRIBUTES_UPDATE]: `${baseMsg.fromName}修改群内昵称为【${informContent?.attributes?.nickName}】`,
           },
         };
@@ -371,6 +385,18 @@ const Conversation = {
           'SET_CONVERSATION_LIST_FROM_SERVER_PAGE_CURSOR',
           result?.data?.cursor || '',
         );
+
+        if (isInit) {
+          try {
+            await dispatch('getServerPinnedConversations', {
+              pageSize: 50,
+              cursor: '',
+              includeEmptyConversations: true,
+            });
+          } catch (pinnedError) {
+            console.error('获取服务端置顶会话列表失败', pinnedError);
+          }
+        }
         
         const userIds = _.chain(allConversations)
           .filter({ conversationType: CHAT_TYPE.SINGLE })
@@ -435,16 +461,8 @@ const Conversation = {
     },
     //获取会话列表
     getConversationList: async ({ dispatch }, params) => {
-      const conversationFromMethod = useLocalStorage(
-        'CONVERSATION_FROM_LOCAL',
-        false,
-      );
-      if (conversationFromMethod.value) {
-        return dispatch('getConversationListFromLocal');
-      } else {
-        //isInit为true时，为首次进入页面获取远端会话。
-        return dispatch('getConversationListFromServer', { isInit: true });
-      }
+      // 按文档推荐：登录后初始化只拉取一次服务端会话列表
+      return dispatch('getConversationListFromServer', { isInit: true });
     },
     //更新Store中的会话列表（数据来源为本地会话插件）
     updateConversationWithLocal: async ({ dispatch, commit }, params) => {
@@ -528,12 +546,8 @@ const Conversation = {
       }
     },
     //更新缓存中的会话列表
-    updateConversationList: async ({ state, dispatch, commit }, params) => {
-      if (state.conversationFromMethod) {
-        dispatch('updateConversationWithLocal', params);
-      } else {
-        dispatch('updateConversationWithServer', params);
-      }
+    updateConversationList: async ({ dispatch }, params) => {
+      dispatch('updateConversationWithServer', params);
     },
     //删除会话列表（本地以及远端）
     removeLocalConversation: async ({ state, commit }, params) => {
@@ -544,21 +558,16 @@ const Conversation = {
         // 会话类型：（默认） `singleChat`：单聊；`groupChat`：群聊。
         chatType: conversationType,
         // 删除会话时是否同时删除服务端漫游消息。
-        deleteRoam: false,
+        deleteRoam: true,
       };
       try {
         //会话列表删除时，需要先删除远端会话列表，再删除本地数据库，这样跨端获取会话列表才能同步。
         await EMClient.deleteConversation(options);
-        if (state.conversationFromMethod) {
-          //删除本地数据库数据
-          await EMClient.localCache.removeLocalConversation({
-            conversationId,
-            conversationType,
-          });
-        }
         commit('DELETE_CONVERSATION_ITEM', conversationId);
+        return true;
       } catch (error) {
         console.error(error);
+        throw error;
       }
     },
     //设置会话已读（发送会话已读回执。）
@@ -581,13 +590,6 @@ const Conversation = {
           to: conversationId,
         });
         await EMClient.send(msg);
-        //同步清空本地数据库未读数。
-        if (state.conversationFromMethod) {
-          await EMClient.localCache.clearConversationUnreadCount({
-            conversationId,
-            conversationType: chatType,
-          });
-        }
         //通知更新缓存中的会话未读数。
         commit('CLEAR_CONVERSATION_ITEM_UNREAD_COUNT', conversationId);
       } catch (error) {
@@ -598,18 +600,6 @@ const Conversation = {
     clearConversationMention: async ({ state, commit }, params) => {
       const { conversationId, conversationType, customField } = params;
       customField.mention = false;
-      //设置本地数据库会话@状态
-      if (state.conversationFromMethod) {
-        try {
-          await EMClient.localCache.setLocalConversationCustomField({
-            conversationId,
-            conversationType,
-            customField: { ...customField },
-          });
-        } catch (error) {
-          console.log('error', error);
-        }
-      }
       commit('CLEAR_CONVERSATION_ITEM_MENTION_STATUS', conversationId);
     },
     //设置本地会话自定义属性

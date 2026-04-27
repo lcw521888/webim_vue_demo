@@ -1,6 +1,5 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { useLocalStorage } from '@vueuse/core';
 import { usePlayRing, useSetEMLogConfig } from '@/hooks';
 import { RefreshRight } from '@element-plus/icons-vue';
 import store from '@/store';
@@ -8,10 +7,6 @@ import store from '@/store';
 const dialogVisible = ref(false);
 const { isOpenPlayRing } = usePlayRing();
 const { isOpenedEMLog, donwLoadEMLog } = useSetEMLogConfig();
-const conversationFromMethod = useLocalStorage(
-  'CONVERSATION_FROM_LOCAL',
-  false,
-);
 const presencePageNum = ref(0);
 const presencePageSize = 50;
 const loadingSubscribedPresence = ref(false);
@@ -42,10 +37,6 @@ const refreshBlackList = async () => {
   }
 };
 
-watch(conversationFromMethod, () => {
-  store.commit('GET_CONVERSATION_LIST_FROM');
-  store.dispatch('getConversationList');
-});
 watch(dialogVisible, (visible) => {
   if (visible) {
     refreshSubscribedPresenceList();
@@ -107,21 +98,16 @@ defineExpose({
           >下载SDK缓存日志</el-button
         >
       </div>
-      <!-- 会话列表获取方式 -->
       <div class="setting_main_item">
         <el-tooltip
           class="item"
           effect="dark"
-          content="开启后，本项目优先走本地获取会话列表数据。"
+          content="当前按文档推荐使用服务端会话列表初始化，并通过消息回调更新缓存。"
           placement="top"
         >
-          <span>会话列表获取方式</span>
+          <span>会话列表来源</span>
         </el-tooltip>
-        <el-switch
-          v-model="conversationFromMethod"
-          active-text="本地获取"
-          inactive-text="服务端获取"
-        />
+        <span>服务端获取</span>
       </div>
       <div class="presence_section">
         <div class="presence_section_header">

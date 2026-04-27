@@ -206,6 +206,7 @@ const CHATROOM_TYPE = {
 };
 
 const activeName = ref(CHATROOM_TYPE.ALL);
+const joinRoomExt = ref('webim_vue_demo');
 
 function markRoomJoined(roomId) {
   const key = normalizeChatroomId(roomId);
@@ -233,6 +234,32 @@ function syncRoomJoinOverride(roomId, joined) {
   locallyLeftChatroomIds.value.delete(key);
 }
 
+function updateLocalChatroomMemberCount(roomId, memberCount) {
+  const key = normalizeChatroomId(roomId);
+  if (!key || typeof memberCount !== 'number' || Number.isNaN(memberCount)) {
+    return;
+  }
+
+  const normalizedCount = Math.max(memberCount, 0);
+  const applyCount = (list) =>
+    list.map((item) =>
+      normalizeChatroomId(item.id) === key
+        ? { ...item, affiliations_count: normalizedCount }
+        : item,
+    );
+
+  chatroomList.value = applyCount(chatroomList.value);
+  joinedChatroomList.value = applyCount(joinedChatroomList.value);
+
+  const cachedDetail = chatroomDetailsCache.value.get(key);
+  if (cachedDetail) {
+    chatroomDetailsCache.value.set(key, {
+      ...cachedDetail,
+      affiliations_count: normalizedCount,
+    });
+  }
+}
+
 const checkLoginStatus = () => {
   if (!EMClient.user) {
     ElMessage.error('用户未登录，请先登录');
@@ -252,18 +279,27 @@ const setupChatroomEventHandler = () => {
     'CHATROOM',
     createChatroomEventHandler('ChatroomIndex', (e, normalizedEvent) => {
       const chatRoomId = normalizedEvent.roomId;
-      // 从本地缓存获取真实成员数
       const realMemberCount = getChatroomMemberCountFromLocal(chatRoomId);
+      const eventMemberCount =
+        typeof e?.memberCount === 'number' ? e.memberCount : realMemberCount;
 
       switch (e.operation) {
         case CHATROOM_EVENT_OPERATIONS.MEMBER_PRESENCE:
-          // 使用本地缓存的真实人数
+          if (e?.ext) {
+            console.log('收到成员加入聊天室扩展信息 ext:', e.ext);
+          }
+          if (typeof e?.memberCount === 'number') {
+            console.log('当前聊天室在线人数:', e.memberCount);
+            updateLocalChatroomMemberCount(chatRoomId, e.memberCount);
+          }
           getChatrooms();
           getJoinedChatrooms();
           break;
         case CHATROOM_EVENT_OPERATIONS.MEMBER_ABSENCE:
-          // 使用本地缓存的真实人数
-          ElMessage.info(`有成员离开聊天室，当前人数：${realMemberCount}`);
+          if (typeof e?.memberCount === 'number') {
+            updateLocalChatroomMemberCount(chatRoomId, e.memberCount);
+          }
+          ElMessage.info(`有成员离开聊天室，当前人数：${eventMemberCount}`);
           getChatrooms();
           getJoinedChatrooms();
           break;
@@ -360,7 +396,7 @@ const getChatrooms = async () => {
   const GET_CHAT_ROOMS_METHOD = 'getChatRooms';
   const chatRoomListParams = {
     pagenum: 1,
-    pagesize: 100,
+    pagesize: 1000,
   };
   loading.value = true;
   try {
@@ -631,7 +667,7 @@ const joinChatroom = async (roomId) => {
   const JOIN_CHAT_ROOM_METHOD = 'joinChatRoom';
   const joinChatRoomParams = {
     roomId: roomId,
-    ext: '',
+    ext: joinRoomExt.value,
     leaveOtherRooms: false,
   };
   try {

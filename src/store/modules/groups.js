@@ -5,6 +5,11 @@ import {
   GROUP_ROLE_TYPE,
 } from '@/IM/constant';
 import { EMClient } from '@/IM';
+import {
+  DEFAULT_GROUP_MEMBERS_PAGE_SIZE,
+  normalizeFetchedGroupMembers,
+  getNextJoinedGroupsPage,
+} from '@/utils/groupDocAdapters';
 const Groups = {
   state: {
     groupsInfos: {}, //计划废弃
@@ -15,6 +20,10 @@ const Groups = {
       },
       joinedGroupList: [],
       joinedGroupListTotal: 0,
+      publicPagingCursor: '',
+      publicGroupList: [],
+      publicGroupListTotal: 0,
+      joinedGroupCount: 0,
     },
     groupDetails: new Map(), //key:groupId value:groupDetail
     groupMembers: new Map(), //key:groupId value:groupMemberList
@@ -29,6 +38,42 @@ const Groups = {
         [...state.joinedGroup.joinedGroupList],
         (g) => g.groupId,
       );
+      state.joinedGroup.joinedGroupCount = total;
+    },
+    RESET_JOINED_GROUP_LIST: (state, payload = {}) => {
+      const { pageNum = 0 } = payload;
+      state.joinedGroup.pagingParams.pageNum = pageNum;
+      state.joinedGroup.joinedGroupList = [];
+      state.joinedGroup.joinedGroupListTotal = 0;
+    },
+    SET_JOINED_GROUP_COUNT: (state, total) => {
+      state.joinedGroup.joinedGroupCount = Number(total || 0);
+    },
+    SET_PUBLIC_GROUPS: (state, payload) => {
+      const { cursor = '', entities = [], isInit = false } = payload;
+      state.joinedGroup.publicPagingCursor = cursor;
+      state.joinedGroup.publicGroupList = isInit
+        ? [...entities]
+        : _.unionBy(
+            [...state.joinedGroup.publicGroupList],
+            [...entities],
+            (group) => group.groupid,
+          );
+      state.joinedGroup.publicGroupListTotal =
+        state.joinedGroup.publicGroupList.length;
+    },
+    UPDATE_GROUP_SHIELD_STATUS: (state, payload) => {
+      const { groupId, shieldgroup } = payload;
+      state.joinedGroup.joinedGroupList.forEach((groupItem) => {
+        if (groupItem.groupId === groupId) {
+          groupItem.shieldgroup = Boolean(shieldgroup);
+        }
+      });
+      if (!state.groupDetails.has(groupId)) {
+        state.groupDetails.set(groupId, { shieldgroup: Boolean(shieldgroup) });
+      } else {
+        state.groupDetails.get(groupId).shieldgroup = Boolean(shieldgroup);
+      }
     },
     SET_GROUP_DETAILS: (state, payload) => {
       const { groupDetailsList } = payload;
@@ -113,7 +158,9 @@ const Groups = {
       if (type === 'groupMemberCount') {
         state.joinedGroup.joinedGroupList.length > 0 &&
           state.joinedGroup.joinedGroupList.map((groupItem) => {
-            return (groupItem.affiliationsCount = params);
+            if (groupItem.groupId === groupId) {
+              return (groupItem.affiliationsCount = params);
+            }
           });
         state.groupDetails.has(groupId) &&
           (state.groupDetails.get(groupId).affiliations_count = params);
@@ -137,8 +184,12 @@ const Groups = {
             ) {
               const _index = state.groupMembers
                 .get(groupId)
-                .findIndex((item) => item === member);
-              state.groupMembers.get(groupId).splice(_index, 1);
+                .findIndex(
+                  (item) => (item.member || item.owner || item.userId) === member,
+                );
+              if (_index > -1) {
+                state.groupMembers.get(groupId).splice(_index, 1);
+              }
             }
           }
           break;
@@ -151,7 +202,7 @@ const Groups = {
       const { type, groupId, userId } = payload;
       state.joinedGroup.joinedGroupList.length > 0 &&
         state.joinedGroup.joinedGroupList.map((groupItem) => {
-          if (groupItem.groupId === groupId) {
+          if (groupItem.groupId === groupId && userId === EMClient.user) {
             if (type === GROUP_OPERATION_TYPE.SET_ADMIN) {
               return (groupItem.role = GROUP_ROLE_TYPE.ADMIN);
             } else if (type === GROUP_OPERATION_TYPE.REMOVE_ADMIN) {
@@ -160,8 +211,12 @@ const Groups = {
           }
         });
       if (type === GROUP_OPERATION_TYPE.SET_ADMIN) {
-        state.groupDetails.has(groupId) &&
-          (state.groupDetails.get(groupId).adminlist = [userId]);
+        if (state.groupDetails.has(groupId)) {
+          const adminlist = state.groupDetails.get(groupId).adminlist || [];
+          if (!adminlist.includes(userId)) {
+            state.groupDetails.get(groupId).adminlist = [...adminlist, userId];
+          }
+        }
       } else if (type === GROUP_OPERATION_TYPE.REMOVE_ADMIN) {
         if (
           state.groupDetails.has(groupId) &&
@@ -181,8 +236,17 @@ const Groups = {
         const _index = state.joinedGroup.joinedGroupList.findIndex(
           (item) => item.groupId === groupId,
         );
-        state.joinedGroup.joinedGroupList.splice(_index, 1);
-        state.joinedGroup.joinedGroupListTotal--;
+        if (_index > -1) {
+          state.joinedGroup.joinedGroupList.splice(_index, 1);
+          state.joinedGroup.joinedGroupListTotal = Math.max(
+            state.joinedGroup.joinedGroupListTotal - 1,
+            0,
+          );
+          state.joinedGroup.joinedGroupCount = Math.max(
+            state.joinedGroup.joinedGroupCount - 1,
+            0,
+          );
+        }
       }
     },
   },
@@ -193,16 +257,27 @@ const Groups = {
       params = {},
     ) => {
       const {
-        pagingParams: { pageNum, pageSize },
+        pagingParams: { pageSize },
       } = state.joinedGroup;
-      const { startPageNum } = params;
+      const { startPageNum, reset = false } = params;
       try {
+        const shouldReset = reset || startPageNum === 0;
+        if (shouldReset) {
+          commit('RESET_JOINED_GROUP_LIST', {
+            pageNum: startPageNum !== undefined ? startPageNum : 0,
+          });
+        }
+        const nextPageNum =
+          startPageNum !== undefined
+            ? startPageNum
+            : getNextJoinedGroupsPage(state.joinedGroup);
         const { total, entities } = await EMClient.getJoinedGroups({
-          pageNum: startPageNum !== undefined ? startPageNum : pageNum,
+          pageNum: nextPageNum,
           pageSize: pageSize,
           needAffiliations: true,
           needRole: true,
         });
+        commit('SET_JOINED_GROUP_COUNT', total);
         if (entities?.length === 0) return;
         commit('SET_JOINED_GROUP', { total, entities });
         const groupIds = _.map(entities, 'groupId');
@@ -256,7 +331,10 @@ const Groups = {
       }
     },
     //获取群组成员
-    fetchGroupsMemberFromServer: async ({ dispatch, commit }, { groupId, chatType }) => {
+    fetchGroupsMemberFromServer: async (
+      { dispatch, commit },
+      { groupId, chatType },
+    ) => {
       console.log('>>>>>获取群组成员', { groupId, chatType });
       if (!EMClient.user) {
         console.error('>>>>>用户未登录，无法获取群组成员');
@@ -268,16 +346,60 @@ const Groups = {
         return;
       }
       try {
-        const result = await EMClient.getGroupInfo({
-          groupId: groupId,
-        });
-        const members = result.data[0]?.affiliations || [];
+        let cursor = '';
+        let members = [];
+        do {
+          const result = await EMClient.getGroupMembers({
+            groupId,
+            cursor,
+            limit: DEFAULT_GROUP_MEMBERS_PAGE_SIZE,
+          });
+          const fetchedMembers = normalizeFetchedGroupMembers(
+            result?.data?.members || [],
+          );
+          members = members.concat(fetchedMembers);
+          cursor = result?.data?.cursor || '';
+        } while (cursor);
         commit('SET_GROUPS_MEMBERS', {
-          groupId: groupId,
-          members: members,
+          groupId,
+          members,
         });
       } catch (error) {
         console.error('>>>>>群组成员获取失败', error);
+      }
+    },
+    fetchPublicGroupListFromServer: async ({ state, commit }, params = {}) => {
+      const { limit = 20, cursor, reset = false } = params;
+      try {
+        const nextCursor =
+          cursor !== undefined
+            ? cursor
+            : reset
+            ? ''
+            : state.joinedGroup.publicPagingCursor;
+        const result = await EMClient.getPublicGroups({
+          limit,
+          cursor: nextCursor,
+        });
+        commit('SET_PUBLIC_GROUPS', {
+          cursor: result?.cursor || result?.data?.cursor || '',
+          entities: result?.data || [],
+          isInit: reset || nextCursor === '',
+        });
+        return result || {};
+      } catch (error) {
+        console.error('公开群列表获取失败', error);
+        throw error;
+      }
+    },
+    fetchJoinedGroupCountFromServer: async ({ commit }) => {
+      try {
+        const result = await EMClient.getJoinedGroupsCount();
+        commit('SET_JOINED_GROUP_COUNT', result?.data || 0);
+        return result?.data || 0;
+      } catch (error) {
+        console.error('群组数量获取失败', error);
+        throw error;
       }
     },
     //获取登录用户在某群内的群组属性
@@ -463,6 +585,32 @@ const Groups = {
         console.error('群公告修改失败', error);
       }
     },
+    blockGroupMessage: async ({ commit }, groupId) => {
+      try {
+        await EMClient.blockGroupMessage({ groupId });
+        commit('UPDATE_GROUP_SHIELD_STATUS', {
+          groupId,
+          shieldgroup: true,
+        });
+        ElMessage.success('已屏蔽该群消息');
+      } catch (error) {
+        ElMessage.error('屏蔽群消息失败，请稍后重试');
+        throw error;
+      }
+    },
+    unblockGroupMessage: async ({ commit }, groupId) => {
+      try {
+        await EMClient.unblockGroupMessage({ groupId });
+        commit('UPDATE_GROUP_SHIELD_STATUS', {
+          groupId,
+          shieldgroup: false,
+        });
+        ElMessage.success('已取消屏蔽该群消息');
+      } catch (error) {
+        ElMessage.error('取消屏蔽群消息失败，请稍后重试');
+        throw error;
+      }
+    },
     //邀请群成员
     inviteUserJoinTheGroup: async ({ dispatch }, params) => {
       //SDK入参属性名是确定的此示例直接将属性名改为了SDK所识别的参数如果修改，具体请看文档。
@@ -547,11 +695,12 @@ const Groups = {
     //添加用户到禁言列表
     addMemberToMuteList: async ({ dispatch }, params) => {
       const { groupId, username } = params;
+      const targetUsername = Array.isArray(username) ? username[0] : username;
 
       try {
         await EMClient.muteGroupMember({
           groupId,
-          username: username,
+          username: targetUsername,
           muteDuration: 886400000,
         });
         ElMessage({
@@ -579,10 +728,11 @@ const Groups = {
     //从禁言列表中移出
     removeTheMemberFromMuteList: async ({ dispatch }, params) => {
       const { groupId, username } = params;
+      const targetUsername = Array.isArray(username) ? username[0] : username;
       try {
         await EMClient.unmuteGroupMember({
           groupId,
-          username: username,
+          username: targetUsername,
         });
         ElMessage({
           message: '移除禁言成功~',
@@ -644,6 +794,9 @@ const Groups = {
     getGroupMembersMap: (state) => state.groupMembers,
     getJoinedGroupList: (state) => state.joinedGroup.joinedGroupList,
     getJoinedGroupTotal: (state) => state.joinedGroup.joinedGroupListTotal,
+    getJoinedGroupCount: (state) => state.joinedGroup.joinedGroupCount,
+    getPublicGroupList: (state) => state.joinedGroup.publicGroupList,
+    getPublicGroupCursor: (state) => state.joinedGroup.publicPagingCursor,
     //获取加入的群组名
     getGroupName: (state) => (groupId) => {
       const group = state.joinedGroup.joinedGroupList.find(

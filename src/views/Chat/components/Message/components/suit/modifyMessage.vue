@@ -47,6 +47,10 @@ const saveEditedMessage = async () => {
   try {
     await store.dispatch('modifyMessage', { ...editMessageContent });
   } catch (error) {
+    console.error('[ModifyMessageDialog] 消息编辑失败', {
+      error,
+      editMessageContent: { ...editMessageContent },
+    });
     if (error?.type === 50) {
       ElMessage({
         type: 'error',

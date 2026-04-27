@@ -14,6 +14,7 @@ import defaultAvatar from '@/assets/images/avatar/theme2x.png';
 import defaultGroupAvatar from '@/assets/images/avatar/jiaqun2x.png';
 import { useGetUserMapInfo } from '@/hooks';
 import { MESSAGE_TYPE } from '@/IM/constant';
+import { CONVERSATION_MARK, hasConversationMark } from '@/constant';
 /* route */
 const route = useRoute();
 /* router */
@@ -33,16 +34,8 @@ const informDetail = computed(() => {
 
 //获取群组详情（展示群组名称等信息）
 const groupDetailMap = computed(() => store.getters.getGroupDetailMap);
-//取会话数据
-const conversationFromMethod = computed(() => {
-  return store.getters.conversationFromMethod;
-});
 const conversationList = computed(() => {
-  if (conversationFromMethod.value) {
-    return store.getters.conversationListFromLocal;
-  } else {
-    return store.getters.conversationListFromServer;
-  }
+  return store.getters.conversationListFromServer;
 });
 //处理会话name
 const {
@@ -151,7 +144,7 @@ const toChatMessage = (conversationItem, index) => {
   debouncedToChatMessage(conversationId, conversationType);
 };
 //删除某条会话
-const deleteConversation = (conversationItem) => {
+const deleteConversation = async (conversationItem) => {
   const { conversationId, conversationType } = conversationItem;
   
   // 检查会话类型，如果是聊天室会话，不支持删除操作
@@ -159,11 +152,17 @@ const deleteConversation = (conversationItem) => {
     ElMessage.info('聊天室会话不支持删除操作');
     return;
   }
-  
-  store.dispatch('removeLocalConversation', conversationItem);
-  //如果删除的itemKey与当前的message会话页的id一致则跳转至会话默认页。
-  if (route?.query?.id && route.query.id === conversationId) {
-    router.push('/chat/conversation');
+
+  try {
+    await store.dispatch('removeLocalConversation', conversationItem);
+    ElMessage.success('删除会话成功');
+    //如果删除的itemKey与当前的message会话页的id一致则跳转至会话默认页。
+    if (route?.query?.id && route.query.id === conversationId) {
+      router.push('/chat/conversation');
+    }
+  } catch (error) {
+    console.error('删除会话失败', error);
+    ElMessage.error('删除会话失败');
   }
 };
 
@@ -194,7 +193,26 @@ const pinConversation = async (conversationItem) => {
     ElMessage.success(isPinned ? '取消置顶成功' : '置顶成功');
   } catch (error) {
     console.error('置顶/取消置顶会话失败', error);
-    ElMessage.error('置顶/取消置顶会话失败');
+    const errorText = [
+      error?.message,
+      error?.error_description,
+      error?.data,
+      error?.error,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    if (
+      errorText.includes('50') &&
+      (errorText.includes('pin') ||
+        errorText.includes('pinned') ||
+        errorText.includes('top'))
+    ) {
+      ElMessage.error('最多只能置顶 50 个会话');
+    } else {
+      ElMessage.error(isPinned ? '取消置顶失败' : '置顶失败');
+    }
   }
 };
 
@@ -208,8 +226,7 @@ const toggleConversationMark = async (conversationItem) => {
     return;
   }
   
-  // 检查是否已经有标记（使用标记2表示标星）
-  const hasMark = marks && marks.includes(2);
+  const hasMark = hasConversationMark(marks, CONVERSATION_MARK.STAR);
   
   try {
     if (!hasMark) {
@@ -218,11 +235,11 @@ const toggleConversationMark = async (conversationItem) => {
         conversations: [
           { conversationId, conversationType },
         ],
-        mark: 2, // 使用标记2表示标星
+        mark: CONVERSATION_MARK.STAR,
       });
       store.commit('UPDATE_CONVERSATION_MARK_STATUS', {
         conversationId,
-        mark: 2,
+        mark: CONVERSATION_MARK.STAR,
         isMarked: true,
       });
       ElMessage.success('标星成功');
@@ -232,11 +249,11 @@ const toggleConversationMark = async (conversationItem) => {
         conversations: [
           { conversationId, conversationType },
         ],
-        mark: 2, // 使用标记2表示标星
+        mark: CONVERSATION_MARK.STAR,
       });
       store.commit('UPDATE_CONVERSATION_MARK_STATUS', {
         conversationId,
-        mark: 2,
+        mark: CONVERSATION_MARK.STAR,
         isMarked: false,
       });
       ElMessage.success('取消标星成功');
@@ -265,8 +282,7 @@ const loadMoreConversation = () => {
   }
 };
 const onScrollToBottom = (event) => {
-  // 本地会话列表一次拉取；仅服务端会话列表需要按 cursor 分页。
-  if (conversationFromMethod.value) return;
+  // 服务端会话列表按 cursor 分页。
   const { scrollTop } = event;
   // 获取滚动条的容器元素
   const scrollWrap = scrollbarComp.value?.wrapRef;
@@ -355,7 +371,11 @@ const onScrollToBottom = (event) => {
                 <div class="name">
                   {{ handleConversationName(item) }}
                   <span v-if="item.isPinned" class="pin-icon">📌</span>
-                  <span v-if="item.marks && item.marks.includes(2)" class="mark-icon">⭐</span>
+                  <span
+                    v-if="hasConversationMark(item.marks, CONVERSATION_MARK.STAR)"
+                    class="mark-icon"
+                    >⭐</span
+                  >
                 </div>
                 <div class="last_msg_body">
                   <span
@@ -391,7 +411,11 @@ const onScrollToBottom = (event) => {
               {{ item.isPinned ? '取消置顶' : '置顶会话' }}
             </div>
             <div class="session_list_mark" @click="toggleConversationMark(item)">
-              {{ item.marks && item.marks.includes(2) ? '取消标星' : '标星会话' }}
+              {{
+                hasConversationMark(item.marks, CONVERSATION_MARK.STAR)
+                  ? '取消标星'
+                  : '标星会话'
+              }}
             </div>
             <div class="session_list_delete" @click="deleteConversation(item)">
               删除会话

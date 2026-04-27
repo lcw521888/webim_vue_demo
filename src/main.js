@@ -37,10 +37,10 @@ window.addEventListener('hx:messageRecall', (event) => {
     return;
   }
   try {
-    store.commit('Message/CHANGE_MESSAGE_BODAY', {
+    store.commit('CHANGE_MESSAGE_BODAY', {
       type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
-      key: msg.to,
-      mid: msg.id,
+      key: msg.chatType ? (msg.chatType === 'singleChat' ? (msg.to === EMClient.user ? msg.from : msg.to) : msg.to) : msg.to,
+      mid: msg.mid || msg.id,
     });
   } catch (error) {
     console.error('[Vue App] hx:messageRecall 更新本地状态失败:', error);

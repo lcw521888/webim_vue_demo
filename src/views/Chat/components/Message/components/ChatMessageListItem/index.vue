@@ -55,6 +55,41 @@ const emit = defineEmits([
 ]);
 const REACTION_PRESETS = ['👍', '❤️', '😂', '😮', '😢', '👏'];
 
+const currentConversation = computed(() => {
+  const conversationId = routeQueryData.value?.id;
+  if (!conversationId) return null;
+  const conversationList =
+    store.state.Conversation?.conversationListFromServer || [];
+  return (
+    conversationList.find(
+      (conversation) => conversation.conversationId === conversationId,
+    ) || null
+  );
+});
+
+const hasConversationRecallPermission = computed(() => {
+  const conversation = currentConversation.value;
+  return !!(conversation?.isOwner || conversation?.isAdmin);
+});
+
+const INTERNAL_EXT_KEYS = [
+  'msgQuote',
+  'ease_chat_uikit_user_info',
+  'ease_chat_uikit_directed_message',
+  'ease_chat_uikit_receiver_list',
+];
+
+const getDisplayableExt = (ext) => {
+  if (!ext || typeof ext !== 'object' || Array.isArray(ext)) return null;
+  const displayable = Object.keys(ext).reduce((result, key) => {
+    if (!INTERNAL_EXT_KEYS.includes(key)) {
+      result[key] = ext[key];
+    }
+    return result;
+  }, {});
+  return Object.keys(displayable).length ? displayable : null;
+};
+
 // 组件挂载状态标志
 const isMounted = ref(true);
 
@@ -147,15 +182,8 @@ const processedMessageData = computed(() => {
 
     // 安全计算是否可以撤回消息
     let canRecall = processed._isMyself;
-    if (!canRecall && processed.chatType !== CHAT_TYPE.SINGLE && processed.to) {
-      // 确保conversationList存在且有对应的会话
-      if (
-        store.state.conversationList &&
-        store.state.conversationList[processed.to]
-      ) {
-        const conversation = store.state.conversationList[processed.to];
-        canRecall = conversation?.isOwner || conversation?.isAdmin;
-      }
+    if (!canRecall && processed.chatType !== CHAT_TYPE.SINGLE) {
+      canRecall = hasConversationRecallPermission.value;
     }
     processed._canRecall = canRecall;
 
@@ -195,10 +223,7 @@ const isMyself = (msgBody) => {
 const canRecallMessage = (msgBody) => {
   if (isMyself(msgBody)) return true;
   if (msgBody.chatType === CHAT_TYPE.SINGLE) return false;
-  // 安全检查会话列表和会话是否存在
-  if (!store.state.conversationList || !msgBody.to) return false;
-  const conversation = store.state.conversationList[msgBody.to];
-  return conversation?.isOwner || conversation?.isAdmin;
+  return hasConversationRecallPermission.value;
 };
 /* 获取消息id集合 */
 // 使用缓存避免重复获取getter
@@ -798,6 +823,16 @@ const getReactionUserAvatar = (userId) => {
                   <template v-else>
                     <span v-html="paseLink(msgBody.msg).msg"> </span
                   ></template>
+                </p>
+                <p
+                  v-if="
+                    msgBody.type === MESSAGE_TYPE.TEXT &&
+                    getDisplayableExt(msgBody.ext)
+                  "
+                  class="message_text_ext"
+                  style="padding: 0 10px 10px; line-height: 18px; font-size: 12px; color: #909399"
+                >
+                  ext: {{ JSON.stringify(getDisplayableExt(msgBody.ext)) }}
                 </p>
                 <div
                   v-if="isStreamMessage(msgBody)"

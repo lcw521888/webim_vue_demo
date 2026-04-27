@@ -20,6 +20,7 @@ const sourceForm = () => ({
   name: '',
   description: '',
   maxusers: 200,
+  members: '',
 });
 
 const chatroomCreateForm = reactive(sourceForm());
@@ -55,11 +56,17 @@ const createChatroom = async () => {
     return;
   }
 
+  const members = String(chatroomCreateForm.members || '')
+    .split(/[,\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
   try {
     const { data } = await EMClient.createChatRoom({
       name: chatroomCreateForm.name.trim(),
       description: chatroomCreateForm.description.trim(),
       maxusers: Number(chatroomCreateForm.maxusers) || 200,
+      members,
     });
 
     const roomId = resolveChatroomId(data);
@@ -145,6 +152,20 @@ const createChatroom = async () => {
           min="1"
           max="5000"
           size="large"
+        />
+      </div>
+    </div>
+    <div class="create_chatroom_row">
+      <div class="create_chatroom_label">初始成员</div>
+      <div class="create_chatroom_field">
+        <el-input
+          class="create_chatroom"
+          v-model="chatroomCreateForm.members"
+          maxlength="1000"
+          placeholder="可选，输入用户 ID，多个用英文逗号或换行分隔"
+          show-word-limit
+          type="textarea"
+          :rows="3"
         />
       </div>
     </div>

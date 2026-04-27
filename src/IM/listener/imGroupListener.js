@@ -17,6 +17,21 @@ export const imGroupListener = () => {
     }
     const { operation, id: groupId, from } = groupevent;
     switch (operation) {
+      case GROUP_OPERATION_TYPE.CREATE:
+      case GROUP_OPERATION_TYPE.DIRECT_JOINED:
+      case GROUP_OPERATION_TYPE.ACCEPT_REQUEST:
+      case GROUP_OPERATION_TYPE.ACCEPT_INVITE:
+      case GROUP_OPERATION_TYPE.MEMBERS_PRESENCE:
+        {
+          store.dispatch('fetchJoinedGroupListFromServer', {
+            startPageNum: 0,
+            reset: true,
+          });
+          if (groupId) {
+            store.dispatch('fetchGroupDetailFromServer', [groupId]);
+          }
+        }
+        break;
       //入群通知
       case GROUP_OPERATION_TYPE.MEMBER_PRESENCE:
         {
@@ -31,10 +46,12 @@ export const imGroupListener = () => {
             type: GROUP_OPERATION_TYPE.MEMBER_PRESENCE,
             member: from,
           });
+          store.dispatch('fetchGroupDetailFromServer', [groupId]);
         }
         break;
       //群成员退群通知
       case GROUP_OPERATION_TYPE.MEMBER_ABSENCE:
+      case GROUP_OPERATION_TYPE.MEMBERS_ABSENCE:
         {
           //退群通知
           const params = {
@@ -48,10 +65,12 @@ export const imGroupListener = () => {
             type: GROUP_OPERATION_TYPE.MEMBER_ABSENCE,
             member: from,
           });
+          store.dispatch('fetchGroupDetailFromServer', [groupId]);
         }
         break;
       //群组公告更新
       case GROUP_OPERATION_TYPE.UPDATE_ANNOUNCEMENT:
+      case GROUP_OPERATION_TYPE.DELETE_ANNOUNCEMENT:
         {
           console.log('>>>>群组公告更新', groupevent);
           store.dispatch('fetchAnnounmentFromServer', groupId);
@@ -75,6 +94,7 @@ export const imGroupListener = () => {
             groupId,
             userId: from,
           });
+          store.dispatch('fetchGroupDetailFromServer', [groupId]);
         }
         break;
       //群组成员禁言
@@ -87,6 +107,17 @@ export const imGroupListener = () => {
       case GROUP_OPERATION_TYPE.UNMUTE_MEMBER:
         {
           store.dispatch('fetchGroupsMuteListFromServer', groupId);
+        }
+        break;
+      case GROUP_OPERATION_TYPE.MUTE_ALL_MEMBERS:
+      case GROUP_OPERATION_TYPE.UNMUTE_ALL_MEMBERS:
+      case GROUP_OPERATION_TYPE.ADD_USER_TO_ALLOWLIST:
+      case GROUP_OPERATION_TYPE.REMOVE_ALLOWLIST_MEMBER:
+      case GROUP_OPERATION_TYPE.UNBLOCK_MEMBER:
+      case GROUP_OPERATION_TYPE.CHANGE_OWNER:
+      case GROUP_OPERATION_TYPE.UPDATE_INFO:
+        {
+          store.dispatch('fetchGroupDetailFromServer', [groupId]);
         }
         break;
       //被移出群组
@@ -108,34 +139,6 @@ export const imGroupListener = () => {
           });
         }
         break;
-      //群组内更新了群组信息
-      case GROUP_OPERATION_TYPE.UPDATE_INFO:
-        {
-          const { detail } = groupevent;
-          if (detail.name) {
-            store.commit('UPDATE_CACHE_GROUP_INFO', {
-              groupId,
-              type: 'groupName',
-              params: detail.name,
-            });
-          } else if (detail.description) {
-            store.commit('UPDATE_CACHE_GROUP_INFO', {
-              groupId,
-              type: 'groupDescription',
-              params: detail.description,
-            });
-          }
-        }
-        break;
-      //接受入群邀请
-      case GROUP_OPERATION_TYPE.ACCEPT_REQUEST:
-        {
-          //更新群组列表
-          store.dispatch('fetchJoinedGroupListFromServer', {
-            startPageNum: 0,
-          });
-        }
-        break;
       //群成员更新了群组内成员属性
       case GROUP_OPERATION_TYPE.MEMBER_ATTRIBUTES_UPDATE:
         {
@@ -148,13 +151,6 @@ export const imGroupListener = () => {
           });
         }
         break;
-      //管理员直接邀请进群
-      case GROUP_OPERATION_TYPE.DIRECT_JOINED: {
-        //更新群组列表
-        store.dispatch('fetchJoinedGroupListFromServer', {
-          startPageNum: 0,
-        });
-      }
       default:
         break;
     }

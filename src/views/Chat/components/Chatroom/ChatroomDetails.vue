@@ -17,9 +17,15 @@ const router = useRouter();
 
 const chatroomDetails = ref({});
 const loading = ref(false);
+const admins = ref([]);
 const isOwner = computed(() => {
   return chatroomDetails.value.owner === EMClient.user;
 });
+const isAdmin = computed(() =>
+  admins.value.some((admin) => admin.userId === EMClient.user),
+);
+const hasAnnouncementPermission = computed(() => isOwner.value || isAdmin.value);
+const hasChatroomInfoPermission = computed(() => isOwner.value || isAdmin.value);
 
 const checkLoginStatus = () => {
   if (!EMClient.user) {
@@ -254,6 +260,10 @@ const openEditDialog = () => {
 
 const modifyChatRoom = async () => {
   if (!checkLoginStatus()) return;
+  if (!hasChatroomInfoPermission.value) {
+    ElMessage.error('只有聊天室所有者或管理员可以修改聊天室信息');
+    return;
+  }
 
   try {
     const options = {
@@ -274,7 +284,7 @@ const modifyChatRoom = async () => {
       error.type === 17 ||
       error.data?.includes('group_authorization')
     ) {
-      ElMessage.error('您没有权限修改聊天室信息');
+      ElMessage.error('只有聊天室所有者或管理员可以修改聊天室信息');
     } else {
       ElMessage.error('修改聊天室信息失败');
     }
@@ -316,6 +326,10 @@ const openAnnouncementDialog = () => {
 
 const updateChatRoomAnnouncement = async () => {
   if (!checkLoginStatus()) return;
+  if (!hasAnnouncementPermission.value) {
+    ElMessage.error('只有聊天室所有者或管理员可以更新聊天室公告');
+    return;
+  }
 
   try {
     await EMClient.updateChatRoomAnnouncement({
@@ -333,10 +347,23 @@ const updateChatRoomAnnouncement = async () => {
       error.type === 17 ||
       error.data?.includes('group_authorization')
     ) {
-      ElMessage.error('您没有权限更新聊天室公告');
+      ElMessage.error('只有聊天室所有者或管理员可以更新聊天室公告');
     } else {
       ElMessage.error('更新聊天室公告失败');
     }
+  }
+};
+
+const getChatRoomAdmin = async () => {
+  if (!checkLoginStatus()) return;
+  if (!route.query.roomId) return;
+  try {
+    const res = await EMClient.getChatRoomAdmin({
+      chatRoomId: route.query.roomId,
+    });
+    admins.value = (res.data || []).map((userId) => ({ userId }));
+  } catch (error) {
+    console.error('获取聊天室管理员失败', error);
   }
 };
 
@@ -589,6 +616,57 @@ const removeChatRoomAttribute = async (key) => {
   }
 };
 
+const removeChatRoomAttributes = async () => {
+  if (!checkLoginStatus()) return;
+  const attributeKeys = Object.keys(attributes.value || {});
+  if (attributeKeys.length === 0) {
+    ElMessage.warning('当前没有可删除的聊天室属性');
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要批量删除 ${attributeKeys.length} 个聊天室属性吗？`,
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    );
+    const params = {
+      chatRoomId: route.query.roomId,
+      attributeKeys,
+      isForced: false,
+    };
+    const res = await EMClient.removeChatRoomAttributes(params);
+    console.log(
+      `批量删除聊天室属性成功:`,
+      `\n事件：批量删除聊天室属性`,
+      `\n方法入参:`,
+      params,
+      `\n返回值:`,
+      res,
+    );
+    ElMessage.success('批量删除聊天室属性成功');
+    getChatRoomAttributes();
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除聊天室属性失败', normalizeErrorLog(error));
+      if (error.message?.includes('authenticate')) {
+        ElMessage.error('认证失败，请重新登录');
+      } else if (
+        error.message?.includes('not part of you') ||
+        error.message?.includes('permission')
+      ) {
+        ElMessage.error('没有权限删除这些属性');
+      } else {
+        ElMessage.error(error.message || '批量删除聊天室属性失败');
+      }
+    }
+  }
+};
+
 let chatroomEventHandler = null;
 
 const registerChatroomDetailEventHandler = () => {
@@ -610,8 +688,11 @@ const registerChatroomDetailEventHandler = () => {
           break;
         case CHATROOM_EVENT_OPERATIONS.SET_ADMIN:
         case CHATROOM_EVENT_OPERATIONS.REMOVE_ADMIN:
-        case CHATROOM_EVENT_OPERATIONS.UPDATE_INFO:
         case CHATROOM_EVENT_OPERATIONS.CHANGE_OWNER:
+          getChatroomDetails();
+          getChatRoomAdmin();
+          break;
+        case CHATROOM_EVENT_OPERATIONS.UPDATE_INFO:
         case CHATROOM_EVENT_OPERATIONS.UNBLOCK_MEMBER:
           getChatroomDetails();
           break;
@@ -636,6 +717,7 @@ const registerChatroomDetailEventHandler = () => {
 
 onMounted(() => {
   getChatroomDetails();
+  getChatRoomAdmin();
   registerChatroomDetailEventHandler();
 });
 
@@ -650,6 +732,7 @@ watch(
   (newRoomId, oldRoomId) => {
     if (newRoomId && newRoomId !== oldRoomId) {
       getChatroomDetails();
+      getChatRoomAdmin();
       registerChatroomDetailEventHandler();
     }
   },
@@ -724,10 +807,10 @@ watch(
         >
           成员管理
         </el-button>
-        <el-button v-if="isOwner" @click="openEditDialog">
+        <el-button v-if="hasChatroomInfoPermission" @click="openEditDialog">
           修改聊天室信息
         </el-button>
-        <el-button v-if="isOwner" @click="openAnnouncementDialog">
+        <el-button v-if="hasAnnouncementPermission" @click="openAnnouncementDialog">
           更新公告
         </el-button>
         <el-button @click="openAttributeDialog"> 添加自定义属性 </el-button>
@@ -743,6 +826,9 @@ watch(
       <template #header>
         <div class="card_header">
           <span>自定义属性</span>
+          <el-button type="danger" size="small" @click="removeChatRoomAttributes">
+            批量删除属性
+          </el-button>
         </div>
       </template>
 
@@ -904,6 +990,9 @@ watch(
     .card_header {
       font-weight: 600;
       font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     .action_buttons {

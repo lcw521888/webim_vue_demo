@@ -1,5 +1,5 @@
 <script setup>
-import { ref, toRaw, toRefs, computed, nextTick, onMounted } from 'vue';
+import { ref, toRefs, computed, nextTick, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 /* IMSDK */
 import { EMClient } from '@/IM';
@@ -226,7 +226,39 @@ const groupBlacklist = computed(() => {
 const groupMutelist = computed(() => {
   return store.getters.getGroupDetailMap.get(groupId.value)?.mutelist;
 });
+const currentGroupDetail = computed(() => {
+  return store.getters.getGroupDetailMap.get(groupId.value) || {};
+});
+const isGroupMessageBlocked = computed(() => {
+  return Boolean(
+    currentGroupDetail.value?.shieldgroup ??
+      getGroupDetailFromGroupList.value?.shieldgroup,
+  );
+});
+const maxUsersDisplay = computed(() => {
+  return (
+    getGroupDetailFromGroupList.value.maxUsers ||
+    currentGroupDetail.value.maxusers ||
+    '500'
+  );
+});
+const toggleGroupMessageBlock = async () => {
+  try {
+    if (isGroupMessageBlocked.value) {
+      await store.dispatch('unblockGroupMessage', groupId.value);
+    } else {
+      await store.dispatch('blockGroupMessage', groupId.value);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+};
 const handleUpdateGroupData = async () => {
+  try {
+    await store.dispatch('fetchGroupDetailFromServer', [groupId.value]);
+  } catch (error) {
+    console.error(error);
+  }
   //更新群组公告
   if (!getGroupAnnouncement.value && getGroupAnnouncement.value !== '') {
     try {
@@ -337,13 +369,27 @@ onMounted(() => {
         <div class="member_count">
           {{
             `${getGroupDetailFromGroupList.affiliationsCount || '0'}/${
-              getGroupDetailFromGroupList.maxUsers || '500'
+              maxUsersDisplay
             }`
           }}
         </div>
         <div class="more_list" @click="alertManagementModal('groupmembers')">
           <ArrowRight />
         </div>
+      </div>
+    </div>
+    <el-divider style="margin: 0" />
+    <div class="group_list_card group_message_block">
+      <div class="label">群消息免打扰</div>
+      <div class="main">
+        <el-switch
+          :model-value="isGroupMessageBlocked"
+          :disabled="getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.OWNER || getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.ADMIN"
+          inline-prompt
+          active-text="开"
+          inactive-text="关"
+          @change="toggleGroupMessageBlock"
+        />
       </div>
     </div>
     <el-divider style="margin: 0" />

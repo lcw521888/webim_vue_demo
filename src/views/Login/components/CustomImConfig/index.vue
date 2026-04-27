@@ -17,9 +17,17 @@ const webimConfig = useStorage(
 const configRef = ref(null);
 const configForm = ref(createImEnvironmentConfig(IM_ENVIRONMENTS.NGI));
 const pendingEnvironment = ref('');
+const getConfigFormByEnvironment = (environment) => {
+  const targetEnvironment = environment || IM_ENVIRONMENTS.NGI;
+  const savedConfig = normalizeImEnvironmentConfig(webimConfig.value);
+  if (savedConfig.environment === targetEnvironment) {
+    return _.cloneDeep(savedConfig);
+  }
+  return createImEnvironmentConfig(targetEnvironment);
+};
 const initConfigForm = () => {
   if (pendingEnvironment.value) {
-    configForm.value = createImEnvironmentConfig(pendingEnvironment.value);
+    configForm.value = getConfigFormByEnvironment(pendingEnvironment.value);
     pendingEnvironment.value = '';
     return;
   }
@@ -30,10 +38,7 @@ const openWithEnvironment = (environment) => {
   centerDialogVisible.value = true;
 };
 const handleEnvironmentChange = (environment) => {
-  configForm.value = {
-    ...configForm.value,
-    ...createImEnvironmentConfig(environment),
-  };
+  configForm.value = getConfigFormByEnvironment(environment);
 };
 // appley rules
 const appKeyRules = ref([

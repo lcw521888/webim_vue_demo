@@ -14,9 +14,14 @@ import {
   fixSocketUrl,
   fixRestUrl,
 } from '../config';
+import { openImWithRetry } from '../openWithRetry';
 import { sdkErrorToError } from '../sdkError';
 import { safeSync } from '@/utils/safeCall';
 import { redirectToLoginClearImSession } from '@/utils/imAuthRedirect';
+import {
+  sendWithReadyCheck,
+  isNotLoginError,
+} from '../sendReady';
 
 function parseJSONSafe(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -25,6 +30,26 @@ function parseJSONSafe(raw, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function cloneCreateOptions(options) {
+  if (typeof structuredClone === 'function') {
+    try {
+      return structuredClone(options);
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    return JSON.parse(JSON.stringify(options));
+  } catch {
+    return options;
+  }
+}
+
+function getLoginSessionFromStorage() {
+  if (typeof window === 'undefined') return null;
+  return parseJSONSafe(window.localStorage.getItem('EASEIM_loginUser'), null);
 }
 
 let miniCore = {};
@@ -203,6 +228,14 @@ if (Object.keys(miniCore).length) {
     // 调用原始方法
     try {
       const message = originalCreateMessage.call(this, options);
+      if (message && typeof message === 'object') {
+        Object.defineProperty(message, '__createOptions', {
+          value: cloneCreateOptions(options),
+          enumerable: false,
+          configurable: true,
+          writable: true,
+        });
+      }
       console.log('创建的消息对象:', message);
       return message;
     } catch (error) {
@@ -214,7 +247,7 @@ if (Object.keys(miniCore).length) {
 
   // 包装 send 方法，添加参数验证
   const originalSendMessage = miniCore.send;
-  miniCore.send = function (message) {
+  miniCore.send = async function (message) {
     console.log('调用 EMClient.send，message:', message);
 
     // 验证参数
@@ -230,11 +263,27 @@ if (Object.keys(miniCore).length) {
 
     // 调用原始方法
     try {
-      const result = originalSendMessage.call(this, message);
+      const result = await sendWithReadyCheck({
+        client: this,
+        message,
+        getLoginSession: getLoginSessionFromStorage,
+        reopen: (session) => openImWithRetry(this, session),
+        recreateMessage: (rawMessage) => {
+          const createOptions = rawMessage?.__createOptions;
+          if (!createOptions) {
+            return rawMessage;
+          }
+          return this.Message.create(createOptions);
+        },
+        send: (msg) => originalSendMessage.call(this, msg),
+      });
       console.log('EMClient.send 返回结果:', result);
       return result;
     } catch (error) {
       console.error('EMClient.send 内部错误:', error);
+      if (isNotLoginError(error)) {
+        console.warn('[IM] 发送时检测到未登录或连接未就绪，请重新登录。');
+      }
       // 确保抛出的是字符串错误，避免 [object Object] 错误
       throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
     }

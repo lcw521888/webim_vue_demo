@@ -61,22 +61,24 @@ export const imReviceMessageListener = () => {
       console.warn('【IM】忽略空撤回事件:', message);
       return;
     }
-    const { from, to, mid } = message;
-    //单对单的撤回to必然为登陆的用户id，群组发起撤回to必然为群组id 所以key可以这样来区分群组或者单人。
-    const key = to === EMClient.user ? from : to;
-
-    const chatType = to === EMClient.user ? CHAT_TYPE.SINGLE : CHAT_TYPE.GROUP;
+    const { mid, id, chatType } = message;
+    const key = setMessageKey(message);
+    const messageId = mid || id;
+    if (!messageId) {
+      console.warn('【IM】撤回事件缺少消息 ID，已忽略:', message);
+      return;
+    }
     safeSync('otherRecallMessage.commit', () => {
       store.commit('CHANGE_MESSAGE_BODAY', {
         type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
         key,
-        mid,
+        mid: messageId,
       });
     });
     Promise.resolve(
       store.dispatch('updateConversationList', {
         conversationId: key,
-        chatType,
+        chatType: chatType || CHAT_TYPE.SINGLE,
       }),
     ).catch((err) => console.error('[otherRecallMessage.updateConversationList]', err));
   };

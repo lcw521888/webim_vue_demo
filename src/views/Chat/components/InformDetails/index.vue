@@ -72,6 +72,7 @@ const handleClickBtn = ({ informData, index, type }) => {
           });
           await store.dispatch('fetchJoinedGroupListFromServer', {
             startPageNum: 0,
+            reset: true,
           });
           //同意之后跳转至对应的群组详情
           router.push({

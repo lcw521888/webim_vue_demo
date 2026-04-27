@@ -24,6 +24,14 @@ function isEasemobSdkStack(errorOrStack) {
   return typeof s === 'string' && s.includes('easemob-websdk');
 }
 
+function isResizeObserverNoise(text) {
+  if (!text || typeof text !== 'string') return false;
+  return (
+    text.includes('ResizeObserver loop completed with undelivered notifications') ||
+    text.includes('ResizeObserver loop limit exceeded')
+  );
+}
+
 // 捕获阶段优先于 webpack-dev-server overlay 的冒泡监听，避免全屏 ERROR
 window.addEventListener(
   'error',
@@ -36,6 +44,16 @@ window.addEventListener(
     const fromFilename =
       typeof event.filename === 'string' &&
       event.filename.includes('easemob-websdk');
+    if (isResizeObserverNoise(msg)) {
+      console.warn(
+        '[Global Error] 已拦截 ResizeObserver 开发态噪音（仅控制台输出，不阻断页面）:',
+        err || msg,
+      );
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
     if ((fromStack || fromFilename) && isNullishPropertyTypeErrorText(msg)) {
       console.error(
         '[IM SDK] 已拦截空引用异常（仅控制台输出，不阻断页面）:',

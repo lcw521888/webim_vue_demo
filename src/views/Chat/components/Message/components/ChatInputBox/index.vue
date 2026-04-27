@@ -13,18 +13,21 @@ import { MESSAGE_TYPE, CHAT_TYPE } from '@/IM/constant';
 import _ from 'lodash';
 import { EMClient } from '@/IM';
 import parseDownloadResponse from '@/utils/parseDownloadResponse';
+import { supportsDirectedMessage } from '@/utils/directedMessage';
 /* 组件 */
 import CollectAudio from '../suit/audio.vue';
 import PreviewSendImg from '../suit/previewSendImg.vue';
 import MsgQuote from '../suit/msgQuote.vue';
 import emojiContainer from '../suit/emojiContainer.vue';
 import TextMessage from './components/TextMessage';
+import SendExtMessage from './components/TextMessage/SendExtMessage.vue';
 import VideoMessage from './components/VideoMessage';
 import ImageMessage from './components/ImageMessage';
 import FileMessage from './components/FileMessage';
 import ShareUserCard from './components/CustomMessage/ShareUserCard.vue';
 import SendCustomMessage from './components/CustomMessage/SendCustomMessage.vue';
 import CmdMessage from './components/CmdMessage/index.vue';
+import SendDirectedMessage from './components/DirectedMessage/SendDirectedMessage.vue';
 //EaseCallKit Invite
 // import { useManageChannel } from '@/components/EaseCallKit/hooks';
 //inviteMembers modal
@@ -41,6 +44,9 @@ const props = defineProps({
   },
 });
 const { routeQueryData } = toRefs(props);
+const isDirectedMessageEnabled = computed(() =>
+  supportsDirectedMessage(routeQueryData.value.chatType),
+);
 //附件类上传加载状态
 const loadingBox = ref(null);
 let loadingInstance = null;
@@ -265,6 +271,28 @@ const onShowCustomMessageModal = () => {
     return;
   }
   customMessageComp.value?.openDialog?.();
+};
+/* 定向消息 */
+const directedMessageComp = ref(null);
+const onShowDirectedMessageModal = () => {
+  if (!routeQueryData.value.id || routeQueryData.value.id === '') {
+    ElMessage.error('请先选择聊天对象');
+    return;
+  }
+  if (!isDirectedMessageEnabled.value) {
+    ElMessage.error('当前会话类型不支持定向消息');
+    return;
+  }
+  directedMessageComp.value?.openDialog?.();
+};
+/* 文本扩展消息 */
+const extMessageComp = ref(null);
+const onShowExtMessageModal = () => {
+  if (!routeQueryData.value.id || routeQueryData.value.id === '') {
+    ElMessage.error('请先选择聊天对象');
+    return;
+  }
+  extMessageComp.value?.openDialog?.();
 };
 
 /* 位置消息 */
@@ -502,11 +530,25 @@ const all_func = [
     methodName: onShowCmdModal,
   },
   {
+    id: 'ext',
+    className: 'icon-kuaijiehuifu',
+    style: 'font-size: 20px;',
+    title: '发送扩展消息',
+    methodName: onShowExtMessageModal,
+  },
+  {
     id: 'custom',
     className: 'icon-wenjian',
     style: 'font-size: 20px;',
     title: '发送自定义消息',
     methodName: onShowCustomMessageModal,
+  },
+  {
+    id: 'directed',
+    className: 'icon-kuaijiehuifu',
+    style: 'font-size: 20px;',
+    title: '发送定向消息',
+    methodName: onShowDirectedMessageModal,
   },
   {
     id: 'clear',
@@ -516,6 +558,11 @@ const all_func = [
     methodName: clearScreen,
   },
 ];
+const visibleFuncs = computed(() =>
+  all_func.filter((item) =>
+    item.id === 'directed' ? isDirectedMessageEnabled.value : true,
+  ),
+);
 defineExpose({
   handleQuoteMessage,
   handleEditTextMessage,
@@ -524,7 +571,7 @@ defineExpose({
 <template>
   <div class="chat_func_box">
     <span
-      v-for="iconItem in all_func"
+      v-for="iconItem in visibleFuncs"
       :class="['iconfont', iconItem.className]"
       :key="iconItem.id"
       :style="iconItem.style"
@@ -597,6 +644,11 @@ defineExpose({
     @getImageFileFromClipboard="getImageFileFromClipboard"
     @clearQuoteContent="clearQuoteContent"
   />
+  <SendExtMessage
+    ref="extMessageComp"
+    :targetId="routeQueryData.id"
+    :chatType="routeQueryData.chatType"
+  />
   <MsgQuote ref="messageQuoteRef" />
   <!-- <InviteCallMembers ref="inviteCallMembersComp" @sendMulitInviteMsg="sendMulitInviteMsg" /> -->
   <PreviewSendImg
@@ -618,6 +670,11 @@ defineExpose({
   />
   <SendCustomMessage
     ref="customMessageComp"
+    :targetId="routeQueryData.id"
+    :chatType="routeQueryData.chatType"
+  />
+  <SendDirectedMessage
+    ref="directedMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
   />

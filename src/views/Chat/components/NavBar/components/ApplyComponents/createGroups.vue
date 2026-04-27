@@ -8,6 +8,7 @@ import { EMClient } from '@/IM';
 import { CHAT_TYPE } from '@/IM/constant';
 import { Search, CircleCheckFilled } from '@element-plus/icons-vue';
 import { useGetUserMapInfo } from '@/hooks';
+import { buildCreateGroupVNextPayload } from '@/utils/groupDocAdapters';
 /* 路由 */
 import router from '@/router';
 const emit = defineEmits(['closeDialogVisible']);
@@ -90,12 +91,13 @@ const createNewGroups = async () => {
   if (groupCreateForm.groupname === '')
     return ElNotification.error('请设置群组名称！');
   try {
-    const { data } = await EMClient.createGroup({
-      data: { ...groupCreateForm },
-    });
+    const payload = buildCreateGroupVNextPayload(groupCreateForm);
+    const { data } = await EMClient.createGroupVNext(payload);
+    const groupId = data?.groupId;
     //更新群组列表
     await store.dispatch('fetchJoinedGroupListFromServer', {
       startPageNum: 0,
+      reset: true,
     });
     ElNotification({
       title: '群组操作',
@@ -104,11 +106,11 @@ const createNewGroups = async () => {
     });
     router.push({
       path: '/chat/conversation/message',
-      query: { id: data.groupid, chatType: CHAT_TYPE.GROUP },
+      query: { id: groupId, chatType: CHAT_TYPE.GROUP },
     });
     store.dispatch('createInformMessage', {
       from: EMClient.user,
-      to: data.groupid,
+      to: groupId,
       chatType: CHAT_TYPE.GROUP,
       msg: `您的群组，【${groupCreateForm.groupname}】创建成功,聊两句吧！`,
     });

@@ -215,6 +215,25 @@ const handleMessageRead = (event) => {
 const handleChannelMessage = (event) => {
   const message = event.detail;
   console.log('收到会话已读回执:', message);
+
+  const conversationId = message?.from || message?.to;
+  if (!conversationId) return;
+
+  // 单聊收到会话已读回执后，将当前会话中我发送的消息标记为已读。
+  // 群聊会话已读回执仅用于清空服务端未读数，不会通过 onChannelMessage 回调给发送方。
+  if (message.chatType === CHAT_TYPE.SINGLE) {
+    const listKey = `${CHAT_TYPE.SINGLE}${conversationId}`;
+    const currentList = store.state.Message.messageList[listKey] || [];
+    currentList
+      .filter((item) => item.from === EMClient.user && !item.read)
+      .forEach((item) => {
+        store.commit('UPDATE_MESSAGE_READ', {
+          messageId: item.id,
+          conversationId,
+          chatType: CHAT_TYPE.SINGLE,
+        });
+      });
+  }
 };
 
 // 处理统计消息事件（离线回执）
@@ -289,6 +308,7 @@ watch(
 const loadingHistoryMsg = ref(false); //是否正在加载中
 const isMoreHistoryMsg = ref(true); //加载文案展示为加载更多还是已无更多。
 const notScrollBottom = ref(false); //是否滚动置底
+const historyMessageCursor = ref(-1);
 //获取历史记录
 const fechHistoryMessage = async (loadType) => {
   if (!routeQueryData.value) return [];
@@ -301,36 +321,29 @@ const fechHistoryMessage = async (loadType) => {
       const result = await store.dispatch('getHistoryMessage', {
         ...routeQueryData.value,
         cursor: -1,
+        pageSize: 20,
+        searchDirection: 'up',
       });
       messages = result.messages || [];
+      historyMessageCursor.value = result.cursor ?? '';
 
-      if (messages.length > 0) {
-        //返回数组有数据显示加载更多
-        isMoreHistoryMsg.value = true;
-      } else {
-        //否则已无更多。
-        isMoreHistoryMsg.value = false;
-      }
+      isMoreHistoryMsg.value = !!result.hasMore;
       setTimeout(() => {
         scrollMessageList('bottom');
       }, 500);
     } else {
-      const fistMessageId = messageData.value[0] && messageData.value[0].id;
-      if (!fistMessageId) return;
+      if (historyMessageCursor.value === '') return [];
 
       const result = await store.dispatch('getHistoryMessage', {
         ...routeQueryData.value,
-        cursor: fistMessageId,
+        cursor: historyMessageCursor.value,
+        pageSize: 20,
+        searchDirection: 'up',
       });
       messages = result.messages || [];
+      historyMessageCursor.value = result.cursor ?? '';
 
-      if (messages.length > 0) {
-        //返回数组有数据显示加载更多
-        isMoreHistoryMsg.value = true;
-      } else {
-        //否则已无更多。
-        isMoreHistoryMsg.value = false;
-      }
+      isMoreHistoryMsg.value = !!result.hasMore;
       scrollMessageList('normal');
     }
 
@@ -365,6 +378,8 @@ watch(
         !oldRouteQuery.id ||
         newRouteQuery.id !== oldRouteQuery.id
       ) {
+        historyMessageCursor.value = -1;
+        isMoreHistoryMsg.value = true;
         await fechHistoryMessage('fistLoad');
         markConversationReadIfNeeded();
       }

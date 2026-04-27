@@ -71,9 +71,15 @@ export const imConnectListener = () => {
     );
   //获取加入的群组列表
   const fetchGroupList = () =>
-    Promise.resolve(store.dispatch('fetchJoinedGroupListFromServer')).catch(
-      (err) => console.error('[fetchGroupList]', err),
-    );
+    Promise.allSettled([
+      Promise.resolve(
+        store.dispatch('fetchJoinedGroupListFromServer', {
+          startPageNum: 0,
+          reset: true,
+        }),
+      ),
+      Promise.resolve(store.dispatch('fetchJoinedGroupCountFromServer')),
+    ]).catch((err) => console.error('[fetchGroupList]', err));
   return {
     mountConnectEventListener,
     fetchLoginUsersInitData,

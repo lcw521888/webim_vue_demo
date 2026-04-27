@@ -8,6 +8,7 @@ import {
   CHAT_TYPE,
   MAX_MESSAGE_LIST_COUNT,
 } from '@/constant';
+import { isDirectedMessage } from '@/utils/directedMessage';
 import eventEmitter from '@/utils/eventEmitter';
 
 const normalizeReactionList = (reactions = []) => {
@@ -318,29 +319,42 @@ const Message = {
       commit('UPDATE_MESSAGE_LIST', params);
       // 触发新消息事件，用于播放提示音
       eventEmitter.emit('newMessage', params);
-      
-      dispatch('updateConversationList', {
-        conversationId: key,
-        chatType: params.chatType,
-      });
+
+      if (!isDirectedMessage(params)) {
+        dispatch('updateConversationList', {
+          conversationId: key,
+          chatType: params.chatType,
+        });
+      }
 
       console.log('[Vuex Action] createNewMessage 执行完成');
     },
     //获取历史消息
     getHistoryMessage: async ({ state, dispatch, commit }, params) => {
-      const { id, chatType, cursor } = params;
+      const {
+        id,
+        chatType,
+        cursor = -1,
+        pageSize = 20,
+        searchDirection = 'up',
+        searchOptions,
+      } = params;
       console.log('【Store】开始拉取历史消息:', {
         conversationId: id,
         chatType: chatType,
-        cursor: cursor || '初始加载'
+        cursor: cursor || '初始加载',
+        pageSize,
+        searchDirection,
+        searchOptions,
       });
       return new Promise((resolve, reject) => {
         const options = {
           targetId: id,
-          pageSize: 20,
-          cursor: cursor,
+          pageSize: Math.min(Math.max(Number(pageSize) || 20, 1), 50),
+          cursor,
           chatType: chatType,
-          searchDirection: 'up',
+          searchDirection,
+          ...(searchOptions ? { searchOptions } : {}),
         };
         console.log('【Store】拉取历史消息参数:', options);
         console.log('【Store】开始调用 EMClient.getHistoryMessages');
@@ -350,7 +364,7 @@ const Message = {
               hasCursor: !!res.cursor,
               messageCount: res.messages?.length || 0
             });
-            const { cursor, messages } = res;
+            const { cursor: nextCursor, messages } = res;
             console.log('【Store】处理拉取到的历史消息:', {
               originalCount: messages?.length || 0,
               firstMessageId: messages?.length > 0 ? messages[0].id : '无',
@@ -371,7 +385,6 @@ const Message = {
             }
             messages?.length > 0 &&
               messages.forEach((item) => {
-                item.read = true;
                 // 确保历史消息有正确的chatType和to字段
                 if (!item.chatType) {
                   item.chatType = chatType;
@@ -381,7 +394,14 @@ const Message = {
                 }
               });
             console.log('【Store】处理完成，准备解析结果');
-            resolve({ messages, cursor });
+            resolve({
+              messages,
+              cursor: nextCursor,
+              hasMore:
+                typeof nextCursor === 'string'
+                  ? nextCursor !== ''
+                  : (messages?.length || 0) >= options.pageSize,
+            });
             const reversedMessages = _.reverse(_.cloneDeep(messages || []));
             // 为历史消息生成正确的listKey
             const listKey = setMessageKey({ to: id, chatType });
@@ -432,11 +452,13 @@ const Message = {
     //已发送展示类型消息
     senedShowTypeMessage: async ({ dispatch, commit }, message) => {
       commit('UPDATE_MESSAGE_LIST', message);
-      // 提示会话列表更新
-      dispatch('updateConversationList', {
-        conversationId: setMessageKey(message), // 使用setMessageKey生成正确的列表键
-        chatType: message.chatType,
-      });
+      if (!isDirectedMessage(message)) {
+        // 提示会话列表更新
+        dispatch('updateConversationList', {
+          conversationId: setMessageKey(message), // 使用setMessageKey生成正确的列表键
+          chatType: message.chatType,
+        });
+      }
     },
     //添加通知类消息
     createInformMessage: ({ dispatch, commit }, params) => {
@@ -527,7 +549,7 @@ const Message = {
       const { mid, to, chatType } = params;
 
       return new Promise((resolve, reject) => {
-        EMClient.recallMessage({ mid, to, chatType })
+        EMClient.recallMessage(params)
           .then((result) => {
             const key = setMessageKey({ to, chatType });
             commit('CHANGE_MESSAGE_BODAY', {
@@ -593,6 +615,15 @@ const Message = {
             resolve('OK');
           })
           .catch((error) => {
+            console.error('[Message Modify] modifyMessage 失败', {
+              error,
+              messageId: mid,
+              targetId: to,
+              chatType,
+              conversationKey: key,
+              modifiedContent: msg,
+              loginUser: EMClient.user,
+            });
             reject(error);
           });
       });

@@ -25,7 +25,9 @@ const contactsSize = computed(
 //群组列表
 const joinedGroupList = computed(() => store.getters.getJoinedGroupList);
 //加入的群组总数
-const joinedGroupTotal = computed(() => store.getters.getJoinedGroupTotal);
+const joinedGroupTotal = computed(
+  () => store.getters.getJoinedGroupCount || store.getters.getJoinedGroupTotal,
+);
 //搜索部分的总数据(合并好友数据以及群组列表数据为输入框搜索数据源)
 const searchInputSrourceData = computed(() => {
   return [...getContactsWithRemarkMap.value.values(), ...joinedGroupList.value];

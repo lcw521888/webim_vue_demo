@@ -4,6 +4,7 @@ import { useStore } from 'vuex';
 import _ from 'lodash';
 import router from '@/router';
 import { ElMessage } from 'element-plus';
+import { CONVERSATION_MARK } from '@/constant';
 
 /* 搜索框组件 */
 import SearchInput from '@/components/SearchInput';
@@ -14,15 +15,8 @@ import ConversationList from './components/ConversationList.vue';
 
 const store = useStore();
 
-const conversationFromMethod = computed(() => {
-  return store.getters.conversationFromMethod;
-});
 const conversationList = computed(() => {
-  if (conversationFromMethod.value) {
-    return store.getters.conversationListFromLocal;
-  } else {
-    return store.getters.conversationListFromServer;
-  }
+  return store.getters.conversationListFromServer;
 });
 
 // 标星筛选状态
@@ -53,8 +47,8 @@ const toggleStarredFilter = async () => {
     try {
       await store.dispatch('getServerConversationsByFilter', {
         filter: {
-          mark: 2 // 使用标记2表示标星
-        }
+          mark: CONVERSATION_MARK.STAR,
+        },
       });
       ElMessage.success('已显示所有标星会话');
     } catch (error) {

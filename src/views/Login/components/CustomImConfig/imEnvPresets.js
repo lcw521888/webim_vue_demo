@@ -40,6 +40,7 @@ const ENV_PRIVATE_CONFIGS = {
     imServer: 'tke-sdb-im-api-wechat.easemob.com/websocket',
   },
   [IM_ENVIRONMENTS.DEV]: {
+    appKey: 'easemob-demo#sdk111',
     restServer: 'https://a1-hsb.easemob.com',
     imServer: 'im-api-new-hsb.easemob.com/websocket',
   },

@@ -21,7 +21,6 @@ const props = defineProps({
   },
 });
 const { groupId, memberRole } = toRefs(props);
-console.log('memberRole', memberRole.value);
 /* 当前登陆的id */
 const loginUserId = computed(() => EMClient.user);
 /* 数据获取 */
@@ -48,9 +47,11 @@ const {
 const showGroupsMembersName = computed(() => {
   return (item) => {
     if (item.member) {
-      return item.member === loginUserId.value
-        ? '我'
-        : getUserDisplayNameById(item.member);
+      const displayName =
+        item.member === loginUserId.value
+          ? '我'
+          : getUserDisplayNameById(item.member);
+      return item.role === 'admin' ? `${displayName}【管理员】` : displayName;
     }
     if (item.owner) {
       return item.owner === loginUserId.value
@@ -72,6 +73,7 @@ const { sortedFriendListWithRemark } = useSordedContactsWithPinyin();
  * @description 在公开群中，只容许群主管理员邀请人入群，而私有群则可设置是否容许普通群成员邀请人加群。
  */
 const isAllowedToInviteMember = computed(() => {
+  if (!groupDetail.value) return false;
   if (groupDetail.value.public && memberRole.value) {
     return true;
   }
@@ -83,7 +85,6 @@ const isAllowedToInviteMember = computed(() => {
   }
   return false;
 });
-console.log('isAllowedToInviteMember', isAllowedToInviteMember.value);
 //邀请成员
 const inviteNewMemberInTheGroup = async (hxId) => {
   ElMessageBox.confirm('确定要邀请该成员？', '邀请成员', {
@@ -205,7 +206,7 @@ const searchUsers = (keyword) => {
                       getContactsNickNameById(item?.userId)
                     }}</b>
                   </div>
-                  <template v-if="!groupDetail.public && memberRole">
+                  <template v-if="isAllowedToInviteMember">
                     <el-button
                       v-if="!isInGroupMemberList(item.userId)"
                       type="primary"

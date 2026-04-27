@@ -11,6 +11,7 @@ export default createStore({
     loginState: false,
     networkStatus: true,
     isShowWarningTips: true,
+    chatroomMembers: new Map(),
     loginUserInfo: {
       hxId: '',
       nickname: '',
@@ -22,6 +23,7 @@ export default createStore({
   getters: {
     loginUserInfo: (state) => state.loginUserInfo,
     loginUserOnlineStatus: (state) => state.loginUserOnlineStatus,
+    getChatroomMembersMap: (state) => state.chatroomMembers,
   },
   mutations: {
     CLOSE_WARNING_TIPS: (state) => (state.isShowWarningTips = false),
@@ -30,6 +32,10 @@ export default createStore({
     },
     CHANGE_NETWORK_STATUS: (state, status) => {
       state.networkStatus = status;
+    },
+    SET_CHATROOM_MEMBERS: (state, payload) => {
+      const { chatRoomId, members } = payload;
+      state.chatroomMembers.set(String(chatRoomId), [...members]);
     },
 
     SET_LOGIN_USER_INFO: (state, infos) => {
