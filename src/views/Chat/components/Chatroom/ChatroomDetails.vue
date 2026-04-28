@@ -145,7 +145,10 @@ const leaveChatroom = async () => {
       `\n跳转页面: /chat/chatroom`,
     );
     ElMessage.success('退出聊天室成功');
-    eventEmitter.emit('chatroomMembershipChanged');
+    eventEmitter.emit('chatroomMembershipChanged', {
+      roomId: targetRoomId,
+      joined: false,
+    });
     router.push('/chat/chatroom');
   } catch (error) {
     if (error !== 'cancel') {

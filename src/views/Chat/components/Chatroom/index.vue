@@ -1020,6 +1020,17 @@ const refreshChatroomLists = () => {
   void getJoinedChatrooms();
 };
 
+const handleChatroomMembershipChanged = (payload = {}) => {
+  const roomId = normalizeChatroomId(payload.roomId);
+  if (roomId) {
+    syncRoomJoinOverride(roomId, Boolean(payload.joined));
+    if (payload.joined === false) {
+      markRoomLeft(roomId);
+    }
+  }
+  refreshChatroomLists();
+};
+
 watch(
   () => route.fullPath,
   (path, prevPath) => {
@@ -1035,11 +1046,11 @@ onMounted(() => {
   getChatrooms();
   getJoinedChatrooms();
   setupChatroomEventHandler();
-  eventEmitter.on('chatroomMembershipChanged', refreshChatroomLists);
+  eventEmitter.on('chatroomMembershipChanged', handleChatroomMembershipChanged);
 });
 
 onUnmounted(() => {
-  eventEmitter.off('chatroomMembershipChanged', refreshChatroomLists);
+  eventEmitter.off('chatroomMembershipChanged', handleChatroomMembershipChanged);
   if (chatroomEventHandler) {
     EMClient.removeEventHandler('CHATROOM');
   }

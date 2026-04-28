@@ -46,6 +46,29 @@ const updateMessageReactionInAllLists = (state, messageId, reactions) => {
   return found;
 };
 
+const findMessageById = (state, preferredKey, messageId) => {
+  if (!messageId) return null;
+
+  if (preferredKey && state.messageList[preferredKey]) {
+    const preferredMessage = _.find(
+      state.messageList[preferredKey],
+      (item) => item.id === messageId,
+    );
+    if (preferredMessage) {
+      return preferredMessage;
+    }
+  }
+
+  const fallbackKey = Object.keys(state.messageList).find((listKey) => {
+    if (listKey === preferredKey) return false;
+    return state.messageList[listKey]?.some((item) => item.id === messageId);
+  });
+
+  if (!fallbackKey) return null;
+
+  return _.find(state.messageList[fallbackKey], (item) => item.id === messageId);
+};
+
 const Message = {
   state: {
     messageList: {},
@@ -197,20 +220,21 @@ const Message = {
           break;
         case CHANGE_MESSAGE_BODAY_TYPE.MODIFY:
           {
-            if (state.messageList[key]) {
-              const res = _.find(state.messageList[key], (o) => o.id === mid);
-              if (res) {
-                // 保存原始的发送者信息和聊天类型
-                const originalFrom = res.from;
-                const originalChatType = res.chatType;
-                // 更新消息内容，但保持发送者和聊天类型不变
-                _.assign(res, payload?.message);
-                // 恢复原始的发送者信息和聊天类型
-                res.from = originalFrom;
-                res.chatType = originalChatType;
-              } else {
-                console.warn('未找到要修改的消息:', mid);
+            const res = findMessageById(state, key, mid);
+            if (res) {
+              // 保存原始的发送者信息和聊天类型
+              const originalFrom = res.from;
+              const originalChatType = res.chatType;
+              // 更新消息内容，但保持发送者和聊天类型不变
+              _.assign(res, payload?.message);
+              if (payload?.msg !== undefined) {
+                res.msg = payload.msg;
               }
+              // 恢复原始的发送者信息和聊天类型
+              res.from = originalFrom;
+              res.chatType = originalChatType;
+            } else {
+              console.warn('未找到要修改的消息:', mid);
             }
           }
           break;
@@ -347,6 +371,20 @@ const Message = {
         searchDirection,
         searchOptions,
       });
+      if (chatType === CHAT_TYPE.CHATROOM) {
+        console.warn(
+          '【Store】聊天室会话暂不调用 getHistoryMessages，直接返回空历史记录以避免 SDK 内部异常',
+          {
+            conversationId: id,
+            chatType,
+          },
+        );
+        return {
+          messages: [],
+          cursor: '',
+          hasMore: false,
+        };
+      }
       return new Promise((resolve, reject) => {
         const options = {
           targetId: id,
@@ -606,7 +644,14 @@ const Message = {
               type: CHANGE_MESSAGE_BODAY_TYPE.MODIFY,
               key: key,
               mid,
-              message,
+              msg,
+              message: {
+                ...(message || {}),
+                id: message?.id || mid,
+                to: message?.to || to,
+                chatType: message?.chatType || chatType,
+                msg,
+              },
             });
             dispatch('updateConversationList', {
               conversationId: key,
