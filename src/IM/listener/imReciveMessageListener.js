@@ -88,15 +88,20 @@ export const imReviceMessageListener = () => {
       console.warn('【IM】忽略空编辑消息事件:', message);
       return;
     }
-    const { from, to, id: mid, chatType } = message;
+    const { from, to, id, mid, editMessageId, chatType } = message;
     //单对单的撤回to必然为登陆的用户id，群组发起撤回to必然为群组id 所以key可以这样来区分群组或者单人。
     if (!to) return;
     const key = to === EMClient.user ? from : to;
+    const messageId = editMessageId || mid || id;
+    if (!messageId) {
+      console.warn('【IM】编辑消息事件缺少原消息 ID，已忽略:', message);
+      return;
+    }
     safeSync('otherModifyMessage.commit', () => {
       store.commit('CHANGE_MESSAGE_BODAY', {
         type: CHANGE_MESSAGE_BODAY_TYPE.MODIFY,
         key,
-        mid,
+        mid: messageId,
         message,
       });
     });

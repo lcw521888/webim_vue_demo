@@ -93,6 +93,13 @@
         font-size: 11px;
         color: #7a8699;
       }
+      .message_stream_error {
+        padding: 0 10px 10px;
+        font-size: 11px;
+        line-height: 16px;
+        color: #d14343;
+        word-break: break-word;
+      }
       /* 通用音频播放样式 */
       .message_box_content_audio {
         display: flex;

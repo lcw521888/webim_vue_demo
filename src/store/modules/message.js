@@ -10,6 +10,11 @@ import {
 } from '@/constant';
 import { isDirectedMessage } from '@/utils/directedMessage';
 import eventEmitter from '@/utils/eventEmitter';
+import {
+  isSdkVersionAtLeast,
+  shouldTriggerIncomingMessageEffects,
+  STREAM_MIN_SDK_VERSION,
+} from '@/utils/streamMessageSupport';
 
 const normalizeReactionList = (reactions = []) => {
   if (!Array.isArray(reactions)) return [];
@@ -46,13 +51,18 @@ const updateMessageReactionInAllLists = (state, messageId, reactions) => {
   return found;
 };
 
+const isSameMessage = (message, messageId) => {
+  if (!message || !messageId) return false;
+  return message.id === messageId || message.mid === messageId;
+};
+
 const findMessageById = (state, preferredKey, messageId) => {
   if (!messageId) return null;
 
   if (preferredKey && state.messageList[preferredKey]) {
     const preferredMessage = _.find(
       state.messageList[preferredKey],
-      (item) => item.id === messageId,
+      (item) => isSameMessage(item, messageId),
     );
     if (preferredMessage) {
       return preferredMessage;
@@ -61,12 +71,88 @@ const findMessageById = (state, preferredKey, messageId) => {
 
   const fallbackKey = Object.keys(state.messageList).find((listKey) => {
     if (listKey === preferredKey) return false;
-    return state.messageList[listKey]?.some((item) => item.id === messageId);
+    return state.messageList[listKey]?.some((item) =>
+      isSameMessage(item, messageId),
+    );
   });
 
   if (!fallbackKey) return null;
 
-  return _.find(state.messageList[fallbackKey], (item) => item.id === messageId);
+  return _.find(state.messageList[fallbackKey], (item) =>
+    isSameMessage(item, messageId),
+  );
+};
+
+const hasMessageInList = (state, listKey, messageId) => {
+  if (!listKey || !messageId) return false;
+  return !!state.messageList[listKey]?.some((item) =>
+    isSameMessage(item, messageId),
+  );
+};
+
+const shouldPreserveEditedText = (currentMessage, incomingMessage) => {
+  if (!currentMessage || !incomingMessage) return false;
+  if (currentMessage.type !== 'txt') return false;
+  if (incomingMessage.type !== undefined && incomingMessage.type !== 'txt') return false;
+  const currentOperationCount = Number(currentMessage?.modifiedInfo?.operationCount) || 0;
+  const incomingOperationCount = Number(incomingMessage?.modifiedInfo?.operationCount) || 0;
+  if (currentOperationCount <= 0) return false;
+  if (currentMessage.msg === undefined || incomingMessage.msg === undefined) return false;
+  return currentMessage.msg !== incomingMessage.msg && incomingOperationCount <= currentOperationCount;
+};
+
+const mergeMessagePreservingEditedText = (currentMessage, incomingMessage) => {
+  if (!currentMessage) return incomingMessage;
+  if (!incomingMessage) return currentMessage;
+  const shouldKeepEditedText = shouldPreserveEditedText(currentMessage, incomingMessage);
+  const nextMessage = {
+    ...currentMessage,
+    ...incomingMessage,
+  };
+  if (shouldKeepEditedText) {
+    nextMessage.msg = currentMessage.msg;
+  }
+  return nextMessage;
+};
+
+const sleep = (ms) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const shouldRetryChatroomModify = (error, chatType) => {
+  if (chatType !== CHAT_TYPE.CHATROOM) return false;
+  if (!error) return false;
+  return (
+    error?.type === 1302 ||
+    error?.message === 'The message does not exist.' ||
+    String(error?.message || '').includes('The message does not exist')
+  );
+};
+
+const modifyMessageWithRetry = async ({
+  messageId,
+  modifiedMessage,
+  chatType,
+  maxRetries = 10,
+  retryDelayMs = 1000,
+}) => {
+  let lastError;
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      return await EMClient.modifyMessage({
+        messageId,
+        modifiedMessage,
+      });
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryChatroomModify(error, chatType) || attempt === maxRetries) {
+        throw error;
+      }
+      await sleep(retryDelayMs);
+    }
+  }
+  throw lastError;
 };
 
 const Message = {
@@ -111,7 +197,11 @@ const Message = {
             (m) => m.id === msgBody.id,
           );
           if (index !== -1) {
-            state.messageList[listKey][index] = msgBody;
+            const currentMessage = state.messageList[listKey][index];
+            state.messageList[listKey][index] = mergeMessagePreservingEditedText(
+              currentMessage,
+              msgBody,
+            );
           }
         }
       } else {
@@ -149,11 +239,37 @@ const Message = {
       if (!state.messageList[listKey]) {
         state.messageList[listKey] = [];
       }
-      state.messageList[listKey] = _.unionBy(
-        historyMessageList,
-        state.messageList[listKey],
-        (m) => m.id,
+      const currentMessages = state.messageList[listKey] || [];
+      const mergedById = new Map();
+
+      currentMessages.forEach((message) => {
+        if (message?.id) {
+          mergedById.set(message.id, message);
+        }
+      });
+
+      historyMessageList.forEach((message) => {
+        if (!message?.id) {
+          return;
+        }
+        const currentMessage = mergedById.get(message.id);
+        mergedById.set(
+          message.id,
+          mergeMessagePreservingEditedText(currentMessage, message),
+        );
+      });
+
+      const historyIds = new Set(
+        historyMessageList.map((message) => message?.id).filter(Boolean),
       );
+      const mergedHistory = historyMessageList.map((message) =>
+        mergedById.get(message.id) || message,
+      );
+      const remainedCurrent = currentMessages.filter(
+        (message) => !message?.id || !historyIds.has(message.id),
+      );
+
+      state.messageList[listKey] = [...mergedHistory, ...remainedCurrent];
     },
     UPDATE_MESSAGE_IDS_COLLECTION: (state, payload) => {
       const { id: serverMsgId, key, type } = payload;
@@ -223,12 +339,16 @@ const Message = {
             const res = findMessageById(state, key, mid);
             if (res) {
               // 保存原始的发送者信息和聊天类型
+              const originalMessage = { ...res };
               const originalFrom = res.from;
               const originalChatType = res.chatType;
+              const originalMsg = res.msg;
               // 更新消息内容，但保持发送者和聊天类型不变
               _.assign(res, payload?.message);
               if (payload?.msg !== undefined) {
                 res.msg = payload.msg;
+              } else if (shouldPreserveEditedText(originalMessage, payload?.message)) {
+                res.msg = originalMsg;
               }
               // 恢复原始的发送者信息和聊天类型
               res.from = originalFrom;
@@ -332,22 +452,30 @@ const Message = {
   },
   actions: {
     //添加新消息
-    createNewMessage: ({ dispatch, commit }, params) => {
+    createNewMessage: ({ dispatch, commit, state }, params) => {
       console.log('[Vuex Action] createNewMessage 被调用');
       console.log('消息参数:', params);
 
       const key = setMessageKey(params);
+      const existedBefore = hasMessageInList(state, key, params?.id);
+      const shouldTriggerSideEffects = shouldTriggerIncomingMessageEffects({
+        message: params,
+        existedBefore,
+      });
 
       console.log('生成的消息列表键:', key);
 
       commit('UPDATE_MESSAGE_LIST', params);
-      // 触发新消息事件，用于播放提示音
-      eventEmitter.emit('newMessage', params);
+      // 流式消息后续分片只更新原消息内容，不重复触发新消息副作用
+      if (shouldTriggerSideEffects) {
+        eventEmitter.emit('newMessage', params);
+      }
 
       if (!isDirectedMessage(params)) {
         dispatch('updateConversationList', {
           conversationId: key,
           chatType: params.chatType,
+          incrementUnread: shouldTriggerSideEffects,
         });
       }
 
@@ -371,12 +499,19 @@ const Message = {
         searchDirection,
         searchOptions,
       });
-      if (chatType === CHAT_TYPE.CHATROOM) {
+      const currentSdkVersion = EMClient.version || '';
+      const canLoadChatroomHistory = isSdkVersionAtLeast(
+        currentSdkVersion,
+        STREAM_MIN_SDK_VERSION,
+      );
+      if (chatType === CHAT_TYPE.CHATROOM && !canLoadChatroomHistory) {
         console.warn(
-          '【Store】聊天室会话暂不调用 getHistoryMessages，直接返回空历史记录以避免 SDK 内部异常',
+          '【Store】当前 SDK 版本未达到聊天室历史消息安全阈值，直接返回空历史记录以避免 SDK 内部异常',
           {
             conversationId: id,
             chatType,
+            currentSdkVersion,
+            requiredSdkVersion: STREAM_MIN_SDK_VERSION,
           },
         );
         return {
@@ -623,8 +758,13 @@ const Message = {
         return Promise.reject(new Error('参数错误'));
       }
 
-      const { id: mid, to, chatType, msg } = params;
+      const { id, mid, to, chatType, msg } = params;
+      const messageId = mid || id;
       const key = setMessageKey(params);
+      if (!messageId) {
+        console.error('modifyMessage 缺少可用的消息 ID:', params);
+        return Promise.reject(new Error('缺少消息ID'));
+      }
       return new Promise((resolve, reject) => {
         const textMessage = EMClient.Message.create({
           type: 'txt',
@@ -634,20 +774,22 @@ const Message = {
           chatType: chatType,
         });
 
-        EMClient.modifyMessage({
-          messageId: mid,
+        modifyMessageWithRetry({
+          messageId,
           modifiedMessage: textMessage,
+          chatType,
         })
           .then((res) => {
             const { message } = res || {};
             commit('CHANGE_MESSAGE_BODAY', {
               type: CHANGE_MESSAGE_BODAY_TYPE.MODIFY,
               key: key,
-              mid,
+              mid: messageId,
               msg,
               message: {
                 ...(message || {}),
-                id: message?.id || mid,
+                id: message?.id || id || messageId,
+                mid: message?.mid || mid || messageId,
                 to: message?.to || to,
                 chatType: message?.chatType || chatType,
                 msg,
@@ -662,7 +804,7 @@ const Message = {
           .catch((error) => {
             console.error('[Message Modify] modifyMessage 失败', {
               error,
-              messageId: mid,
+              messageId,
               targetId: to,
               chatType,
               conversationKey: key,

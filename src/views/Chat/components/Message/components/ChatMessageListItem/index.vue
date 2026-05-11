@@ -21,6 +21,11 @@ import fileSizeFormat from '@/utils/fileSizeFormat';
 import dateFormat from '@/utils/dateFormater';
 import { CUSTOM_MESSAGE_TYPE } from '@/constant';
 import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
+import {
+  getStreamStatusDetailText,
+  getStreamStatusText,
+  isStreamMessage,
+} from '@/utils/streamMessageSupport';
 /* utils */
 import paseLink from '@/utils/paseLink';
 /* 默认头像 */
@@ -305,20 +310,6 @@ const handleNickName = (msgBody) => {
   if (chatType === CHAT_TYPE.GROUP) {
     return getUserDisplayNameById(userId, groupId);
   }
-};
-const isStreamMessage = (msgBody) => {
-  return !!(msgBody && msgBody.stream && typeof msgBody.stream === 'object');
-};
-const getStreamStatusText = (msgBody) => {
-  const status = msgBody?.stream?.status;
-  const statusMap = {
-    START: '生成开始',
-    START_AND_COMPLETE: '单片完成',
-    IN_PROGRESS: '生成中',
-    COMPLETED: '已完成',
-    ERROR: '异常结束',
-  };
-  return statusMap[status] || '流式消息';
 };
 /* 处理时间显示间隔 */
 // 使用缓存避免重复计算
@@ -816,7 +807,7 @@ const getReactionUserAvatar = (userId) => {
                     <!-- 已编辑 -->
                     <sup
                       style="font-size: 7px; color: #707784"
-                      v-show="msgBody?.modifiedInfo?.operationCount"
+                      v-if="msgBody?.modifiedInfo?.operationCount"
                       >（已编辑）</sup
                     >
                   </template>
@@ -842,6 +833,12 @@ const getReactionUserAvatar = (userId) => {
                   <span v-if="msgBody?.stream?.customType">
                     {{ msgBody.stream.customType }}
                   </span>
+                </div>
+                <div
+                  v-if="isStreamMessage(msgBody) && getStreamStatusDetailText(msgBody)"
+                  class="message_stream_error"
+                >
+                  {{ getStreamStatusDetailText(msgBody) }}
                 </div>
                 <!-- 图片类型消息 -->
                 <el-image

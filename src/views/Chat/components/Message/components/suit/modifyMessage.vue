@@ -34,6 +34,7 @@ const editMessageContent = reactive({
   msg: '',
   to: '',
   id: '',
+  mid: '',
   chatType: CHAT_TYPE.SINGLE,
 });
 const loading = ref(false);
@@ -51,10 +52,27 @@ const saveEditedMessage = async () => {
       error,
       editMessageContent: { ...editMessageContent },
     });
-    if (error?.type === 50) {
+    const rawError =
+      error && typeof error === 'object' && error.error ? error.error : error;
+    const rawMessage =
+      rawError instanceof Error
+        ? rawError.message
+        : typeof rawError?.message === 'string'
+          ? rawError.message
+          : '';
+    if (rawError?.type === 50) {
       ElMessage({
         type: 'error',
         message: '该消息可编辑次数已达上限',
+        center: true,
+      });
+    } else if (
+      rawError?.type === 1302 ||
+      rawMessage.includes('The message does not exist')
+    ) {
+      ElMessage({
+        type: 'error',
+        message: '聊天室消息编辑当前不可用，请先确认该环境/AppKey已开通消息编辑能力',
         center: true,
       });
     } else {
@@ -74,16 +92,18 @@ const initModifyMessage = (msgBody) => {
   dialogVisible.value = true;
   nextTick(() => {
     if (msgBody) {
-      const { id, msg, to, chatType } = msgBody;
+      const { id, mid, msg, to, chatType } = msgBody;
       //
       editMessageContent.msg = msg;
       editMessageContent.to = to;
       editMessageContent.id = id;
+      editMessageContent.mid = mid || id;
       editMessageContent.chatType = chatType;
     } else {
       editMessageContent.msg = '';
       editMessageContent.to = '';
       editMessageContent.id = '';
+      editMessageContent.mid = '';
       editMessageContent.chatType = CHAT_TYPE.SINGLE;
     }
   });

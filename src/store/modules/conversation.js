@@ -501,7 +501,7 @@ const Conversation = {
     },
     //更新Store中的会话列表（远端会话会在环信服务自动更新。）
     updateConversationWithServer: async ({ state, commit }, params) => {
-      const { conversationId, chatType } = params;
+      const { conversationId, chatType, incrementUnread = true } = params;
 
       //从messageStore中获取最新一条消息
       const latestMessage = getLatestMessageBodyFromMessageStore(
@@ -529,14 +529,14 @@ const Conversation = {
           },
           unReadCount:
             Number(conversationItem.unReadCount || 0) +
-            (isUnreadMessage ? 1 : 0),
+            (isUnreadMessage && incrementUnread ? 1 : 0),
         });
       } //如果本地没有则手动创建一个同结构的会话数据
       else {
         const toBeUpdateConversationItem = {
           conversationId,
           conversationType: chatType,
-          unReadCount: isUnreadMessage ? 1 : 0,
+          unReadCount: isUnreadMessage && incrementUnread ? 1 : 0,
           lastMessage: latestMessage,
           customField: {
             mention: checkLastMsgIsHasMention(latestMessage),
