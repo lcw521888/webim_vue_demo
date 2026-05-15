@@ -144,3 +144,11 @@ defineExpose({
   dialogVisible,
 });
 </script>
+
+<style lang="scss" scoped>
+.ext-msg-form {
+  :deep(.el-textarea__inner) {
+    border-radius: 4px;
+  }
+}
+</style>

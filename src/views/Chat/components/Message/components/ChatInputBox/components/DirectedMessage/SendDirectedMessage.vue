@@ -272,4 +272,10 @@ defineExpose({
   font-size: 12px;
   line-height: 18px;
 }
+
+.directed-msg-form {
+  :deep(.el-textarea__inner) {
+    border-radius: 4px;
+  }
+}
 </style>

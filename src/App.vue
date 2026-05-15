@@ -2,8 +2,7 @@
 import '@/utils/globalErrorHandler';
 import { ref, onMounted, onUnmounted } from 'vue';
 import { mountAllEMListener } from '@/IM/listener';
-import { EMClient, openImWithRetry } from '@/IM';
-import { isAlreadyLoggedInError } from '@/IM/openWithRetry';
+import { EMClient } from '@/IM';
 import { sdkErrorToError } from '@/IM/sdkError';
 import {
   isImAuthFailedReason,
@@ -36,17 +35,12 @@ try {
 
 const handleRelogin = async () => {
   try {
-    await openImWithRetry(EMClient, {
+    await EMClient.open({
       username: loginUserFromStorage.user,
       accessToken: loginUserFromStorage.accessToken,
     });
   } catch (raw) {
     const error = sdkErrorToError(raw);
-    if (isAlreadyLoggedInError(error)) {
-      console.warn('[App] 检测到残留登录态，但自动恢复 open 未成功，返回登录页');
-      redirectToLoginClearImSession();
-      return;
-    }
     if (isImAuthFailedReason(raw) || isImAuthFailedReason(error)) {
       console.warn('[App] IM 鉴权失败，跳转登录页');
       redirectToLoginClearImSession();

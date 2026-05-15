@@ -28,6 +28,7 @@ import { useStore } from 'vuex';
 import { CHAT_TYPE } from '@/IM/constant';
 import { ElMessage } from 'element-plus';
 import { Check, Close } from '@element-plus/icons-vue';
+import { resolveModifyMessageErrorMessage } from '@/utils/messageModifyError';
 const store = useStore();
 const dialogVisible = ref(false);
 const editMessageContent = reactive({
@@ -48,40 +49,11 @@ const saveEditedMessage = async () => {
   try {
     await store.dispatch('modifyMessage', { ...editMessageContent });
   } catch (error) {
-    console.error('[ModifyMessageDialog] 消息编辑失败', {
-      error,
-      editMessageContent: { ...editMessageContent },
+    ElMessage({
+      type: 'error',
+      message: resolveModifyMessageErrorMessage(error),
+      center: true,
     });
-    const rawError =
-      error && typeof error === 'object' && error.error ? error.error : error;
-    const rawMessage =
-      rawError instanceof Error
-        ? rawError.message
-        : typeof rawError?.message === 'string'
-          ? rawError.message
-          : '';
-    if (rawError?.type === 50) {
-      ElMessage({
-        type: 'error',
-        message: '该消息可编辑次数已达上限',
-        center: true,
-      });
-    } else if (
-      rawError?.type === 1302 ||
-      rawMessage.includes('The message does not exist')
-    ) {
-      ElMessage({
-        type: 'error',
-        message: '聊天室消息编辑当前不可用，请先确认该环境/AppKey已开通消息编辑能力',
-        center: true,
-      });
-    } else {
-      ElMessage({
-        type: 'error',
-        message: '消息编辑失败请稍后重试',
-        center: true,
-      });
-    }
   } finally {
     loading.value = false;
     dialogVisible.value = false;

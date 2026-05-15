@@ -10,11 +10,7 @@ import {
 } from '@/constant';
 import { isDirectedMessage } from '@/utils/directedMessage';
 import eventEmitter from '@/utils/eventEmitter';
-import {
-  isSdkVersionAtLeast,
-  shouldTriggerIncomingMessageEffects,
-  STREAM_MIN_SDK_VERSION,
-} from '@/utils/streamMessageSupport';
+import { shouldTriggerIncomingMessageEffects } from '@/utils/streamMessageSupport';
 
 const normalizeReactionList = (reactions = []) => {
   if (!Array.isArray(reactions)) return [];
@@ -113,46 +109,6 @@ const mergeMessagePreservingEditedText = (currentMessage, incomingMessage) => {
     nextMessage.msg = currentMessage.msg;
   }
   return nextMessage;
-};
-
-const sleep = (ms) =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-const shouldRetryChatroomModify = (error, chatType) => {
-  if (chatType !== CHAT_TYPE.CHATROOM) return false;
-  if (!error) return false;
-  return (
-    error?.type === 1302 ||
-    error?.message === 'The message does not exist.' ||
-    String(error?.message || '').includes('The message does not exist')
-  );
-};
-
-const modifyMessageWithRetry = async ({
-  messageId,
-  modifiedMessage,
-  chatType,
-  maxRetries = 10,
-  retryDelayMs = 1000,
-}) => {
-  let lastError;
-  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
-    try {
-      return await EMClient.modifyMessage({
-        messageId,
-        modifiedMessage,
-      });
-    } catch (error) {
-      lastError = error;
-      if (!shouldRetryChatroomModify(error, chatType) || attempt === maxRetries) {
-        throw error;
-      }
-      await sleep(retryDelayMs);
-    }
-  }
-  throw lastError;
 };
 
 const Message = {
@@ -499,27 +455,6 @@ const Message = {
         searchDirection,
         searchOptions,
       });
-      const currentSdkVersion = EMClient.version || '';
-      const canLoadChatroomHistory = isSdkVersionAtLeast(
-        currentSdkVersion,
-        STREAM_MIN_SDK_VERSION,
-      );
-      if (chatType === CHAT_TYPE.CHATROOM && !canLoadChatroomHistory) {
-        console.warn(
-          '【Store】当前 SDK 版本未达到聊天室历史消息安全阈值，直接返回空历史记录以避免 SDK 内部异常',
-          {
-            conversationId: id,
-            chatType,
-            currentSdkVersion,
-            requiredSdkVersion: STREAM_MIN_SDK_VERSION,
-          },
-        );
-        return {
-          messages: [],
-          cursor: '',
-          hasMore: false,
-        };
-      }
       return new Promise((resolve, reject) => {
         const options = {
           targetId: id,
@@ -774,10 +709,9 @@ const Message = {
           chatType: chatType,
         });
 
-        modifyMessageWithRetry({
+        EMClient.modifyMessage({
           messageId,
           modifiedMessage: textMessage,
-          chatType,
         })
           .then((res) => {
             const { message } = res || {};
@@ -817,7 +751,9 @@ const Message = {
     },
     fetchMessageReactionList: async ({ commit }, params) => {
       const { messageId, chatType, groupId, key } = params || {};
-      if (!messageId || !chatType) return [];
+      if (!messageId || !chatType) {
+        throw new Error('fetchMessageReactionList 缺少参数');
+      }
       try {
         console.log('[Reaction] getReactionlist 请求', {
           messageId,
@@ -841,7 +777,7 @@ const Message = {
         return reactions;
       } catch (error) {
         console.error('[Reaction] getReactionlist 失败', error);
-        return [];
+        throw error;
       }
     },
     fetchMessageReactionDetail: async (_, params) => {
@@ -887,16 +823,7 @@ const Message = {
         await EMClient.addReaction({ messageId, reaction });
         console.log('[Reaction] addReaction 成功', { messageId, reaction });
       } catch (error) {
-        // 1101 表示当前用户已对同一条消息添加过该 Reaction。
-        // 这属于幂等场景，刷新列表后直接返回，避免把它当成真正失败。
-        if (
-          error?.type === 1101 ||
-          error?.message?.includes('already operation this message')
-        ) {
-          console.warn('[Reaction] 已添加过该表情，改为刷新当前 Reaction 列表');
-        } else {
-          throw error;
-        }
+        throw error;
       }
       return dispatch('fetchMessageReactionList', {
         messageId,

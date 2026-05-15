@@ -301,23 +301,7 @@ const Groups = {
           });
         } catch (error) {
           console.error('>>>群详情获取失败', error);
-          if (error?.data) {
-            const { error_description } = JSON.parse(error.data);
-            if (error_description.includes('do not find this group:')) {
-              // 使用正则表达式截取不存在的群组ID
-              const groupIdMatch = error_description.match(/group:(\d+)/);
-              if (groupIdMatch) {
-                const nonExistentGroupId = groupIdMatch[1];
-                // 从groupIds数组中去除不存在的群组ID
-                _.pull(groupIdArray, nonExistentGroupId);
-                // 重新发起请求
-                await fetchDetailsForGroupIds(groupIdArray);
-              }
-            } else {
-              // 如果是其他类型的错误，可以在这里处理
-              console.error('发生未知错误:', error);
-            }
-          }
+          throw error;
         }
       }
 

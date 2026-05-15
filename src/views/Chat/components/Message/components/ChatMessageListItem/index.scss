@@ -198,6 +198,27 @@
         }
       }
 
+      /* 位置消息样式 */
+      .message_box_content_location {
+        min-width: 180px;
+        max-width: 260px;
+        padding: 10px 12px;
+        line-height: 20px;
+
+        .location_title {
+          margin: 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #333333;
+        }
+
+        .location_detail {
+          margin: 4px 0 0;
+          font-size: 12px;
+          color: #666666;
+        }
+      }
+
       /* 文件消息样式 */
       .message_box_content_file {
         display: flex;

@@ -4,6 +4,7 @@ import {
   isImAuthFailedReason,
   redirectToLoginClearImSession,
 } from './imAuthRedirect';
+import { notifyRuntimeError } from './runtimeErrorNotifier';
 
 /** 环信 miniCore 等对 undefined/null 取字段时的典型报错（Chrome / Firefox 文案略有差异） */
 function isNullishPropertyTypeErrorText(text) {
@@ -56,10 +57,11 @@ window.addEventListener(
     }
     if ((fromStack || fromFilename) && isNullishPropertyTypeErrorText(msg)) {
       console.error(
-        '[IM SDK] 已拦截空引用异常（仅控制台输出，不阻断页面）:',
+        '[IM SDK] 捕获到空引用异常:',
         err || msg,
       );
       if (err?.stack) console.error(err.stack);
+      notifyRuntimeError(err || msg);
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -106,7 +108,7 @@ window.onerror = function (message, source, lineno, colno, error) {
 
     console.error('=========================\n');
 
-    // 阻止默认的错误处理，防止应用崩溃
+    notifyRuntimeError(error || message);
     return true;
   }
 
@@ -136,14 +138,15 @@ window.addEventListener(
       } else {
         try {
           console.warn(
-            '[unhandledrejection] 非 Error 对象（已拦截，避免 dev overlay）：',
+            '[unhandledrejection] 非 Error 对象:',
             JSON.stringify(reason),
             reason,
           );
         } catch {
-          console.warn('[unhandledrejection] 非 Error 对象（已拦截）：', reason);
+          console.warn('[unhandledrejection] 非 Error 对象:', reason);
         }
       }
+      notifyRuntimeError(reason);
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -164,10 +167,12 @@ window.addEventListener(
 
     if (reason instanceof Error && String(reason.message) === '[object Object]') {
       console.warn(
-        '[unhandledrejection] 已拦截无展示价值的 Error（message 为 [object Object]），详情见控制台:',
+        '[unhandledrejection] 捕获到 Error（message 为 [object Object]），详情见控制台:',
         reason,
       );
+      notifyRuntimeError(reason);
       event.preventDefault();
+      event.stopPropagation();
       event.stopImmediatePropagation();
       return;
     }
@@ -183,9 +188,10 @@ window.addEventListener(
 
     if (isNetworkError) {
       console.error(
-        '[unhandledrejection] 网络类错误（已记录，不强制跳转以免页面不可用）:',
+        '[unhandledrejection] 网络类错误:',
         reason,
       );
+      notifyRuntimeError(reason);
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -200,7 +206,7 @@ window.addEventListener(
 
     if (isSDKError && isTypeError) {
       console.error(
-        '\n=== 全局捕获到 SDK 空引用 TypeError（已阻止冒泡到 dev overlay）===',
+        '\n=== 全局捕获到 SDK 空引用 TypeError ===',
       );
       console.error('错误原因:', reason);
 
@@ -229,7 +235,7 @@ window.addEventListener(
       }
 
       console.error('=========================\n');
-
+      notifyRuntimeError(reason);
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();

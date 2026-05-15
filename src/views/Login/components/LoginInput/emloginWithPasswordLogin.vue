@@ -6,11 +6,10 @@
  */
 import { ref, reactive, watch, computed } from 'vue';
 import { ElMessage } from 'element-plus';
-import { EMClient, openImWithRetry } from '@/IM';
+import { EMClient } from '@/IM';
 import { useStore } from 'vuex';
 import { usePlayRing } from '@/hooks';
 import { redirectToLoginClearImSession } from '@/utils/imAuthRedirect';
-import { isAlreadyLoggedInError } from '@/IM/openWithRetry';
 const store = useStore();
 const loginValue = reactive({
   username: '',
@@ -43,7 +42,7 @@ const loginIM = async () => {
   buttonLoading.value = true;
   
   try {
-    let { accessToken } = await openImWithRetry(EMClient, {
+    let { accessToken } = await EMClient.open({
       username: loginValue.username.toLowerCase(),
       password: loginValue.password.toLowerCase(),
     });
@@ -59,26 +58,7 @@ const loginIM = async () => {
   } catch (error) {
     console.log(error);
 
-    if (isAlreadyLoggedInError(error)) {
-      console.warn('SDK 返回已登录态，但本次 open 未成功，保留在登录页并提示用户重试');
-      ElMessage({
-        message: '检测到残留登录态，请稍后重试；若仍失败，请刷新页面后再登录',
-        type: 'warning',
-        center: true,
-      });
-      redirectToLoginClearImSession();
-    } else if (error.message?.includes('devices is overflow') || error.message?.includes('device limit')) {
-      // 处理设备数量限制错误
-      console.log('设备数量超过限制，尝试强制登录');
-      // 这里可以添加强制登录逻辑，或者提示用户
-      ElMessage({
-        message: '设备数量超过限制，正在尝试强制登录...',
-        type: 'warning',
-        center: true,
-      });
-      // 跳转到聊天页面
-      window.location.href = '/chat';
-    } else if (error.type === 28 || error.message === 'INVALID_TOKEN' || error.message?.includes('Invalid token')) {
+    if (error.type === 28 || error.message === 'INVALID_TOKEN' || error.message?.includes('Invalid token')) {
       ElMessage({
         title: '登录过期',
         message: '登录令牌无效或已过期，请重新登录',

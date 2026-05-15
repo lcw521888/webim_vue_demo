@@ -1,3 +1,5 @@
+import { notifyRuntimeError } from './runtimeErrorNotifier';
+
 /**
  * 在 SDK / 路由 / Vuex 等回调里执行同步逻辑，避免未捕获异常导致整页白屏或不可操作。
  */
@@ -6,6 +8,7 @@ export function safeSync(label, fn) {
     return fn();
   } catch (err) {
     console.error(`[safeSync:${label}]`, err);
+    notifyRuntimeError(err);
   }
 }
 
@@ -18,6 +21,7 @@ export function safeAsync(label, promise) {
   }
   return promise.catch((err) => {
     console.error(`[safeAsync:${label}]`, err);
+    notifyRuntimeError(err);
   });
 }
 

@@ -14,14 +14,9 @@ import {
   fixSocketUrl,
   fixRestUrl,
 } from '../config';
-import { openImWithRetry } from '../openWithRetry';
 import { sdkErrorToError } from '../sdkError';
 import { safeSync } from '@/utils/safeCall';
 import { redirectToLoginClearImSession } from '@/utils/imAuthRedirect';
-import {
-  sendWithReadyCheck,
-  isNotLoginError,
-} from '../sendReady';
 
 function parseJSONSafe(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -263,27 +258,11 @@ if (Object.keys(miniCore).length) {
 
     // 调用原始方法
     try {
-      const result = await sendWithReadyCheck({
-        client: this,
-        message,
-        getLoginSession: getLoginSessionFromStorage,
-        reopen: (session) => openImWithRetry(this, session),
-        recreateMessage: (rawMessage) => {
-          const createOptions = rawMessage?.__createOptions;
-          if (!createOptions) {
-            return rawMessage;
-          }
-          return this.Message.create(createOptions);
-        },
-        send: (msg) => originalSendMessage.call(this, msg),
-      });
+      const result = await originalSendMessage.call(this, message);
       console.log('EMClient.send 返回结果:', result);
       return result;
     } catch (error) {
       console.error('EMClient.send 内部错误:', error);
-      if (isNotLoginError(error)) {
-        console.warn('[IM] 发送时检测到未登录或连接未就绪，请重新登录。');
-      }
       // 确保抛出的是字符串错误，避免 [object Object] 错误
       throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
     }
@@ -327,37 +306,6 @@ if (Object.keys(miniCore).length) {
         throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
       }
     };
-  } else {
-    // 如果 reportMessage 方法不存在，添加一个模拟实现
-    miniCore.reportMessage = function (params) {
-      console.log('调用 EMClient.reportMessage（模拟实现），参数:', params);
-
-      // 验证参数
-      if (!params) {
-        console.error('EMClient.reportMessage: 缺少参数');
-        throw new Error('EMClient.reportMessage: 缺少参数');
-      }
-
-      if (!params.messageId) {
-        console.error('EMClient.reportMessage: 缺少messageId参数', params);
-        throw new Error('EMClient.reportMessage: 缺少messageId参数');
-      }
-
-      if (!params.reportType) {
-        console.error('EMClient.reportMessage: 缺少reportType参数', params);
-        throw new Error('EMClient.reportMessage: 缺少reportType参数');
-      }
-
-      if (!params.reportReason) {
-        console.error('EMClient.reportMessage: 缺少reportReason参数', params);
-        throw new Error('EMClient.reportMessage: 缺少reportReason参数');
-      }
-
-      // 返回成功的Promise，模拟举报成功
-      console.log('【模拟】举报消息成功:', params.messageId);
-      return Promise.resolve({ code: 200, message: '举报成功' });
-    };
-    console.warn('EMClient.reportMessage 方法不存在，已添加模拟实现，实际举报功能可能无法使用');
   }
 
   // 添加或包装 pinMessage 方法（置顶消息）
@@ -398,37 +346,6 @@ if (Object.keys(miniCore).length) {
         throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
       }
     };
-  } else {
-    // 如果 pinMessage 方法不存在，添加一个模拟实现
-    miniCore.pinMessage = function (options) {
-      console.log('调用 EMClient.pinMessage（模拟实现），参数:', options);
-
-      // 验证参数
-      if (!options) {
-        console.error('EMClient.pinMessage: 缺少参数');
-        throw new Error('EMClient.pinMessage: 缺少参数');
-      }
-
-      if (!options.conversationType) {
-        console.error('EMClient.pinMessage: 缺少conversationType参数', options);
-        throw new Error('EMClient.pinMessage: 缺少conversationType参数');
-      }
-
-      if (!options.conversationId) {
-        console.error('EMClient.pinMessage: 缺少conversationId参数', options);
-        throw new Error('EMClient.pinMessage: 缺少conversationId参数');
-      }
-
-      if (!options.messageId) {
-        console.error('EMClient.pinMessage: 缺少messageId参数', options);
-        throw new Error('EMClient.pinMessage: 缺少messageId参数');
-      }
-
-      // 返回成功的Promise，模拟置顶消息成功
-      console.log('【模拟】置顶消息成功:', options.messageId);
-      return Promise.resolve();
-    };
-    console.warn('EMClient.pinMessage 方法不存在，已添加模拟实现，实际置顶功能可能无法使用');
   }
 
   // 添加或包装 unpinMessage 方法（取消置顶消息）
@@ -468,37 +385,6 @@ if (Object.keys(miniCore).length) {
         throw sdkErrorToError(error);
       }
     };
-  } else {
-    // 如果 unpinMessage 方法不存在，添加一个模拟实现
-    miniCore.unpinMessage = function (options) {
-      console.log('调用 EMClient.unpinMessage（模拟实现），参数:', options);
-
-      // 验证参数
-      if (!options) {
-        console.error('EMClient.unpinMessage: 缺少参数');
-        throw new Error('EMClient.unpinMessage: 缺少参数');
-      }
-
-      if (!options.conversationType) {
-        console.error('EMClient.unpinMessage: 缺少conversationType参数', options);
-        throw new Error('EMClient.unpinMessage: 缺少conversationType参数');
-      }
-
-      if (!options.conversationId) {
-        console.error('EMClient.unpinMessage: 缺少conversationId参数', options);
-        throw new Error('EMClient.unpinMessage: 缺少conversationId参数');
-      }
-
-      if (!options.messageId) {
-        console.error('EMClient.unpinMessage: 缺少messageId参数', options);
-        throw new Error('EMClient.unpinMessage: 缺少messageId参数');
-      }
-
-      // 返回成功的Promise，模拟取消置顶消息成功
-      console.log('【模拟】取消置顶消息成功:', options.messageId);
-      return Promise.resolve();
-    };
-    console.warn('EMClient.unpinMessage 方法不存在，已添加模拟实现，实际取消置顶功能可能无法使用');
   }
 
   // 添加或包装 getServerPinnedMessages 方法（获取置顶消息）
@@ -533,35 +419,6 @@ if (Object.keys(miniCore).length) {
         throw sdkErrorToError(error);
       }
     };
-  } else {
-    // 如果 getServerPinnedMessages 方法不存在，添加一个模拟实现
-    miniCore.getServerPinnedMessages = function (options) {
-      console.log('调用 EMClient.getServerPinnedMessages（模拟实现），参数:', options);
-
-      // 验证参数
-      if (!options) {
-        console.error('EMClient.getServerPinnedMessages: 缺少参数');
-        throw new Error('EMClient.getServerPinnedMessages: 缺少参数');
-      }
-
-      if (!options.conversationId) {
-        console.error('EMClient.getServerPinnedMessages: 缺少conversationId参数', options);
-        throw new Error('EMClient.getServerPinnedMessages: 缺少conversationId参数');
-      }
-
-      if (!options.conversationType) {
-        console.error('EMClient.getServerPinnedMessages: 缺少conversationType参数', options);
-        throw new Error('EMClient.getServerPinnedMessages: 缺少conversationType参数');
-      }
-
-      // 返回模拟的置顶消息列表
-      console.log('【模拟】获取置顶消息列表成功:', options.conversationId);
-      return Promise.resolve({
-        cursor: '',
-        pinnedMessages: []
-      });
-    };
-    console.warn('EMClient.getServerPinnedMessages 方法不存在，已添加模拟实现，实际获取置顶消息功能可能无法使用');
   }
 
   // 添加消息置顶事件监听
@@ -755,34 +612,6 @@ if (Object.keys(miniCore).length) {
         throw sdkErrorToError(error);
       }
     };
-  } else {
-    // 如果 getGroupMsgReadUser 方法不存在，添加一个模拟实现
-    miniCore.getGroupMsgReadUser = function (params) {
-      console.log('调用 EMClient.getGroupMsgReadUser（模拟实现），参数:', params);
-
-      // 验证参数
-      if (!params) {
-        console.error('EMClient.getGroupMsgReadUser: 缺少参数');
-        throw new Error('EMClient.getGroupMsgReadUser: 缺少参数');
-      }
-
-      if (!params.msgId) {
-        console.error('EMClient.getGroupMsgReadUser: 缺少msgId参数', params);
-        throw new Error('EMClient.getGroupMsgReadUser: 缺少msgId参数');
-      }
-
-      if (!params.groupId) {
-        console.error('EMClient.getGroupMsgReadUser: 缺少groupId参数', params);
-        throw new Error('EMClient.getGroupMsgReadUser: 缺少groupId参数');
-      }
-
-      // 返回模拟的已读用户列表
-      console.log('【模拟】获取群消息已读用户成功:', params.msgId);
-      return Promise.resolve({
-        users: []
-      });
-    };
-    console.warn('EMClient.getGroupMsgReadUser 方法不存在，已添加模拟实现，实际获取群消息已读用户功能可能无法使用');
   }
 
   // 添加或包装 getGroupInfo 方法（获取群组信息）
@@ -823,17 +652,8 @@ if (Object.keys(miniCore).length) {
         // 确保返回的是字符串错误，避免 [object Object] 错误
         return Promise.reject(new Error(typeof error === 'string' ? error : JSON.stringify(error)));
       }
-    } else {
-      // 如果原始方法不存在，返回模拟实现
-      console.warn('EMClient.getGroupInfo 原始方法不存在，使用模拟实现');
-      return Promise.resolve({ 
-        code: 200, 
-        data: [{ 
-          groupId: params.groupId,
-          affiliations: []
-        }] 
-      });
     }
+    return Promise.reject(new Error('EMClient.getGroupInfo: SDK 未提供该方法'));
   };
   
   // 将包装后的方法赋值给 miniCore
@@ -882,12 +702,8 @@ if (Object.keys(miniCore).length) {
               // 确保返回的是字符串错误，避免 [object Object] 错误
               return Promise.reject(new Error(typeof error === 'string' ? error : JSON.stringify(error)));
             }
-          } else {
-            // 如果原始方法不存在，返回模拟实现
-            console.warn('EMClient.recallMessage 原始方法不存在，使用模拟实现');
-            console.log('【模拟】撤回消息成功:', params.mid);
-            return Promise.resolve({ code: 200, message: '模拟撤回成功' });
           }
+    return Promise.reject(new Error('EMClient.recallMessage: SDK 未提供该方法'));
   };
   
   // 将包装后的方法赋值给 miniCore

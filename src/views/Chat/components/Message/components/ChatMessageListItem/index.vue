@@ -577,20 +577,11 @@ const unpinMessage = async (msgBody) => {
     });
   } catch (error) {
     console.error('取消置顶消息失败:', error);
-    // 当消息未置顶时，不显示错误提示
-    if (error.message === 'user session pin message not exist') {
-      ElMessage({
-        type: 'info',
-        message: '消息未置顶',
-        center: true,
-      });
-    } else {
-      ElMessage({
-        type: 'error',
-        message: `取消置顶失败：${error.message || '请稍后重试'}`,
-        center: true,
-      });
-    }
+    ElMessage({
+      type: 'error',
+      message: `取消置顶失败：${error.message || '请稍后重试'}`,
+      center: true,
+    });
   }
 };
 //父组件重新编辑方法
@@ -881,8 +872,19 @@ const getReactionUserAvatar = (userId) => {
                     style="background-size: 100% 100%"
                   ></div>
                 </div>
-                <div v-if="msgBody.type === MESSAGE_TYPE.LOCAL">
-                  <p style="padding: 10px">[暂不支持位置消息展示]</p>
+                <div
+                  v-if="msgBody.type === MESSAGE_TYPE.LOCAL"
+                  class="message_box_content_location"
+                >
+                  <p class="location_title">
+                    {{ msgBody.addr || '位置消息' }}
+                  </p>
+                  <p v-if="msgBody.buildingName" class="location_detail">
+                    建筑：{{ msgBody.buildingName }}
+                  </p>
+                  <p class="location_detail">
+                    纬度：{{ msgBody.lat ?? '-' }}，经度：{{ msgBody.lng ?? '-' }}
+                  </p>
                 </div>
                 <!-- 透传消息 -->
                 <div

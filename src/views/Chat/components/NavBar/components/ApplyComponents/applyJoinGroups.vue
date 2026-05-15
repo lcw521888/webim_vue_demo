@@ -42,14 +42,13 @@ const getTheGroupIsPublic = async (groupId) => {
     const res = await EMClient.getGroupInfo({ groupId: groupId + '' });
 
     if (res && res?.data && res.data[0]?.public === false) {
-      Promise.resolve(false);
       return ElNotification({
         title: '申请入群',
         message: '该群为私有群不可主动申请！',
         type: 'warning',
       });
     } else {
-      return Promise.resolve(true);
+      return true;
     }
   } catch (error) {
     if (error.type === 17) {
@@ -58,10 +57,9 @@ const getTheGroupIsPublic = async (groupId) => {
         message: '该群为私有群不可主动申请！',
         type: 'warning',
       });
-      return Promise.resolve(false);
-    } else {
-      return Promise.resolve(true);
+      return false;
     }
+    throw error;
   }
 };
 const joinGroups = async () => {

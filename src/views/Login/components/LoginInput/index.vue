@@ -2,11 +2,10 @@
 import { ref, reactive, watch, computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useStorage } from '@vueuse/core';
-import { EMClient, openImWithRetry } from '@/IM';
+import { EMClient } from '@/IM';
 import { sdkErrorToError } from '@/IM/sdkError';
 import { handleSDKErrorNotifi } from '@/utils/handleSomeData';
 import { redirectToLoginClearImSession } from '@/utils/imAuthRedirect';
-import { isAlreadyLoggedInError } from '@/IM/openWithRetry';
 import { fetchUserLoginSmsCode, fetchUserLoginToken } from '@/api/login';
 import { useStore } from 'vuex';
 import { usePlayRing } from '@/hooks';
@@ -66,7 +65,7 @@ const loginIM = async () => {
     if (res?.code === 200) {
       // open 为异步：必须 await，且仅在成功后再写本地，避免「未连上却已有缓存」导致二次登录才正常
       try {
-        await openImWithRetry(EMClient, {
+        await EMClient.open({
           username: res.chatUserName.toLowerCase(),
           accessToken: res.token,
         });
@@ -80,47 +79,26 @@ const loginIM = async () => {
       } catch (loginError) {
         const err = sdkErrorToError(loginError);
         // 处理登录错误
-        if (isAlreadyLoggedInError(err)) {
-          console.warn('SDK 返回已登录态，但本次 open 未成功，保留在登录页并提示用户重试');
-          ElMessage({
-            message: '检测到残留登录态，请稍后重试；若仍失败，请刷新页面后再登录',
-            type: 'warning',
-            center: true,
-          });
+        if (
+          err.originalError?.type === 28 ||
+          err.originalError?.type === 401 ||
+          err.message?.includes('INVALID_TOKEN') ||
+          err.message?.includes('Invalid token') ||
+          err.message?.includes('Unauthorized') ||
+          err.message?.includes('Auth failed')
+        ) {
           redirectToLoginClearImSession();
-        } else if (err.message?.includes('devices is overflow') || err.message?.includes('device limit')) {
-          // 处理设备数量限制错误
-          console.log('设备数量超过限制，尝试强制登录');
-          // 这里可以添加强制登录逻辑，或者提示用户
-          ElMessage({
-            message: '设备数量超过限制，正在尝试强制登录...',
-            type: 'warning',
-            center: true,
-          });
-          // 跳转到聊天页面
-          window.location.href = '/chat';
-        } else {
-          if (
-            err.originalError?.type === 28 ||
-            err.originalError?.type === 401 ||
-            err.message?.includes('INVALID_TOKEN') ||
-            err.message?.includes('Invalid token') ||
-            err.message?.includes('Unauthorized') ||
-            err.message?.includes('Auth failed')
-          ) {
-            redirectToLoginClearImSession();
-          }
-          console.error('登录失败:', loginError);
-          ElMessage({
-            message: `${
-              err.originalError?.data?.message ||
-              err.message ||
-              '登录失败，请检查网络后重试'
-            }`,
-            type: 'error',
-            center: true,
-          });
         }
+        console.error('登录失败:', loginError);
+        ElMessage({
+          message: `${
+            err.originalError?.data?.message ||
+            err.message ||
+            '登录失败，请检查网络后重试'
+          }`,
+          type: 'error',
+          center: true,
+        });
       }
     }
   } catch (error) {

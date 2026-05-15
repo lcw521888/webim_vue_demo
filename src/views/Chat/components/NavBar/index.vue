@@ -9,7 +9,7 @@ import { useRoute } from 'vue-router';
 /* lodash */
 import _ from 'lodash';
 /* icon */
-import { Plus, Message } from '@element-plus/icons-vue';
+import { ChatDotRound, Message, UserFilled } from '@element-plus/icons-vue';
 /* 组件 */
 import MiniInfoCard from './components/AboutUserInfoCard/MiniInfoCard.vue';
 import UserOnlineStatusCard from './components/UserOnlineStatusCard.vue';
@@ -48,8 +48,6 @@ const highligthConversation = require('@/assets/images/tabbar/highlightconversat
 const grayConversation = require('@/assets/images/tabbar/grayconversation.png');
 const highligthContacts = require('@/assets/images/tabbar/higtlightcontacts.png');
 const grayContacts = require('@/assets/images/tabbar/graycontacts.png');
-const highligthChatroom = require('@/assets/images/tabbar/sessionhighlight2x.png');
-const grayChatroom = require('@/assets/images/tabbar/session2x.png');
 const changeSkipRouterName = (routerName) => {
   router.push(`/chat/${routerName}`);
 };
@@ -165,11 +163,22 @@ const toSendFeedback = () => window.open('mailto:yunying@easemob.com');
     class="chat_chatroom chat_icon_box"
     @click="changeSkipRouterName('chatroom')"
   >
-    <img
-      class="chat_chatroom_icon"
-      :src="skipRouterName === 'chatroom' ? highligthChatroom : grayChatroom"
-      alt=""
-    />
+    <div
+      class="chat_chatroom_trigger"
+      :class="{ 'is-active': skipRouterName === 'chatroom' }"
+      title="聊天室"
+      aria-label="聊天室"
+    >
+      <span class="chat_chatroom_glyph">
+        <el-icon class="chat_chatroom_bubble">
+          <ChatDotRound />
+        </el-icon>
+        <el-icon class="chat_chatroom_member">
+          <UserFilled />
+        </el-icon>
+      </span>
+      <span class="chat_chatroom_label">聊天室</span>
+    </div>
   </div>
   <!-- 新建添加部分 -->
   <div class="chat_settings">
@@ -495,15 +504,71 @@ const toSendFeedback = () => window.open('mailto:yunying@easemob.com');
 }
 
 .chat_chatroom {
-  img {
-    display: inline-block;
-    width: 27px;
-    height: 27px;
-    transition: all 0.5s;
+  .chat_chatroom_trigger {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    color: #aab4c3;
+    background: rgba(255, 255, 255, 0.06);
+    transition:
+      transform 0.3s ease,
+      background-color 0.3s ease,
+      box-shadow 0.3s ease,
+      color 0.3s ease;
+    cursor: pointer;
 
     &:hover {
-      transform: scale(1.3);
+      transform: translateY(-1px) scale(1.04);
+      background: rgba(67, 147, 255, 0.16);
+      color: #dcecff;
+      box-shadow: 0 8px 18px rgba(11, 112, 222, 0.18);
     }
+
+    &.is-active {
+      background: linear-gradient(180deg, #33a0ff 0%, #1477ff 100%);
+      color: #ffffff;
+      box-shadow: 0 10px 24px rgba(20, 119, 255, 0.32);
+    }
+  }
+
+  .chat_chatroom_glyph {
+    position: relative;
+    display: inline-flex;
+    width: 28px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chat_chatroom_bubble {
+    font-size: 25px;
+    line-height: 1;
+  }
+
+  .chat_chatroom_member {
+    position: absolute;
+    right: -4px;
+    bottom: -2px;
+    padding: 1px;
+    font-size: 11px;
+    line-height: 1;
+    border-radius: 50%;
+    background: #262626;
+  }
+
+  .chat_chatroom_trigger.is-active .chat_chatroom_member {
+    background: #1477ff;
+  }
+
+  .chat_chatroom_label {
+    font-size: 11px;
+    line-height: 1;
+    letter-spacing: 0.6px;
   }
 }
 
