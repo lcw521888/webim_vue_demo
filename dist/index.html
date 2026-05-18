@@ -1,0 +1,47 @@
+<!doctype html><html lang=""><head><meta charset="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><meta name="viewport" content="width=device-width,initial-scale=1"/><link rel="icon" href="/favicon.ico"/><title>webim-vue3-demo</title><script>(function () {
+        function nullishPropMsg(m) {
+          return (
+            typeof m === 'string' &&
+            (m.indexOf('Cannot read properties of null') !== -1 ||
+              m.indexOf('Cannot read properties of undefined') !== -1 ||
+              m.indexOf("Cannot read property '") !== -1)
+          );
+        }
+        function sdkStack(x) {
+          var s = (x && x.stack) || '';
+          return typeof s === 'string' && s.indexOf('easemob-websdk') !== -1;
+        }
+        window.addEventListener(
+          'error',
+          function (ev) {
+            var err = ev.error;
+            var msg = (err && err.message) || ev.message || '';
+            var fn = ev.filename || '';
+            if (
+              nullishPropMsg(msg) &&
+              (sdkStack(err) || fn.indexOf('easemob-websdk') !== -1)
+            ) {
+              console.error('[IM SDK preload] 空引用（已拦截 overlay）', err || msg);
+              if (err && err.stack) console.error(err.stack);
+              ev.preventDefault();
+              ev.stopPropagation();
+              ev.stopImmediatePropagation();
+            }
+          },
+          true,
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (ev) {
+            var r = ev.reason;
+            var msg = (r && r.message) || '';
+            if (nullishPropMsg(msg) && sdkStack(r)) {
+              console.error('[IM SDK preload] 未处理拒绝（已拦截 overlay）', r);
+              ev.preventDefault();
+              ev.stopPropagation();
+              ev.stopImmediatePropagation();
+            }
+          },
+          true,
+        );
+      })();</script><script src="https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js"></script><script defer="defer" src="/js/313.df97be8a.js"></script><script defer="defer" src="/js/app.76e39d60.js"></script><link href="/css/app.c49101cd.css" rel="stylesheet"></head><body><noscript><strong>We're sorry but webim-vue3-demo doesn't work properly without JavaScript enabled. Please enable it to continue.</strong></noscript><div id="app"></div></body></html>
