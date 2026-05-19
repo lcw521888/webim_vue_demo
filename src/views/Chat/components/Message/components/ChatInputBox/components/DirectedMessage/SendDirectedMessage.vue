@@ -80,7 +80,7 @@ const dialogVisible = ref(false);
 const sending = ref(false);
 const receiverInput = ref('');
 const form = ref({
-  msg: '',
+  msg: '这是一条定向消息',
 });
 
 const receiverList = computed(() => normalizeReceiverList(receiverInput.value));

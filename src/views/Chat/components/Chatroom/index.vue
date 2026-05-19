@@ -681,8 +681,13 @@ const joinChatroom = async (roomId) => {
       `\n目标聊天室ID:`,
       roomId,
     );
-    markRoomJoined(roomId);
+    // 移除乐观更新：只有在API调用成功后才标记为已加入
+    // 原代码：markRoomJoined(roomId); // 违反AGENTS.md规则：在服务器确认前就更新UI状态
     const res = await EMClient.joinChatRoom(joinChatRoomParams);
+    
+    // API调用成功后才标记为已加入，反映真实服务器响应
+    markRoomJoined(roomId);
+    
     logChatroomOperation(
       'ChatroomIndex',
       CHATROOM_EVENT_OPERATIONS.MEMBER_PRESENCE,
@@ -736,7 +741,8 @@ const joinChatroom = async (roomId) => {
       ].filter(Boolean);
     }
   } catch (error) {
-    locallyJoinedChatroomIds.value.delete(normalizeChatroomId(roomId));
+    // 移除错误处理中的删除操作，因为根本没有添加
+    // 原代码：locallyJoinedChatroomIds.value.delete(normalizeChatroomId(roomId));
     console.error(
       `加入聊天室失败:`,
       `\n调用方法: ${JOIN_CHAT_ROOM_METHOD}`,
