@@ -34,7 +34,14 @@ const delTheFriend = async () => {
       await EMClient.deleteContact(targetId);
       store.commit('DELETE_CONTACTS_FROM_MAP', targetId);
       ElMessage({ type: 'success', center: true, message: '好友已删除~' });
-    } catch (error) {}
+    } catch (error) {
+      console.error('删除好友失败:', error);
+      ElMessage({
+        type: 'error',
+        center: true,
+        message: error?.message || '删除好友失败',
+      });
+    }
   }
 };
 // 设置好友备注

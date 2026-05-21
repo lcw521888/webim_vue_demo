@@ -353,9 +353,6 @@ const Conversation = {
           const chatroomsResult = await EMClient.getJoinedChatRooms({
             pageNum: 1,
             pageSize: 100,
-          }).catch((chatroomError) => {
-            console.error('获取聊天室列表失败', chatroomError);
-            return { data: [] };
           });
 
           // 处理聊天室列表
@@ -614,7 +611,10 @@ const Conversation = {
           conversationType,
           customField: { ...customField },
         });
-      } catch (error) {}
+      } catch (error) {
+        console.error('设置本地会话自定义属性失败', error);
+        throw error;
+      }
     },
     //通过会话Id调用群组或聊天室详情用于会话列表数据展示
     callGroupDetailWithConversationId: async (

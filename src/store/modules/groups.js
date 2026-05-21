@@ -421,14 +421,11 @@ const Groups = {
           EMClient.getGroupMembersAttributes({
             groupId,
             userIds: _.flatten(_.map(list, _.values)),
-          }).catch((e) => {
-            console.error('Partial request failed:', e);
-            return null;
           }),
         );
 
         const results = await Promise.all(requests);
-        queue.push(...results.filter(Boolean));
+        queue.push(...results);
 
         // 添加间隔延迟（最后一个批次不等待）
         if (membersList.length > 0) {

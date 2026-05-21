@@ -42,6 +42,79 @@ function cloneCreateOptions(options) {
   }
 }
 
+function getRequestLogContext(payload) {
+  if (!payload || typeof payload !== 'object') return {};
+  return {
+    from: payload.from || '',
+    to: payload.to || '',
+    chatType: payload.chatType || '',
+    roomId: payload.roomId || payload.chatRoomId || '',
+    groupId: payload.groupId || '',
+    messageId: payload.id || payload.mid || '',
+  };
+}
+
+function getSdkUser(client) {
+  return client?.user || miniCore?.user || '';
+}
+
+function logSdkRequest(client, methodName, params) {
+  console.log(`[EMClient request] ${methodName} -> 请求开始`, {
+    methodName,
+    user: getSdkUser(client),
+    params,
+    context: getRequestLogContext(params),
+  });
+}
+
+function logSdkResponse(client, methodName, params, result, startTime) {
+  console.log(`[EMClient request] ${methodName} -> 请求成功`, {
+    methodName,
+    user: getSdkUser(client),
+    durationMs: Date.now() - startTime,
+    params,
+    context: getRequestLogContext(params),
+    result,
+  });
+}
+
+function logSdkRequestError(client, methodName, params, error, startTime) {
+  console.error(`[EMClient request] ${methodName} -> 请求失败`, {
+    methodName,
+    user: getSdkUser(client),
+    durationMs: Date.now() - startTime,
+    params,
+    context: getRequestLogContext(params),
+    error,
+  });
+}
+
+function wrapRequest(methodName, originalMethod) {
+  return function wrappedRequest(params) {
+    const startTime = Date.now();
+    logSdkRequest(this, methodName, params);
+    try {
+      const result = originalMethod.call(this, params);
+      if (result && typeof result.then === 'function') {
+        return result
+          .then((response) => {
+            logSdkResponse(this, methodName, params, response, startTime);
+            return response;
+          })
+          .catch((error) => {
+            logSdkRequestError(this, methodName, params, error, startTime);
+            throw error;
+          });
+      }
+      logSdkResponse(this, methodName, params, result, startTime);
+      return result;
+    } catch (error) {
+      logSdkRequestError(this, methodName, params, error, startTime);
+      throw error;
+    }
+  };
+}
+
 function getLoginSessionFromStorage() {
   if (typeof window === 'undefined') return null;
   return parseJSONSafe(window.localStorage.getItem('EASEIM_loginUser'), null);
@@ -95,6 +168,16 @@ const initEMClient = () => {
     multiDevice: configOptions.multiDevice,
   });
   miniCore = new MiniCore({ ...configOptions });
+
+  if (typeof miniCore.open === 'function') {
+    const originalOpen = miniCore.open;
+    miniCore.open = wrapRequest('open', originalOpen);
+  }
+
+  if (typeof miniCore.close === 'function') {
+    const originalClose = miniCore.close;
+    miniCore.close = wrapRequest('close', originalClose);
+  }
 
   // 添加连接错误处理
   miniCore.addEventHandler('connectionError', {
@@ -306,6 +389,53 @@ if (Object.keys(miniCore).length) {
         throw new Error(typeof error === 'string' ? error : JSON.stringify(error));
       }
     };
+  }
+
+  if (typeof miniCore.joinChatRoom === 'function') {
+    const originalJoinChatRoom = miniCore.joinChatRoom;
+    miniCore.joinChatRoom = wrapRequest('joinChatRoom', originalJoinChatRoom);
+  }
+
+  if (typeof miniCore.leaveChatRoom === 'function') {
+    const originalLeaveChatRoom = miniCore.leaveChatRoom;
+    miniCore.leaveChatRoom = wrapRequest('leaveChatRoom', originalLeaveChatRoom);
+  }
+
+  if (typeof miniCore.destroyChatRoom === 'function') {
+    const originalDestroyChatRoom = miniCore.destroyChatRoom;
+    miniCore.destroyChatRoom = wrapRequest(
+      'destroyChatRoom',
+      originalDestroyChatRoom,
+    );
+  }
+
+  if (typeof miniCore.getChatRooms === 'function') {
+    const originalGetChatRooms = miniCore.getChatRooms;
+    miniCore.getChatRooms = wrapRequest('getChatRooms', originalGetChatRooms);
+  }
+
+  if (typeof miniCore.getJoinedChatRooms === 'function') {
+    const originalGetJoinedChatRooms = miniCore.getJoinedChatRooms;
+    miniCore.getJoinedChatRooms = wrapRequest(
+      'getJoinedChatRooms',
+      originalGetJoinedChatRooms,
+    );
+  }
+
+  if (typeof miniCore.getChatRoomDetails === 'function') {
+    const originalGetChatRoomDetails = miniCore.getChatRoomDetails;
+    miniCore.getChatRoomDetails = wrapRequest(
+      'getChatRoomDetails',
+      originalGetChatRoomDetails,
+    );
+  }
+
+  if (typeof miniCore.getChatRoomMembers === 'function') {
+    const originalGetChatRoomMembers = miniCore.getChatRoomMembers;
+    miniCore.getChatRoomMembers = wrapRequest(
+      'getChatRoomMembers',
+      originalGetChatRoomMembers,
+    );
   }
 
   // 添加或包装 pinMessage 方法（置顶消息）

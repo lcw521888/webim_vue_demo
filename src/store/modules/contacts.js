@@ -76,7 +76,6 @@ const Contacts = {
   actions: {
     //获取好友列表
     fetchAllFriendListFromServer: async ({ dispatch, commit }) => {
-      const friendListData = {};
       try {
         //获取好友列表
         console.log('开始获取好友列表');
@@ -85,14 +84,13 @@ const Contacts = {
         
         // 安全检查
         if (!result || !result.data) {
-          console.warn('获取好友列表返回数据为空');
-          commit('SET_FRIEND_LIST', friendListData);
-          return;
+          throw new Error('获取好友列表返回数据为空');
         }
         
         const { data } = result;
         console.log('获取好友列表数据', data);
         
+        const friendListData = {};
         data.length > 0 &&
           data.map((item) => (friendListData[item] = { hxId: item }));
         //获取好友列表对应的用户属性
@@ -104,12 +102,7 @@ const Contacts = {
         data.length > 0 && dispatch('subFriendsPresence', data);
       } catch (error) {
         console.error('获取好友列表失败', error);
-        // 忽略 SDK 内部错误，防止应用崩溃
-        if (error.message?.includes('Cannot read properties of undefined (reading')) {
-          console.warn('SDK 内部错误，已忽略');
-        }
-        //异常一般为获取会话异常，直接提交好友列表
-        commit('SET_FRIEND_LIST', friendListData);
+        throw error;
       }
     },
     //获取全部好友列表（包含好友备注）
@@ -122,8 +115,7 @@ const Contacts = {
         
         // 安全检查
         if (!result || !result.data) {
-          console.warn('获取好友列表返回数据为空');
-          return;
+          throw new Error('获取全部好友列表返回数据为空');
         }
         
         const { data } = result;
@@ -147,10 +139,7 @@ const Contacts = {
         }
       } catch (error) {
         console.error('好友列表获取失败', error);
-        // 忽略 SDK 内部错误，防止应用崩溃
-        if (error.message?.includes('Cannot read properties of undefined (reading')) {
-          console.warn('SDK 内部错误，已忽略');
-        }
+        throw error;
       }
     },
     //新增联系人
@@ -272,8 +261,7 @@ const Contacts = {
         return list;
       } catch (error) {
         console.error('[环信 Presence] getSubscribedPresencelist 失败', error);
-        commit('SET_SUBSCRIBED_PRESENCE_LIST', []);
-        return [];
+        throw error;
       }
     },
     //主动查询指定用户当前在线状态
@@ -290,7 +278,7 @@ const Contacts = {
         return list.map((item) => handlePresence(item));
       } catch (error) {
         console.error('[环信 Presence] getPresenceStatus 失败', error);
-        return [];
+        throw error;
       }
     },
     //设置联系人备注

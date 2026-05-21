@@ -71,7 +71,7 @@ export function logChatroomEvent(scope, event, extra = {}) {
   const isKnownEvent = knownOperations.includes(normalized.operation);
   const operationLabel =
     CHATROOM_EVENT_LABELS[normalized.operation] || '未知聊天室事件';
-  const logLabel = `[ChatroomEvent:${scope}] 事件名：${normalized.operation}｜事件：${operationLabel}`;
+  const logLabel = `[ChatroomSDKEvent:${scope}] 已收到 SDK 聊天室事件｜事件名：${normalized.operation}｜事件：${operationLabel}`;
   const payload = {
     scope,
     eventName: normalized.operation,
@@ -93,6 +93,8 @@ export function logChatroomEvent(scope, event, extra = {}) {
 
   if (isKnownEvent) {
     console.groupCollapsed(logLabel);
+    console.log('事件来源：SDK onChatroomEvent');
+    console.log('接收状态：已收到');
     console.log('事件名：', normalized.operation);
     console.log('事件：', operationLabel);
     console.log('返回值：', normalized.raw);
@@ -102,17 +104,17 @@ export function logChatroomEvent(scope, event, extra = {}) {
   }
 
   console.warn(`${logLabel}`, normalized.raw);
-  console.warn(`[ChatroomEvent:${scope}] 标准化日志：`, payload);
+  console.warn(`[ChatroomSDKEvent:${scope}] 标准化日志：`, payload);
 }
 
-export function logChatroomOperation(scope, operation, params, result, extra = {}) {
-  const operationLabel = CHATROOM_EVENT_LABELS[operation] || '聊天室本地操作';
-  const logLabel = `[ChatroomOperation:${scope}] 事件名：${operation}｜事件：${operationLabel}`;
+export function logChatroomActionResult(scope, action, params, result, extra = {}) {
+  const logLabel = `[ChatroomAction:${scope}] 接口调用成功｜方法：${action}`;
   const payload = {
     scope,
-    eventName: operation,
-    operation,
-    operationLabel,
+    action,
+    eventReceived: false,
+    eventNote:
+      '这是接口调用结果日志，不代表已收到 SDK onChatroomEvent；如果没有对应 [ChatroomSDKEvent] 日志，就是未收到该事件。',
     roomId: String(params?.roomId ?? params?.chatRoomId ?? ''),
     from: extra.from ?? '',
     to: extra.to ?? '',
@@ -123,8 +125,9 @@ export function logChatroomOperation(scope, operation, params, result, extra = {
   };
 
   console.groupCollapsed(logLabel);
-  console.log('事件名：', operation);
-  console.log('事件：', operationLabel);
+  console.log('日志类型：接口调用结果');
+  console.log('事件接收状态：未收到 SDK 事件，仅记录本次接口返回');
+  console.log('方法：', action);
   console.log('方法入参：', params);
   console.log('返回值：', result);
   console.log('标准化日志：', payload);

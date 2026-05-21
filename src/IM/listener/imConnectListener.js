@@ -14,7 +14,15 @@ export const imConnectListener = () => {
           store.commit('CHANGE_LOGIN_STATUS', true);
           if (isOpenPlayRing.value) clickRing();
           fetchLoginUsersInitData();
-          router.replace('/chat');
+          const currentPath = window.location.pathname || '';
+          if (currentPath === '/' || currentPath === '/login') {
+            console.log('[connection.onConnected] 从登录入口进入主聊天页');
+            router.replace('/chat');
+          } else {
+            console.log('[connection.onConnected] 保留当前路由，不自动跳转', {
+              currentPath,
+            });
+          }
         });
       },
       onDisconnected: () => {

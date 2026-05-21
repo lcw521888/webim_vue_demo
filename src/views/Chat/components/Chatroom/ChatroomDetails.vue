@@ -5,11 +5,10 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { EMClient } from '@/IM';
 import { CHAT_TYPE } from '@/IM/constant';
 import { DEFAULT_EASEMOB_REST_URL } from '@/IM/config';
-import eventEmitter from '@/utils/eventEmitter';
 import {
   CHATROOM_EVENT_OPERATIONS,
   createChatroomEventHandler,
-  logChatroomOperation,
+  logChatroomActionResult,
 } from '@/utils/chatroomEvents';
 
 const route = useRoute();
@@ -74,12 +73,11 @@ const getChatroomDetails = async () => {
     // 获取聊天室公告
     getChatRoomAnnouncement();
 
-    // 获取聊天室属性 - 使用try-catch包裹，避免失败影响其他功能
     try {
       await getChatRoomAttributes();
     } catch (error) {
-      console.error('获取聊天室属性失败，但不影响其他功能:', error.message);
-      // 不显示错误消息，避免用户体验受影响
+      console.error('获取聊天室属性失败，已保留服务端错误:', error);
+      ElMessage.error(error?.message || '获取聊天室属性失败');
     }
   } catch (error) {
     ElMessage.error('获取聊天室详情失败');
@@ -123,14 +121,13 @@ const leaveChatroom = async () => {
       type: 'warning',
     });
     const res = await EMClient.leaveChatRoom(leaveChatRoomParams);
-    logChatroomOperation(
+    logChatroomActionResult(
       'ChatroomDetails',
-      CHATROOM_EVENT_OPERATIONS.MEMBER_ABSENCE,
+      LEAVE_CHAT_ROOM_METHOD,
       leaveChatRoomParams,
       res,
       {
         from: EMClient.user,
-        note: '本地退出聊天室操作日志；SDK 的 memberAbsence 通常推送给聊天室内其他成员。',
       },
     );
     console.log(
@@ -145,10 +142,6 @@ const leaveChatroom = async () => {
       `\n跳转页面: /chat/chatroom`,
     );
     ElMessage.success('退出聊天室成功');
-    eventEmitter.emit('chatroomMembershipChanged', {
-      roomId: targetRoomId,
-      joined: false,
-    });
     router.push('/chat/chatroom');
   } catch (error) {
     if (error !== 'cancel') {
@@ -438,10 +431,8 @@ const getChatRoomAttributes = async () => {
   }
 
   try {
-    // 检查EMClient对象是否存在并且getChatRoomAttributes方法可用
     if (!EMClient || typeof EMClient.getChatRoomAttributes !== 'function') {
-      console.error('EMClient.getChatRoomAttributes方法不可用');
-      return;
+      throw new Error('EMClient.getChatRoomAttributes方法不可用');
     }
 
     // 准备请求参数
@@ -454,7 +445,6 @@ const getChatRoomAttributes = async () => {
   } catch (error) {
     console.error('获取聊天室自定义属性失败:', error);
 
-    // 处理关键错误
     if (error.type === 52 || error.message?.includes('authenticate')) {
       ElMessage.error('认证失败，请重新登录');
     } else if (error.type === 702) {
@@ -462,12 +452,9 @@ const getChatRoomAttributes = async () => {
     } else if (error.message?.includes('CORS') || error.message?.includes('Access-Control-Allow-Origin')) {
       // 处理CORS错误
       console.error('CORS错误: 浏览器阻止了跨域请求，请检查服务器的CORS配置');
-      // 这里不显示用户提示，因为CORS错误通常需要服务器端解决，用户无法直接处理
     }
 
-    // 返回默认空对象，避免后续处理出错
-    attributes.value = {};
-    return { data: {} };
+    throw error;
   }
 };
 
@@ -687,7 +674,6 @@ const registerChatroomDetailEventHandler = () => {
         case CHATROOM_EVENT_OPERATIONS.MEMBER_PRESENCE:
         case CHATROOM_EVENT_OPERATIONS.MEMBER_ABSENCE:
         case CHATROOM_EVENT_OPERATIONS.REMOVE_MEMBER:
-          chatroomDetails.value.affiliations_count = e?.memberCount || 0;
           break;
         case CHATROOM_EVENT_OPERATIONS.SET_ADMIN:
         case CHATROOM_EVENT_OPERATIONS.REMOVE_ADMIN:
@@ -731,9 +717,9 @@ onUnmounted(() => {
 });
 
 watch(
-  () => route.query.roomId,
-  (newRoomId, oldRoomId) => {
-    if (newRoomId && newRoomId !== oldRoomId) {
+  () => route.fullPath,
+  () => {
+    if (route.query.roomId) {
       getChatroomDetails();
       getChatRoomAdmin();
       registerChatroomDetailEventHandler();
