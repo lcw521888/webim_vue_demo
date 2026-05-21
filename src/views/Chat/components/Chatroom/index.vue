@@ -142,6 +142,13 @@ const getAllChatroomMemberCount = (item) => {
   return Number.isFinite(count) ? count : null;
 };
 
+const getChatroomDescription = (item, roomId) => {
+  const key = normalizeChatroomId(roomId || item?.id);
+  if (!key) return item?.description || item?.desc || '';
+  const detail = joinedChatroomDetailsMap.value.get(key);
+  return detail?.description || item?.description || item?.desc || '';
+};
+
 const getChatrooms = async () => {
   if (!checkLoginStatus()) return;
   const GET_CHAT_ROOMS_METHOD = 'getChatRooms';
@@ -557,7 +564,9 @@ onUnmounted(() => {
         </div>
 
         <div class="action_buttons">
-          <el-button size="small" @click="getChatrooms"> 刷新列表 </el-button>
+          <el-button size="small" @click="refreshChatroomListsFromServer">
+            刷新列表
+          </el-button>
         </div>
 
         <el-collapse v-model="activeName" accordion>
@@ -578,7 +587,7 @@ onUnmounted(() => {
                 </div>
                 <div class="item_main">
                   <div class="name">{{ item.name }}</div>
-                  <div class="desc">{{ item.description || '暂无描述' }}</div>
+                  <div class="desc">{{ getChatroomDescription(item) || '暂无描述' }}</div>
                   <div class="info">
                     <span>成员: {{ getAllChatroomMemberCount(item) ?? '--' }}</span>
                   </div>
@@ -628,7 +637,7 @@ onUnmounted(() => {
                 </div>
                 <div class="item_main">
                   <div class="name">{{ item.name }}</div>
-                  <div class="desc">{{ item.description || '暂无描述' }}</div>
+                  <div class="desc">{{ getChatroomDescription(item) || '暂无描述' }}</div>
                   <div class="info">
                     <span>成员: {{ getJoinedChatroomMemberCount(item.id) ?? '--' }}</span>
                   </div>

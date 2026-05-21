@@ -22,11 +22,15 @@ const props = defineProps({
     type: Array,
     required: true,
   },
+  modelValue: {
+    type: String,
+    default: '',
+  },
 });
-const { searchType, searchData } = toRefs(props);
-const emit = defineEmits(['toChatMessage', 'toContacts']);
+const { searchType, searchData, modelValue } = toRefs(props);
+const emit = defineEmits(['toChatMessage', 'toContacts', 'update:modelValue']);
 //搜索框value
-const inputValue = ref('');
+const inputValue = ref(modelValue.value || '');
 //控制搜索结果展示
 const isShowResultContent = ref(false);
 //搜索本地记录
@@ -40,8 +44,29 @@ const suuggestInputComps = ref(null);
 onClickOutside(searchBox, () => (isShowResultContent.value = false));
 //筛选出来的搜索建议
 const searchSuggest = ref([]);
+const shouldShowResultContent = computed(
+  () => searchType.value !== 'chatroom' && isShowResultContent.value,
+);
+watch(
+  () => modelValue.value,
+  (newValue) => {
+    if (newValue !== inputValue.value) {
+      inputValue.value = newValue || '';
+    }
+  },
+);
+watch(inputValue, (newValue) => {
+  emit('update:modelValue', newValue);
+  if (newValue === '') {
+    searchSuggest.value = [];
+  }
+});
 //搜索相匹配的值
 const querySearch = () => {
+  if (searchType.value === 'chatroom') {
+    searchSuggest.value = [];
+    return;
+  }
   if (!inputValue.value) return;
   //搜索会话 conversation
   if (searchType.value === 'conversation') {
@@ -81,11 +106,6 @@ const querySearch = () => {
     );
     searchSuggest.value = resultList;
   }
-
-  //监听输入框为空字符串的时候置空搜索建议
-  watch(inputValue, (newVal) => {
-    if (newVal === '') searchSuggest.value = [];
-  });
 };
 //处理lastmsg预览内容
 const handleLastMsgContent = computed(() => {
@@ -165,6 +185,7 @@ const emitContacts = (item) => {
 //监听ESC键关闭搜索会话
 const handleEscapeKey = () => {
   inputValue.value = '';
+  emit('update:modelValue', '');
   searchSuggest.value = [];
   isShowResultContent.value = false;
   suuggestInputComps.value.blur();
@@ -186,14 +207,21 @@ const {
         v-model.trim="inputValue"
         placeholder="搜索"
         @focus="isShowResultContent = true"
-        @clear="isShowResultContent = false"
+        @clear="
+          isShowResultContent = false;
+          emit('update:modelValue', '');
+        "
         @input="querySearch"
         @keydown.escape="handleEscapeKey"
         :prefix-icon="Search"
         clearable
       />
     </div>
-    <div v-if="isShowResultContent" ref="resultContent" class="resultContent">
+    <div
+      v-if="shouldShowResultContent"
+      ref="resultContent"
+      class="resultContent"
+    >
       <div
         class="search_history"
         v-if="inputValue.length <= 0 && searchHistory"
