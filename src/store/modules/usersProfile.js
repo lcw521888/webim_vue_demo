@@ -136,7 +136,16 @@ const mutations = {
 };
 const actions = {
   processMessageExt({ commit, state }, msg) {
-    console.log('>>>>>处理消息扩展', msg);
+    console.log('[Message Ext] 处理消息扩展入参', {
+      isArray: Array.isArray(msg),
+      arrayOwnChatType: Array.isArray(msg)
+        ? Object.prototype.hasOwnProperty.call(msg, 'chatType')
+        : false,
+      outerChatType: msg?.chatType,
+      firstMessageChatType: Array.isArray(msg) ? msg[0]?.chatType : msg?.chatType,
+      messageCount: Array.isArray(msg) ? msg.length : msg ? 1 : 0,
+      rawPayload: msg,
+    });
     if (Array.isArray(msg)) {
       msg.map((msgItem, idx) => {
         try {

@@ -190,7 +190,7 @@ watch(
 );
 
 const resetForm = () => {
-  form.value.msg = '';
+  form.value.msg = '这是一条定向消息';
   receiverInput.value = '';
 };
 

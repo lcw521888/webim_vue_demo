@@ -491,16 +491,17 @@ const Message = {
                 })),
               );
             }
-            messages?.length > 0 &&
-              messages.forEach((item) => {
-                // 确保历史消息有正确的chatType和to字段
-                if (!item.chatType) {
-                  item.chatType = chatType;
-                }
-                if (!item.to) {
-                  item.to = id;
-                }
+            const historyMessagesMissingFields = (messages || []).filter(
+              (item) => !item?.chatType || !item?.to,
+            );
+            if (historyMessagesMissingFields.length > 0) {
+              console.error('[History Message] 服务端返回的历史消息缺少关键字段，按原始结果展示/入库', {
+                conversationId: id,
+                requestChatType: chatType,
+                missingCount: historyMessagesMissingFields.length,
+                messages: historyMessagesMissingFields,
               });
+            }
             console.log('【Store】处理完成，准备解析结果');
             resolve({
               messages,

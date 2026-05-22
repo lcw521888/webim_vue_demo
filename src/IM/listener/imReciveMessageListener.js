@@ -1,5 +1,4 @@
 import { EMClient } from '../index';
-import { CHAT_TYPE } from '../constant';
 import { CHANGE_MESSAGE_BODAY_TYPE } from '@/constant';
 import { setMessageKey } from '@/utils/handleSomeData';
 import store from '@/store';
@@ -8,29 +7,55 @@ import { safeSync, wrapImEventHandler } from '@/utils/safeCall';
 export const imReviceMessageListener = () => {
   //接收的消息往store中push
   const pushNewMessage = (message) => {
+    if (Array.isArray(message)) {
+      console.log('[IM Message] SDK 收到批量消息', {
+        messageCount: message.length,
+        firstMessageChatType: message[0]?.chatType,
+        rawMessages: message,
+      });
+      message.forEach((messageItem, index) => {
+        if (!messageItem || typeof messageItem !== 'object') {
+          console.warn('[IM Message] 批量消息中存在空或非对象项，已忽略', {
+            index,
+            rawMessage: messageItem,
+          });
+          return;
+        }
+        pushNewMessage(messageItem);
+      });
+      return;
+    }
     if (message == null || typeof message !== 'object') {
       console.warn('【IM】忽略空或非对象消息:', message);
       return;
     }
-    console.log('【DEBUG】收到消息:', message);
+    console.log('[IM Message] SDK 收到消息', {
+      messageId: message.id || message.mid,
+      type: message.type,
+      chatType: message.chatType,
+      from: message.from,
+      to: message.to,
+      rawMessage: message,
+    });
 
-    // 确保消息有chatType
     if (!message.chatType) {
-      console.log('【DEBUG】消息缺少chatType，根据to字段推断');
-      // 如果消息没有chatType，则根据to字段推断
-      if (message.to && (message.to.startsWith('group-') || message.to.startsWith('chatgroup-'))) {
-        message.chatType = CHAT_TYPE.GROUP;
-        console.log('【DEBUG】推断chatType为GROUP');
-      } else if (message.to && message.to.startsWith('chatroom-')) {
-        message.chatType = CHAT_TYPE.CHATROOM;
-        console.log('【DEBUG】推断chatType为CHATROOM');
-      } else {
-        message.chatType = CHAT_TYPE.SINGLE;
-        console.log('【DEBUG】推断chatType为SINGLE');
-      }
+      console.error('[IM Message] SDK 消息缺少 chatType，未写入本地消息列表', {
+        messageId: message.id || message.mid,
+        type: message.type,
+        from: message.from,
+        to: message.to,
+        rawMessage: message,
+      });
+      return;
     }
-    
-    console.log('【DEBUG】准备添加消息到消息列表:', message);
+
+    console.log('[IM Message] 准备写入消息列表', {
+      messageId: message.id || message.mid,
+      chatType: message.chatType,
+      from: message.from,
+      to: message.to,
+      rawMessage: message,
+    });
     Promise.resolve(store.dispatch('createNewMessage', message)).catch((err) => {
       console.error('[pushNewMessage.createNewMessage]', err);
     });
@@ -62,12 +87,21 @@ export const imReviceMessageListener = () => {
       return;
     }
     const { mid, id, chatType } = message;
-    const key = setMessageKey(message);
     const messageId = mid || id;
     if (!messageId) {
       console.warn('【IM】撤回事件缺少消息 ID，已忽略:', message);
       return;
     }
+    if (!chatType) {
+      console.error('[IM Recall] SDK 撤回事件缺少 chatType，未更新本地消息或会话', {
+        messageId,
+        from: message.from,
+        to: message.to,
+        rawMessage: message,
+      });
+      return;
+    }
+    const key = setMessageKey(message);
     safeSync('otherRecallMessage.commit', () => {
       store.commit('CHANGE_MESSAGE_BODAY', {
         type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
@@ -78,7 +112,7 @@ export const imReviceMessageListener = () => {
     Promise.resolve(
       store.dispatch('updateConversationList', {
         conversationId: key,
-        chatType: chatType || CHAT_TYPE.SINGLE,
+        chatType,
       }),
     ).catch((err) => console.error('[otherRecallMessage.updateConversationList]', err));
   };
@@ -90,13 +124,25 @@ export const imReviceMessageListener = () => {
     }
     const { from, to, id, mid, editMessageId, chatType } = message;
     //单对单的撤回to必然为登陆的用户id，群组发起撤回to必然为群组id 所以key可以这样来区分群组或者单人。
-    if (!to) return;
-    const key = to === EMClient.user ? from : to;
+    if (!to) {
+      console.error('[IM Modify] SDK 编辑事件缺少 to，未更新本地消息或会话', message);
+      return;
+    }
     const messageId = editMessageId || mid || id;
     if (!messageId) {
       console.warn('【IM】编辑消息事件缺少原消息 ID，已忽略:', message);
       return;
     }
+    if (!chatType) {
+      console.error('[IM Modify] SDK 编辑事件缺少 chatType，未更新本地消息或会话', {
+        messageId,
+        from,
+        to,
+        rawMessage: message,
+      });
+      return;
+    }
+    const key = setMessageKey(message);
     safeSync('otherModifyMessage.commit', () => {
       store.commit('CHANGE_MESSAGE_BODAY', {
         type: CHANGE_MESSAGE_BODAY_TYPE.MODIFY,

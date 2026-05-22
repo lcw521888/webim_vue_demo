@@ -124,13 +124,22 @@ const processedMessageData = computed(() => {
     // 使用Object.assign确保正确复制所有属性
     const processed = Object.assign({}, msgBody);
 
-    // 确保所有必需的属性都存在且有效
-    processed.id = processed.id || `temp_${index}_${Date.now()}`;
+    if (!processed.chatType) {
+      console.error('[Message Render] 消息缺少 chatType，按服务端原始结果展示，未默认成 singleChat', {
+        index,
+        messageId: processed.id || processed.mid,
+        from: processed.from,
+        to: processed.to,
+        rawMessage: msgBody,
+      });
+    }
+
+    // 确保展示层基础字段存在，避免异常数据导致页面崩溃
+    processed.id = processed.id || `missing_id_${index}`;
     processed.from = processed.from || '';
     processed.to = processed.to || '';
     processed.time = processed.time || Date.now();
     processed.type = processed.type || MESSAGE_TYPE.TEXT;
-    processed.chatType = processed.chatType || CHAT_TYPE.SINGLE;
     processed.isRecall = processed.isRecall || false;
 
     // 确保消息内容和扩展属性存在
