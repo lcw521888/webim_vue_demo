@@ -28,7 +28,7 @@
       <div class="directed-msg-hint">
         {{
           receiverList.length > 0
-            ? `当前将定向发送给 ${receiverList.length} 个成员`
+            ? `当前将定向发送给 ${receiverList.length} 个成员(上限20人)`
             : '请输入定向接收成员'
         }}
       </div>

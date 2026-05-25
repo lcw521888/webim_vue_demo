@@ -1,4 +1,4 @@
-const MAX_DIRECTED_MESSAGE_RECEIVERS = 20;
+const MAX_DIRECTED_MESSAGE_RECEIVERS = 21;
 
 function normalizeIds(values = []) {
   return values

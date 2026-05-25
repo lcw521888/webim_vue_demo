@@ -1,6 +1,6 @@
 import { CHAT_TYPE } from '@/IM/constant';
 
-export const MAX_DIRECTED_MESSAGE_RECEIVERS = 20;
+export const MAX_DIRECTED_MESSAGE_RECEIVERS = 21;
 
 export const supportsDirectedMessage = (chatType) =>
   chatType === CHAT_TYPE.GROUP || chatType === CHAT_TYPE.CHATROOM;
