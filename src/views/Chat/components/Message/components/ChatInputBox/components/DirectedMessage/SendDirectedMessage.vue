@@ -21,14 +21,13 @@
           type="textarea"
           :rows="4"
           resize="none"
-          :maxlength="400"
           :placeholder="receiverPlaceholder"
         />
       </el-form-item>
       <div class="directed-msg-hint">
         {{
           receiverList.length > 0
-            ? `当前将定向发送给 ${receiverList.length} 个成员(上限20人)`
+            ? `当前将定向发送给 ${receiverList.length} 个成员(上限${MAX_DIRECTED_MESSAGE_RECEIVERS}人)`
             : '请输入定向接收成员'
         }}
       </div>
