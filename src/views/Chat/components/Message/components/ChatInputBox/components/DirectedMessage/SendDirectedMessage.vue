@@ -27,7 +27,7 @@
       <div class="directed-msg-hint">
         {{
           receiverList.length > 0
-            ? `当前将定向发送给 ${receiverList.length} 个成员(上限${MAX_DIRECTED_MESSAGE_RECEIVERS}人)`
+            ? `当前将定向发送给 ${receiverList.length} 个成员`
             : '请输入定向接收成员'
         }}
       </div>
@@ -52,7 +52,6 @@ import { CHAT_TYPE, MESSAGE_TYPE } from '@/IM/constant';
 import { useUserInfoExt } from '@/hooks';
 import { notifySdkSendError } from '@/utils/handleSomeData';
 import {
-  MAX_DIRECTED_MESSAGE_RECEIVERS,
   appendDirectedMessageOptions,
   normalizeReceiverList,
 } from '@/utils/directedMessage';
@@ -85,7 +84,7 @@ const form = ref({
 const receiverList = computed(() => normalizeReceiverList(receiverInput.value));
 
 const receiverPlaceholder = computed(
-  () => `输入用户 ID，使用逗号、空格或换行分隔，最多 ${MAX_DIRECTED_MESSAGE_RECEIVERS} 个`,
+  () => '输入用户 ID，使用逗号、空格或换行分隔',
 );
 
 const receiverLabel = computed(() =>
@@ -241,6 +240,13 @@ const sendDirectedMessage = async () => {
   };
   appendDirectedMessageOptions(msgOptions, receiverList.value);
   setUserInfoExt(msgOptions);
+  console.log('[Directed Message] 准备发送定向消息', {
+    targetId: targetId.value,
+    chatType: chatType.value,
+    receiverCount: receiverList.value.length,
+    receiverList: receiverList.value,
+    sdkOptions: msgOptions,
+  });
 
   sending.value = true;
   try {

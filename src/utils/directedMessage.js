@@ -9,15 +9,13 @@ export const normalizeReceiverList = (value) => {
   if (Array.isArray(value)) {
     return value
       .map((item) => String(item || '').trim())
-      .filter(Boolean)
-      .slice(0, MAX_DIRECTED_MESSAGE_RECEIVERS);
+      .filter(Boolean);
   }
 
   return String(value || '')
     .split(/[\n,，\s]+/)
     .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, MAX_DIRECTED_MESSAGE_RECEIVERS);
+    .filter(Boolean);
 };
 
 export const appendDirectedMessageOptions = (msgOptions, receiverList) => {
