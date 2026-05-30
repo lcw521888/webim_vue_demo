@@ -56,9 +56,8 @@ const findMessageById = (state, preferredKey, messageId) => {
   if (!messageId) return null;
 
   if (preferredKey && state.messageList[preferredKey]) {
-    const preferredMessage = _.find(
-      state.messageList[preferredKey],
-      (item) => isSameMessage(item, messageId),
+    const preferredMessage = _.find(state.messageList[preferredKey], (item) =>
+      isSameMessage(item, messageId),
     );
     if (preferredMessage) {
       return preferredMessage;
@@ -86,21 +85,43 @@ const hasMessageInList = (state, listKey, messageId) => {
   );
 };
 
+const findLocalMessageMetaById = (state, messageId) => {
+  const message = findMessageById(state, '', messageId);
+  if (!message) return null;
+  return {
+    id: message.id,
+    mid: message.mid,
+    to: message.to,
+    from: message.from,
+    chatType: message.chatType,
+  };
+};
+
 const shouldPreserveEditedText = (currentMessage, incomingMessage) => {
   if (!currentMessage || !incomingMessage) return false;
   if (currentMessage.type !== 'txt') return false;
-  if (incomingMessage.type !== undefined && incomingMessage.type !== 'txt') return false;
-  const currentOperationCount = Number(currentMessage?.modifiedInfo?.operationCount) || 0;
-  const incomingOperationCount = Number(incomingMessage?.modifiedInfo?.operationCount) || 0;
+  if (incomingMessage.type !== undefined && incomingMessage.type !== 'txt')
+    return false;
+  const currentOperationCount =
+    Number(currentMessage?.modifiedInfo?.operationCount) || 0;
+  const incomingOperationCount =
+    Number(incomingMessage?.modifiedInfo?.operationCount) || 0;
   if (currentOperationCount <= 0) return false;
-  if (currentMessage.msg === undefined || incomingMessage.msg === undefined) return false;
-  return currentMessage.msg !== incomingMessage.msg && incomingOperationCount <= currentOperationCount;
+  if (currentMessage.msg === undefined || incomingMessage.msg === undefined)
+    return false;
+  return (
+    currentMessage.msg !== incomingMessage.msg &&
+    incomingOperationCount <= currentOperationCount
+  );
 };
 
 const mergeMessagePreservingEditedText = (currentMessage, incomingMessage) => {
   if (!currentMessage) return incomingMessage;
   if (!incomingMessage) return currentMessage;
-  const shouldKeepEditedText = shouldPreserveEditedText(currentMessage, incomingMessage);
+  const shouldKeepEditedText = shouldPreserveEditedText(
+    currentMessage,
+    incomingMessage,
+  );
   const nextMessage = {
     ...currentMessage,
     ...incomingMessage,
@@ -154,10 +175,8 @@ const Message = {
           );
           if (index !== -1) {
             const currentMessage = state.messageList[listKey][index];
-            state.messageList[listKey][index] = mergeMessagePreservingEditedText(
-              currentMessage,
-              msgBody,
-            );
+            state.messageList[listKey][index] =
+              mergeMessagePreservingEditedText(currentMessage, msgBody);
           }
         }
       } else {
@@ -218,8 +237,8 @@ const Message = {
       const historyIds = new Set(
         historyMessageList.map((message) => message?.id).filter(Boolean),
       );
-      const mergedHistory = historyMessageList.map((message) =>
-        mergedById.get(message.id) || message,
+      const mergedHistory = historyMessageList.map(
+        (message) => mergedById.get(message.id) || message,
       );
       const remainedCurrent = currentMessages.filter(
         (message) => !message?.id || !historyIds.has(message.id),
@@ -303,7 +322,9 @@ const Message = {
               _.assign(res, payload?.message);
               if (payload?.msg !== undefined) {
                 res.msg = payload.msg;
-              } else if (shouldPreserveEditedText(originalMessage, payload?.message)) {
+              } else if (
+                shouldPreserveEditedText(originalMessage, payload?.message)
+              ) {
                 res.msg = originalMsg;
               }
               // 恢复原始的发送者信息和聊天类型
@@ -322,7 +343,12 @@ const Message = {
       const { messageId, reactions, key } = payload;
       if (!messageId) return;
       if (key) {
-        const updated = updateMessageReactionByKey(state, key, messageId, reactions);
+        const updated = updateMessageReactionByKey(
+          state,
+          key,
+          messageId,
+          reactions,
+        );
         if (updated) return;
       }
       updateMessageReactionInAllLists(state, messageId, reactions);
@@ -335,7 +361,10 @@ const Message = {
       console.log('生成的消息列表键:', key);
       if (state.messageList[key]) {
         console.log('消息列表存在，查找消息:', messageId);
-        const message = _.find(state.messageList[key], (o) => o.id === messageId);
+        const message = _.find(
+          state.messageList[key],
+          (o) => o.id === messageId,
+        );
         if (message) {
           message.delivered = true;
           console.log('消息送达状态更新成功:', messageId);
@@ -354,7 +383,10 @@ const Message = {
       console.log('生成的消息列表键:', key);
       if (state.messageList[key]) {
         console.log('消息列表存在，查找消息:', messageId);
-        const message = _.find(state.messageList[key], (o) => o.id === messageId);
+        const message = _.find(
+          state.messageList[key],
+          (o) => o.id === messageId,
+        );
         if (message) {
           message.read = true;
           if (groupReadCount) {
@@ -376,25 +408,34 @@ const Message = {
       console.log('生成的消息列表键:', key);
       if (state.messageList[key]) {
         console.log('消息列表存在，查找消息:', messageId);
-        const message = _.find(state.messageList[key], (o) => o.id === messageId);
+        const message = _.find(
+          state.messageList[key],
+          (o) => o.id === messageId,
+        );
         if (message) {
           // 创建已读回执消息
           const readReceipt = {
             type: 'read',
             chatType: chatType,
             to: to,
-            id: messageId
+            id: messageId,
           };
           console.log('创建已读回执消息:', readReceipt);
           // 发送已读回执
-          if (typeof EMClient !== 'undefined' && EMClient.Message && EMClient.send) {
+          if (
+            typeof EMClient !== 'undefined' &&
+            EMClient.Message &&
+            EMClient.send
+          ) {
             const msg = EMClient.Message.create(readReceipt);
             console.log('发送已读回执:', msg);
-            EMClient.send(msg).then((result) => {
-              console.log('发送已读回执成功:', result);
-            }).catch((error) => {
-              console.error('发送已读回执失败:', error);
-            });
+            EMClient.send(msg)
+              .then((result) => {
+                console.log('发送已读回执成功:', result);
+              })
+              .catch((error) => {
+                console.error('发送已读回执失败:', error);
+              });
           } else {
             console.error('EMClient 未定义或缺少必要方法');
           }
@@ -470,16 +511,18 @@ const Message = {
           .then((res) => {
             console.log('【Store】拉取历史消息成功，返回结果:', {
               hasCursor: !!res.cursor,
-              messageCount: res.messages?.length || 0
+              messageCount: res.messages?.length || 0,
             });
             const { cursor: nextCursor, messages } = res;
             console.log('【Store】处理拉取到的历史消息:', {
               originalCount: messages?.length || 0,
               firstMessageId: messages?.length > 0 ? messages[0].id : '无',
-              lastMessageId: messages?.length > 0 ? messages[messages.length - 1].id : '无'
+              lastMessageId:
+                messages?.length > 0 ? messages[messages.length - 1].id : '无',
             });
             const reactionMessages = (messages || []).filter(
-              (item) => Array.isArray(item?.reactions) && item.reactions.length > 0,
+              (item) =>
+                Array.isArray(item?.reactions) && item.reactions.length > 0,
             );
             if (reactionMessages.length > 0) {
               console.log(
@@ -495,12 +538,15 @@ const Message = {
               (item) => !item?.chatType || !item?.to,
             );
             if (historyMessagesMissingFields.length > 0) {
-              console.error('[History Message] 服务端返回的历史消息缺少关键字段，按原始结果展示/入库', {
-                conversationId: id,
-                requestChatType: chatType,
-                missingCount: historyMessagesMissingFields.length,
-                messages: historyMessagesMissingFields,
-              });
+              console.error(
+                '[History Message] 服务端返回的历史消息缺少关键字段，按原始结果展示/入库',
+                {
+                  conversationId: id,
+                  requestChatType: chatType,
+                  missingCount: historyMessagesMissingFields.length,
+                  messages: historyMessagesMissingFields,
+                },
+              );
             }
             console.log('【Store】处理完成，准备解析结果');
             resolve({
@@ -538,9 +584,9 @@ const Message = {
               error,
               errorType: error.type,
               errorMessage: error.message,
-              errorStack: error.stack
+              errorStack: error.stack,
             });
-            
+
             // 处理INVALID_TOKEN错误
             if (
               error.type === 28 || // 错误类型28对应INVALID_TOKEN
@@ -553,7 +599,7 @@ const Message = {
               // 跳转到登录页面
               window.location.href = '/login';
             }
-            
+
             reject(error);
           });
       });
@@ -593,12 +639,12 @@ const Message = {
     //删除消息
     removeMessage: ({ dispatch, commit }, params) => {
       const { id: mid, to, chatType } = params;
-      
+
       // 验证参数
       if (!to || to === '') {
         return Promise.reject(new Error('缺少targetId参数'));
       }
-      
+
       const key = setMessageKey(params);
       const deleteOptions = {
         targetId: to,
@@ -768,7 +814,8 @@ const Message = {
         });
         console.log('[Reaction] getReactionlist 返回', res);
         const rawList = Array.isArray(res?.data) ? res.data : [];
-        const target = rawList.find((item) => item?.messageId === messageId) || {};
+        const target =
+          rawList.find((item) => item?.messageId === messageId) || {};
         const reactions = normalizeReactionList(target?.reactions || []);
         commit('UPDATE_MESSAGE_REACTIONS', {
           key,
@@ -782,7 +829,12 @@ const Message = {
       }
     },
     fetchMessageReactionDetail: async (_, params) => {
-      const { messageId, reaction, cursor = null, pageSize = 20 } = params || {};
+      const {
+        messageId,
+        reaction,
+        cursor = null,
+        pageSize = 20,
+      } = params || {};
       if (!messageId || !reaction) return null;
       try {
         console.log('[Reaction] getReactionDetail 请求', {
@@ -854,6 +906,8 @@ const Message = {
   },
   getters: {
     getMessageIdsCollectionMap: (state) => state.messageIdsCollection,
+    getMessageById: (state) => (messageId) =>
+      findLocalMessageMetaById(state, messageId),
   },
 };
 export default Message;

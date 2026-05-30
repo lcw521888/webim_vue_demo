@@ -7,21 +7,19 @@ export const DEFAULT_EASEMOB_SOCKET_URL =
 export const DEFAULT_EASEMOB_REST_URL = '//a1-hsb.easemob.com';
 
 /**
- * 长连接地址：禁止对已有 ws/wss 再套 http://（否则会出现 http://wss://...）
+ * 长连接地址：
+ * - 已显式配置 ws:// 或 wss:// 时原样使用。
+ * - 仅配置 host/path 时默认使用 wss://。
+ * - http(s):// 输入按语义转换为 ws(s)://。
  */
 export function fixSocketUrl(url) {
   if (!url) return url;
   let u = String(url).trim();
   if (/^wss:\/\//i.test(u) || /^ws:\/\//i.test(u)) return u;
-  if (u.startsWith('//')) {
-    return (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + u;
-  }
+  if (u.startsWith('//')) return 'wss:' + u;
   if (u.startsWith('https://')) return 'wss://' + u.slice(8);
   if (u.startsWith('http://')) return 'ws://' + u.slice(7);
-  return (
-    (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
-    u.replace(/^\/+/, '')
-  );
+  return 'wss://' + u.replace(/^\/+/, '');
 }
 
 /** REST 根地址：// 随页面协议；无协议时补 https */

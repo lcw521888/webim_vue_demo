@@ -80,7 +80,7 @@ onMounted(() => {
       v-if="isEdit"
       v-model="groupDescValue"
       ref="introduceRef"
-      maxlength="50"
+      maxlength="512"
       show-word-limit
       :autosize="{ minRows: 2, maxRows: 4 }"
       type="textarea"

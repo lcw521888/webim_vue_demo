@@ -1,9 +1,4 @@
 <script setup>
-/**
- * 此组件为使用SDK username & password 或者使用username 以及token实现登录。
- * index.vue是根据环信内部封装的通过短信验证码形式实现的username & token 实现的登录IM。
- * 如需要参考基础username & password 登录可参考该组件。
- */
 import { ref, reactive, watch, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { EMClient } from '@/IM';
@@ -30,7 +25,7 @@ const rules = reactive({
   password: [
     {
       required: true,
-      message: '请输入短信验证码',
+      message: '请输入密码',
       trigger: ['blur', 'change'],
     },
   ],

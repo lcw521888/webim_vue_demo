@@ -38,7 +38,7 @@ const editAnnouncment = async (type, oldAnnouncment) => {
       announcement: announcmentValue.value,
     };
     try {
-      store.dispatch('modifyGroupAnnouncement', params);
+      await store.dispatch('modifyGroupAnnouncement', params);
       ElMessage({
         message: '群组详情修改成功~',
         type: 'success',
@@ -72,7 +72,7 @@ onMounted(() => {
         v-if="isEdit"
         ref="announcementRef"
         v-model="announcmentValue"
-        maxlength="500"
+        maxlength="512"
         show-word-limit
         :autosize="{ minRows: 2, maxRows: 4 }"
         type="textarea"

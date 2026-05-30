@@ -7,8 +7,10 @@ import {
 import { EMClient } from '@/IM';
 import {
   DEFAULT_GROUP_MEMBERS_PAGE_SIZE,
+  buildModifyGroupPayload,
   normalizeFetchedGroupMembers,
   getNextJoinedGroupsPage,
+  normalizeGroupSharedFileList,
 } from '@/utils/groupDocAdapters';
 const Groups = {
   state: {
@@ -27,6 +29,7 @@ const Groups = {
     },
     groupDetails: new Map(), //key:groupId value:groupDetail
     groupMembers: new Map(), //key:groupId value:groupMemberList
+    groupSharedFiles: new Map(), //key:groupId value:sharedFileList
   },
   mutations: {
     SET_JOINED_GROUP: (state, payload) => {
@@ -87,7 +90,7 @@ const Groups = {
       state.groupMembers.set(groupId, [...members]);
       //同步更新群组列表里面的群人数
       if (state.joinedGroup.joinedGroupList.length) {
-        state.joinedGroup.joinedGroupList.map((groupItem) => {
+        state.joinedGroup.joinedGroupList.forEach((groupItem) => {
           if (groupItem.groupId === groupId) {
             groupItem.affiliationsCount = members.length;
           }
@@ -115,12 +118,16 @@ const Groups = {
       }
       state.groupDetails.get(groupId).announcement = announcement;
     },
+    SET_GROUP_SHARED_FILES: (state, payload) => {
+      const { groupId, files } = payload;
+      state.groupSharedFiles.set(groupId, [...files]);
+    },
     //设置用户在群组中的群组属性
     SET_GROUP_MEMBERS_INFO: (state, payload) => {
       const { groupId, inGroupInfo } = payload;
       let groupMemberInfo = {};
       inGroupInfo.length > 0 &&
-        inGroupInfo.map(
+        inGroupInfo.forEach(
           (item) => (groupMemberInfo = Object.assign(groupMemberInfo, item)),
         );
       if (!state.groupDetails.has(groupId)) {
@@ -135,9 +142,9 @@ const Groups = {
       //更新群组列表内数据
       if (type === 'groupName') {
         state.joinedGroup.joinedGroupList.length > 0 &&
-          state.joinedGroup.joinedGroupList.map((groupItem) => {
+          state.joinedGroup.joinedGroupList.forEach((groupItem) => {
             if (groupItem.groupId === groupId) {
-              return (groupItem.groupName = params);
+              groupItem.groupName = params;
             }
           });
         state.groupDetails.has(groupId) &&
@@ -146,20 +153,42 @@ const Groups = {
       //更新群组详情内的数据
       if (type === 'groupDescription') {
         state.joinedGroup.joinedGroupList.length > 0 &&
-          state.joinedGroup.joinedGroupList.map((groupItem) => {
+          state.joinedGroup.joinedGroupList.forEach((groupItem) => {
             if (groupItem.groupId === groupId) {
-              return (groupItem.description = params);
+              groupItem.description = params;
             }
           });
         state.groupDetails.has(groupId) &&
           (state.groupDetails.get(groupId).description = params);
       }
+      if (type === 'groupAvatar') {
+        state.joinedGroup.joinedGroupList.length > 0 &&
+          state.joinedGroup.joinedGroupList.forEach((groupItem) => {
+            if (groupItem.groupId === groupId) {
+              groupItem.avatar = params;
+            }
+          });
+        state.groupDetails.has(groupId) &&
+          (state.groupDetails.get(groupId).avatar = params);
+      }
+      if (type === 'groupExt') {
+        state.joinedGroup.joinedGroupList.length > 0 &&
+          state.joinedGroup.joinedGroupList.forEach((groupItem) => {
+            if (groupItem.groupId === groupId) {
+              groupItem.ext = params;
+            }
+          });
+        if (state.groupDetails.has(groupId)) {
+          state.groupDetails.get(groupId).ext = params;
+          state.groupDetails.get(groupId).custom = params;
+        }
+      }
       //更新群成员数
       if (type === 'groupMemberCount') {
         state.joinedGroup.joinedGroupList.length > 0 &&
-          state.joinedGroup.joinedGroupList.map((groupItem) => {
+          state.joinedGroup.joinedGroupList.forEach((groupItem) => {
             if (groupItem.groupId === groupId) {
-              return (groupItem.affiliationsCount = params);
+              groupItem.affiliationsCount = params;
             }
           });
         state.groupDetails.has(groupId) &&
@@ -185,7 +214,8 @@ const Groups = {
               const _index = state.groupMembers
                 .get(groupId)
                 .findIndex(
-                  (item) => (item.member || item.owner || item.userId) === member,
+                  (item) =>
+                    (item.member || item.owner || item.userId) === member,
                 );
               if (_index > -1) {
                 state.groupMembers.get(groupId).splice(_index, 1);
@@ -201,12 +231,12 @@ const Groups = {
     UPDATE_GORUPS_ADMIN: (state, payload) => {
       const { type, groupId, userId } = payload;
       state.joinedGroup.joinedGroupList.length > 0 &&
-        state.joinedGroup.joinedGroupList.map((groupItem) => {
+        state.joinedGroup.joinedGroupList.forEach((groupItem) => {
           if (groupItem.groupId === groupId && userId === EMClient.user) {
             if (type === GROUP_OPERATION_TYPE.SET_ADMIN) {
-              return (groupItem.role = GROUP_ROLE_TYPE.ADMIN);
+              groupItem.role = GROUP_ROLE_TYPE.ADMIN;
             } else if (type === GROUP_OPERATION_TYPE.REMOVE_ADMIN) {
-              return (groupItem.role = GROUP_ROLE_TYPE.MEMBER);
+              groupItem.role = GROUP_ROLE_TYPE.MEMBER;
             }
           }
         });
@@ -514,46 +544,44 @@ const Groups = {
       } catch (error) {
         let errorMsg = '获取禁言列表失败，请稍后重试';
         if (error?.data) {
-          const errorData = typeof error.data === 'string' ? error.data : JSON.stringify(error.data);
-          if (errorData.includes('group_authorization') || errorData.includes('group owner permission')) {
+          const errorData =
+            typeof error.data === 'string'
+              ? error.data
+              : JSON.stringify(error.data);
+          if (
+            errorData.includes('group_authorization') ||
+            errorData.includes('group owner permission')
+          ) {
             errorMsg = '没有权限获取禁言列表，只有聊天室所有者才能执行此操作';
           }
         }
         ElMessage.error(errorMsg);
-
       }
     },
-    // 修改群名或者群描述
+    // 修改群名、群描述、群头像或者群扩展信息
     modifyGroupInfo: async ({ dispatch, commit }, params) => {
       const { groupId, modifyType, content } = params;
-      //0 是修改群名
-      if (modifyType === 0) {
-        const option = {
-          groupId: groupId,
-          groupName: content,
-        };
-        await EMClient.modifyGroup(option);
-        //更新本地缓存数据
-        commit('UPDATE_CACHE_GROUP_INFO', {
-          groupId: groupId,
-          type: 'groupName',
-          params: content,
-        });
+      const modifyMap = {
+        0: { field: 'groupName', cacheType: 'groupName' },
+        1: { field: 'description', cacheType: 'groupDescription' },
+        2: { field: 'avatar', cacheType: 'groupAvatar' },
+        3: { field: 'ext', cacheType: 'groupExt' },
+      };
+      const config = modifyMap[modifyType];
+      if (!config) {
+        throw new Error(`Unsupported group modify type: ${modifyType}`);
       }
-      //1 是修改群详情
-      if (modifyType === 1) {
-        const option = {
-          groupId: groupId,
-          description: content,
-        };
-        await EMClient.modifyGroup(option);
-        //更新本地缓存数据
-        commit('UPDATE_CACHE_GROUP_INFO', {
-          groupId: groupId,
-          type: 'groupDescription',
-          params: content,
-        });
-      }
+      const option = buildModifyGroupPayload({
+        groupId,
+        [config.field]: content,
+      });
+      await EMClient.modifyGroup(option);
+      commit('UPDATE_CACHE_GROUP_INFO', {
+        groupId,
+        type: config.cacheType,
+        params: content,
+      });
+      dispatch('fetchGroupDetailFromServer', [groupId]);
     },
     // 设置/修改群组公告
     modifyGroupAnnouncement: async ({ dispatch }, params) => {
@@ -564,6 +592,147 @@ const Groups = {
         dispatch('fetchAnnounmentFromServer', groupId);
       } catch (error) {
         console.error('群公告修改失败', error);
+        throw error;
+      }
+    },
+    fetchGroupSharedFilesFromServer: async ({ commit }, params) => {
+      const option =
+        typeof params === 'string'
+          ? { groupId: params }
+          : { pageNum: 1, pageSize: 20, ...params };
+      try {
+        const result = await EMClient.getGroupSharedFilelist(option);
+        const files = normalizeGroupSharedFileList(result);
+        commit('SET_GROUP_SHARED_FILES', {
+          groupId: option.groupId,
+          files,
+        });
+        return files;
+      } catch (error) {
+        console.error('群共享文件列表获取失败', {
+          groupId: option.groupId,
+          currentUser: EMClient.user,
+          error,
+        });
+        throw error;
+      }
+    },
+    uploadGroupSharedFile: async ({ dispatch }, params) => {
+      const { groupId, file, onFileUploadProgress } = params;
+      return new Promise((resolve, reject) => {
+        try {
+          EMClient.uploadGroupSharedFile({
+            groupId,
+            file,
+            onFileUploadProgress,
+            onFileUploadComplete: async (response) => {
+              console.log('群共享文件上传成功', {
+                groupId,
+                fileName: file?.name,
+                fileSize: file?.size,
+                currentUser: EMClient.user,
+                response,
+              });
+              try {
+                await dispatch('fetchGroupSharedFilesFromServer', { groupId });
+              } catch (refreshError) {
+                console.error('群共享文件上传后刷新列表失败', {
+                  groupId,
+                  fileName: file?.name,
+                  currentUser: EMClient.user,
+                  error: refreshError,
+                });
+              }
+              resolve(response);
+            },
+            onFileUploadError: (error) => {
+              console.error('群共享文件上传失败', {
+                groupId,
+                fileName: file?.name,
+                fileSize: file?.size,
+                currentUser: EMClient.user,
+                error,
+              });
+              reject(error);
+            },
+            onFileUploadCanceled: (error) => {
+              console.error('群共享文件上传取消', {
+                groupId,
+                fileName: file?.name,
+                fileSize: file?.size,
+                currentUser: EMClient.user,
+                error,
+              });
+              reject(error);
+            },
+          });
+        } catch (error) {
+          console.error('群共享文件上传调用失败', {
+            groupId,
+            fileName: file?.name,
+            fileSize: file?.size,
+            currentUser: EMClient.user,
+            error,
+          });
+          reject(error);
+        }
+      });
+    },
+    downloadGroupSharedFile: async (_, params) => {
+      const { groupId, fileId, secret } = params;
+      return new Promise((resolve, reject) => {
+        try {
+          EMClient.downloadGroupSharedFile({
+            groupId,
+            fileId,
+            secret,
+            onFileDownloadComplete: (response) => {
+              console.log('群共享文件下载成功', {
+                groupId,
+                fileId,
+                currentUser: EMClient.user,
+                response,
+              });
+              resolve(response);
+            },
+            onFileDownloadError: (error) => {
+              console.error('群共享文件下载失败', {
+                groupId,
+                fileId,
+                currentUser: EMClient.user,
+                error,
+              });
+              reject(error);
+            },
+          });
+        } catch (error) {
+          console.error('群共享文件下载调用失败', {
+            groupId,
+            fileId,
+            currentUser: EMClient.user,
+            error,
+          });
+          reject(error);
+        }
+      });
+    },
+    deleteGroupSharedFile: async ({ dispatch }, params) => {
+      const { groupId, fileId } = params;
+      try {
+        const result = await EMClient.deleteGroupSharedFile({
+          groupId,
+          fileId,
+        });
+        await dispatch('fetchGroupSharedFilesFromServer', { groupId });
+        return result;
+      } catch (error) {
+        console.error('群共享文件删除失败', {
+          groupId,
+          fileId,
+          currentUser: EMClient.user,
+          error,
+        });
+        throw error;
       }
     },
     blockGroupMessage: async ({ commit }, groupId) => {
@@ -621,7 +790,10 @@ const Groups = {
           type: 'success',
         });
         //更新群成员
-        dispatch('fetchGroupsMemberFromServer', { groupId, chatType: 'groupChat' });
+        dispatch('fetchGroupsMemberFromServer', {
+          groupId,
+          chatType: 'groupChat',
+        });
       } catch (error) {
         ElMessage({
           message: '该群成员移出失败，请稍后重试！',
@@ -646,7 +818,10 @@ const Groups = {
         //重新获取黑名单列表
         dispatch('fetchGroupsBlackListFromServer', groupId);
         //重新获取成员列表
-        dispatch('fetchGroupsMemberFromServer', { groupId, chatType: 'groupChat' });
+        dispatch('fetchGroupsMemberFromServer', {
+          groupId,
+          chatType: 'groupChat',
+        });
       } catch (error) {
         ElMessage({
           message: '黑名单添加失败，请稍后重试~',
@@ -773,6 +948,7 @@ const Groups = {
   getters: {
     getGroupDetailMap: (state) => state.groupDetails,
     getGroupMembersMap: (state) => state.groupMembers,
+    getGroupSharedFilesMap: (state) => state.groupSharedFiles,
     getJoinedGroupList: (state) => state.joinedGroup.joinedGroupList,
     getJoinedGroupTotal: (state) => state.joinedGroup.joinedGroupListTotal,
     getJoinedGroupCount: (state) => state.joinedGroup.joinedGroupCount,

@@ -59,7 +59,9 @@ const searchFriend = () => {
 //创建群组群组所用参数
 const groupCreateForm = reactive({
   groupname: '',
+  avatar: '',
   desc: '',
+  ext: '',
   members: [],
   public: true,
   approval: true,
@@ -76,7 +78,9 @@ watch(dialogVisible, (newVal) => {
 const sourceForm = () => {
   return {
     groupname: '',
+    avatar: '',
     desc: '',
+    ext: '',
     members: [],
     public: true,
     approval: true,
@@ -212,6 +216,25 @@ const resetTheModalStatus = () => {
             placeholder="群组描述..."
             show-word-limit
             type="text"
+          />
+        </el-form-item>
+        <el-form-item label="群头像">
+          <el-input
+            class="create_groups"
+            v-model="groupCreateForm.avatar"
+            size="large"
+            placeholder="群头像 URL..."
+          />
+        </el-form-item>
+        <el-form-item label="群扩展">
+          <el-input
+            class="create_groups"
+            v-model="groupCreateForm.ext"
+            maxlength="512"
+            placeholder="群扩展信息..."
+            show-word-limit
+            type="textarea"
+            resize="none"
           />
         </el-form-item>
         <el-form-item label="群人数">

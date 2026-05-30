@@ -35,7 +35,7 @@ const PRIVATE_ENV_DEFAULTS = {
 
 const ENV_PRIVATE_CONFIGS = {
   [IM_ENVIRONMENTS.TKE]: {
-    appKey: 'easemob-demo#tke-sdb',
+    appKey: 'easemob-demo#qatkeflink',
     restServer: 'https://tke-sdb-a1.easemob.com',
     imServer: 'tke-sdb-im-api-wechat.easemob.com/websocket',
   },

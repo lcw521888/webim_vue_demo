@@ -33,6 +33,37 @@ function isResizeObserverNoise(text) {
   );
 }
 
+function parseJsonMessage(message) {
+  if (!message || typeof message !== 'string') return null;
+  const trimmed = message.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+function isMiniCoreSendRuntimeFailure(reason) {
+  const stack = reason?.stack || '';
+  const message = reason?.message || '';
+  const parsedMessage = parseJsonMessage(message);
+  const type = parsedMessage?.type ?? reason?.type;
+  const rawMessage = parsedMessage?.message || reason?.message || '';
+  const fromMiniCoreSend =
+    typeof stack === 'string' &&
+    stack.includes('miniCore.send') &&
+    stack.includes('src/IM/miniCore/index.js');
+
+  return (
+    fromMiniCoreSend &&
+    (type === 510 ||
+      type === 512 ||
+      rawMessage.includes('websocket disconnected') ||
+      rawMessage.includes('send message timeout'))
+  );
+}
+
 // 捕获阶段优先于 webpack-dev-server overlay 的冒泡监听，避免全屏 ERROR
 window.addEventListener(
   'error',
@@ -127,6 +158,15 @@ window.addEventListener(
   'unhandledrejection',
   function (event) {
     const reason = event.reason;
+
+    if (reason instanceof Error && isMiniCoreSendRuntimeFailure(reason)) {
+      console.error('[IM send failure]', reason);
+      if (reason.stack) console.error(reason.stack);
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
 
     if (reason && typeof reason === 'object' && !(reason instanceof Error)) {
       if (isImAuthFailedReason(reason)) {

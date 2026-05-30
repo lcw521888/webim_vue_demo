@@ -5,6 +5,7 @@ import GroupAnnoun from './GroupAnnoun.vue';
 import GroupMembers from './GroupMembers.vue';
 import GroupBlackList from './GroupBlackList.vue';
 import GroupMuteList from './GroupMuteList.vue';
+import GroupSharedFiles from './GroupSharedFiles.vue';
 const props = defineProps({
   modalType: {
     type: String,
@@ -58,6 +59,11 @@ const diffModal = {
     width: '840px',
     title: '群组禁言名单',
     components: GroupMuteList,
+  },
+  sharedFiles: {
+    width: '860px',
+    title: '群共享文件',
+    components: GroupSharedFiles,
   },
 };
 

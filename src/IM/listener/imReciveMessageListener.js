@@ -56,9 +56,11 @@ export const imReviceMessageListener = () => {
       to: message.to,
       rawMessage: message,
     });
-    Promise.resolve(store.dispatch('createNewMessage', message)).catch((err) => {
-      console.error('[pushNewMessage.createNewMessage]', err);
-    });
+    Promise.resolve(store.dispatch('createNewMessage', message)).catch(
+      (err) => {
+        console.error('[pushNewMessage.createNewMessage]', err);
+      },
+    );
     Promise.resolve(
       store.dispatch('UsersProfile/processMessageExt', message, { root: true }),
     ).catch((err) => {
@@ -92,16 +94,39 @@ export const imReviceMessageListener = () => {
       console.warn('【IM】撤回事件缺少消息 ID，已忽略:', message);
       return;
     }
-    if (!chatType) {
-      console.error('[IM Recall] SDK 撤回事件缺少 chatType，未更新本地消息或会话', {
-        messageId,
-        from: message.from,
-        to: message.to,
-        rawMessage: message,
-      });
+    const localMessage = store.getters.getMessageById?.(messageId);
+    const resolvedChatType = chatType || localMessage?.chatType;
+    const resolvedMessage = {
+      ...message,
+      to: message.to || localMessage?.to,
+      chatType: resolvedChatType,
+    };
+    if (!resolvedChatType) {
+      console.error(
+        '[IM Recall] SDK 撤回事件缺少 chatType，未更新本地消息或会话',
+        {
+          messageId,
+          from: message.from,
+          to: message.to,
+          rawMessage: message,
+        },
+      );
       return;
     }
-    const key = setMessageKey(message);
+    if (!chatType) {
+      console.log(
+        '[IM Recall] SDK 撤回事件缺少 chatType，使用本地原消息真实 chatType 更新',
+        {
+          messageId,
+          from: message.from,
+          to: message.to,
+          resolvedChatType,
+          localMessage,
+          rawMessage: message,
+        },
+      );
+    }
+    const key = setMessageKey(resolvedMessage);
     safeSync('otherRecallMessage.commit', () => {
       store.commit('CHANGE_MESSAGE_BODAY', {
         type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
@@ -112,9 +137,11 @@ export const imReviceMessageListener = () => {
     Promise.resolve(
       store.dispatch('updateConversationList', {
         conversationId: key,
-        chatType,
+        chatType: resolvedChatType,
       }),
-    ).catch((err) => console.error('[otherRecallMessage.updateConversationList]', err));
+    ).catch((err) =>
+      console.error('[otherRecallMessage.updateConversationList]', err),
+    );
   };
   //收到消息修改指令
   const otherModifyMessage = (message) => {
@@ -125,7 +152,10 @@ export const imReviceMessageListener = () => {
     const { from, to, id, mid, editMessageId, chatType } = message;
     //单对单的撤回to必然为登陆的用户id，群组发起撤回to必然为群组id 所以key可以这样来区分群组或者单人。
     if (!to) {
-      console.error('[IM Modify] SDK 编辑事件缺少 to，未更新本地消息或会话', message);
+      console.error(
+        '[IM Modify] SDK 编辑事件缺少 to，未更新本地消息或会话',
+        message,
+      );
       return;
     }
     const messageId = editMessageId || mid || id;
@@ -133,84 +163,110 @@ export const imReviceMessageListener = () => {
       console.warn('【IM】编辑消息事件缺少原消息 ID，已忽略:', message);
       return;
     }
-    if (!chatType) {
-      console.error('[IM Modify] SDK 编辑事件缺少 chatType，未更新本地消息或会话', {
-        messageId,
-        from,
-        to,
-        rawMessage: message,
-      });
+    const localMessage = store.getters.getMessageById?.(messageId);
+    const resolvedChatType = chatType || localMessage?.chatType;
+    const resolvedTo = to || localMessage?.to;
+    const resolvedMessage = {
+      ...message,
+      to: resolvedTo,
+      chatType: resolvedChatType,
+    };
+    if (!resolvedChatType) {
+      console.error(
+        '[IM Modify] SDK 编辑事件缺少 chatType，未更新本地消息或会话',
+        {
+          messageId,
+          from,
+          to,
+          rawMessage: message,
+        },
+      );
       return;
     }
-    const key = setMessageKey(message);
+    if (!chatType) {
+      console.log(
+        '[IM Modify] SDK 编辑事件缺少 chatType，使用本地原消息真实 chatType 更新',
+        {
+          messageId,
+          from,
+          to,
+          resolvedChatType,
+          localMessage,
+          rawMessage: message,
+        },
+      );
+    }
+    const key = setMessageKey(resolvedMessage);
     safeSync('otherModifyMessage.commit', () => {
       store.commit('CHANGE_MESSAGE_BODAY', {
         type: CHANGE_MESSAGE_BODAY_TYPE.MODIFY,
         key,
         mid: messageId,
-        message,
+        message: resolvedMessage,
       });
     });
     Promise.resolve(
       store.dispatch('updateConversationList', {
         conversationId: key,
-        chatType,
+        chatType: resolvedChatType,
       }),
-    ).catch((err) => console.error('[otherModifyMessage.updateConversationList]', err));
+    ).catch((err) =>
+      console.error('[otherModifyMessage.updateConversationList]', err),
+    );
   };
   const mountReviceMessageEventListener = () => {
     /* message 相关监听 */
     EMClient.addEventHandler(
       'messageListen',
       wrapImEventHandler({
-      // 全局消息监听器，接收所有类型的消息
-      onMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到所有类型的消息
-      
-      onTextMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到文本消息。
-      onEmojiMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到表情消息。
-      onImageMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到图片消息。
-      onCmdMessage: function (message) {
-        if (message == null || typeof message !== 'object') return;
-      }, // 收到命令消息。
-      onAudioMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到音频消息。
-      onLocationMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到位置消息。
-      onFileMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到文件消息。
-      onCustomMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到自定义消息。
-      onVideoMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到视频消息。
-      onStreamMessage: function (message) {
-        pushStreamMessage(message);
-      }, // 收到流式消息。
-      onGroupMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到群组消息。
-      onChatRoomMessage: function (message) {
-        pushNewMessage(message);
-      }, // 收到聊天室消息。
-      onRecallMessage: function (message) {
-        otherRecallMessage(message);
-      }, // 收到消息撤回回执。
-      onModifiedMessage: function (message) {
-        otherModifyMessage(message);
-      },
-    }),
+        // 全局消息监听器，接收所有类型的消息
+        onMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到所有类型的消息
+
+        onTextMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到文本消息。
+        onEmojiMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到表情消息。
+        onImageMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到图片消息。
+        onCmdMessage: function (message) {
+          if (message == null || typeof message !== 'object') return;
+        }, // 收到命令消息。
+        onAudioMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到音频消息。
+        onLocationMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到位置消息。
+        onFileMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到文件消息。
+        onCustomMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到自定义消息。
+        onVideoMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到视频消息。
+        onStreamMessage: function (message) {
+          pushStreamMessage(message);
+        }, // 收到流式消息。
+        onGroupMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到群组消息。
+        onChatRoomMessage: function (message) {
+          pushNewMessage(message);
+        }, // 收到聊天室消息。
+        onRecallMessage: function (message) {
+          otherRecallMessage(message);
+        }, // 收到消息撤回回执。
+        onModifiedMessage: function (message) {
+          otherModifyMessage(message);
+        },
+      }),
     );
   };
   return {

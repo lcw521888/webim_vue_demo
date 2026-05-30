@@ -76,6 +76,13 @@ export const imGroupListener = () => {
           store.dispatch('fetchAnnounmentFromServer', groupId);
         }
         break;
+      case GROUP_OPERATION_TYPE.UPLOAD_FILE:
+      case GROUP_OPERATION_TYPE.DELETE_FILE:
+        {
+          console.log('>>>>群共享文件变更', groupevent);
+          store.dispatch('fetchGroupSharedFilesFromServer', { groupId });
+        }
+        break;
       //群组管理员设置
       case GROUP_OPERATION_TYPE.SET_ADMIN:
         {
@@ -159,12 +166,12 @@ export const imGroupListener = () => {
     EMClient.addEventHandler(
       'groupEvent',
       wrapImEventHandler({
-      onGroupEvent: (groupevent) => {
-        console.log('groupEvent: ', groupevent);
-        submitInformData(INFORM_FROM.GROUP, groupevent);
-        onDispatchGroupEvent(groupevent);
-      },
-    }),
+        onGroupEvent: (groupevent) => {
+          console.log('groupEvent: ', groupevent);
+          submitInformData(INFORM_FROM.GROUP, groupevent);
+          onDispatchGroupEvent(groupevent);
+        },
+      }),
     );
   };
   return {

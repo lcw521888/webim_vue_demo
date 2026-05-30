@@ -40,10 +40,7 @@ const getGroupDetailFromGroupList = computed(() => {
 const memberRole = computed(() => {
   const role = getGroupDetailFromGroupList.value?.role;
   //判断是否在权限名单内
-  if (
-    role === GROUP_ROLE_TYPE.ADMIN ||
-    role === GROUP_ROLE_TYPE.OWNER
-  ) {
+  if (role === GROUP_ROLE_TYPE.ADMIN || role === GROUP_ROLE_TYPE.OWNER) {
     return true;
   } else {
     return false;
@@ -75,6 +72,12 @@ const alertManagementModal = (type, groupType) => {
 const editGroupNameInput = ref(null);
 const isEdit = ref(false);
 const groupName = ref('');
+const groupAvatarInput = ref(null);
+const groupExtInput = ref(null);
+const isEditGroupAvatar = ref(false);
+const isEditGroupExt = ref(false);
+const groupAvatar = ref('');
+const groupExt = ref('');
 const editGroupName = async (type, oldGroupName) => {
   if (type === 'save') {
     if (groupName.value === oldGroupName) return (isEdit.value = false);
@@ -110,6 +113,61 @@ const editGroupName = async (type, oldGroupName) => {
     });
   }
 };
+const getGroupExtValue = (groupDetail = {}) => {
+  return groupDetail.ext || groupDetail.custom || '';
+};
+const editGroupField = async (type, oldValue, fieldConfig) => {
+  if (type === 'edit') {
+    fieldConfig.editRef.value = true;
+    fieldConfig.valueRef.value = oldValue || '';
+    nextTick(() => {
+      fieldConfig.inputRef.value?.focus();
+    });
+    return;
+  }
+  if (type !== 'save') return;
+  if (fieldConfig.valueRef.value === (oldValue || '')) {
+    fieldConfig.editRef.value = false;
+    return;
+  }
+  try {
+    await store.dispatch('modifyGroupInfo', {
+      groupId: groupId.value,
+      modifyType: fieldConfig.modifyType,
+      content: fieldConfig.valueRef.value,
+    });
+    ElMessage({
+      message: `${fieldConfig.label}修改成功~`,
+      type: 'success',
+      center: true,
+    });
+  } catch (error) {
+    console.error(`${fieldConfig.label}修改失败`, error);
+    ElMessage({
+      message: `${fieldConfig.label}修改失败~`,
+      type: 'error',
+      center: true,
+    });
+  } finally {
+    fieldConfig.editRef.value = false;
+  }
+};
+const editGroupAvatar = (type, oldValue) =>
+  editGroupField(type, oldValue, {
+    modifyType: 2,
+    label: '群头像',
+    valueRef: groupAvatar,
+    editRef: isEditGroupAvatar,
+    inputRef: groupAvatarInput,
+  });
+const editGroupExt = (type, oldValue) =>
+  editGroupField(type, oldValue, {
+    modifyType: 3,
+    label: '群扩展信息',
+    valueRef: groupExt,
+    editRef: isEditGroupExt,
+    inputRef: groupExtInput,
+  });
 //修改我的群组昵称
 const editMyGroupNickNameInput = ref(null);
 const isEditMyGroupNickname = ref(false);
@@ -309,11 +367,53 @@ onMounted(() => {
           ref="editGroupNameInput"
           v-model="groupName"
           size="small"
-          maxlength="15"
+          maxlength="128"
           show-word-limit
           @blur="editGroupName('save', getGroupDetailFromGroupList.groupName)"
         >
         </el-input>
+      </div>
+    </div>
+    <el-divider style="margin: 0" />
+    <!-- 群头像 -->
+    <div class="group_func_card group_avatar">
+      <div class="title">
+        群头像
+        <el-icon
+          class="icon"
+          v-if="memberRole"
+          @click="
+            editGroupAvatar(
+              'edit',
+              currentGroupDetail.avatar || getGroupDetailFromGroupList.avatar,
+            )
+          "
+        >
+          <Edit />
+        </el-icon>
+      </div>
+      <div class="content">
+        <div v-if="!isEditGroupAvatar">
+          {{
+            currentGroupDetail.avatar ||
+            getGroupDetailFromGroupList.avatar ||
+            '暂无群头像~'
+          }}
+        </div>
+        <el-input
+          v-else
+          class="group_name_input"
+          ref="groupAvatarInput"
+          v-model="groupAvatar"
+          size="small"
+          placeholder="请输入群头像 URL"
+          @blur="
+            editGroupAvatar(
+              'save',
+              currentGroupDetail.avatar || getGroupDetailFromGroupList.avatar,
+            )
+          "
+        />
       </div>
     </div>
     <el-divider style="margin: 0" />
@@ -327,6 +427,37 @@ onMounted(() => {
       </div>
       <div class="content">
         {{ getGroupDetailFromGroupList.description || '暂无群描述~' }}
+      </div>
+    </div>
+    <el-divider style="margin: 0" />
+    <!-- 群扩展 -->
+    <div class="group_func_card group_ext">
+      <div class="title">
+        群扩展
+        <el-icon
+          class="icon"
+          v-if="memberRole"
+          @click="editGroupExt('edit', getGroupExtValue(currentGroupDetail))"
+        >
+          <Edit />
+        </el-icon>
+      </div>
+      <div class="content">
+        <div v-if="!isEditGroupExt">
+          {{ getGroupExtValue(currentGroupDetail) || '暂无群扩展~' }}
+        </div>
+        <el-input
+          v-else
+          ref="groupExtInput"
+          v-model="groupExt"
+          maxlength="512"
+          show-word-limit
+          :autosize="{ minRows: 2, maxRows: 4 }"
+          type="textarea"
+          placeholder="请输入群扩展信息"
+          resize="none"
+          @blur="editGroupExt('save', getGroupExtValue(currentGroupDetail))"
+        />
       </div>
     </div>
     <el-divider style="margin: 0" />
@@ -368,9 +499,9 @@ onMounted(() => {
       <div class="main">
         <div class="member_count">
           {{
-            `${getGroupDetailFromGroupList.affiliationsCount || '0'}/${
-              maxUsersDisplay
-            }`
+            `${
+              getGroupDetailFromGroupList.affiliationsCount || '0'
+            }/${maxUsersDisplay}`
           }}
         </div>
         <div class="more_list" @click="alertManagementModal('groupmembers')">
@@ -384,12 +515,26 @@ onMounted(() => {
       <div class="main">
         <el-switch
           :model-value="isGroupMessageBlocked"
-          :disabled="getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.OWNER || getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.ADMIN"
+          :disabled="
+            getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.OWNER ||
+            getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.ADMIN
+          "
           inline-prompt
           active-text="开"
           inactive-text="关"
           @change="toggleGroupMessageBlock"
         />
+      </div>
+    </div>
+    <el-divider style="margin: 0" />
+    <!-- 群共享文件 -->
+    <div class="group_list_card group_shared_files">
+      <div class="label">群共享文件</div>
+      <div class="main">
+        <div class="member_count">上传 / 下载 / 删除</div>
+        <div class="more_list" @click="alertManagementModal('sharedFiles')">
+          <ArrowRight />
+        </div>
       </div>
     </div>
     <el-divider style="margin: 0" />
