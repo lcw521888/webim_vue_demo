@@ -8,6 +8,11 @@ import _ from 'lodash';
 import { useRouter, useRoute } from 'vue-router';
 import { EMClient } from '@/IM';
 import { ElMessage } from 'element-plus';
+import {
+  CONVERSATION_PUSH_REMIND_TYPES,
+  getConversationPushRemindType,
+  isPushSettingSupportedConversation,
+} from '@/utils/conversationPushSettings';
 /* 头像相关 */
 import informIcon from '@/assets/images/avatar/inform.png';
 import defaultAvatar from '@/assets/images/avatar/theme2x.png';
@@ -263,6 +268,98 @@ const toggleConversationMark = async (conversationItem) => {
     ElMessage.error(hasMark ? '取消标星失败' : '标星失败');
   }
 };
+const pushSettingDialogVisible = ref(false);
+const pushSettingLoading = ref(false);
+const pushSettingSaving = ref(false);
+const selectedPushConversation = ref(null);
+const selectedPushRemindType = ref('ALL');
+const selectedDndDurationMinutes = ref(60);
+const currentPushRemindType = ref('');
+const currentPushSettingRaw = ref(null);
+const selectedPushConversationName = computed(() => {
+  return selectedPushConversation.value
+    ? handleConversationName.value(selectedPushConversation.value)
+    : '';
+});
+const openConversationPushSetting = async (conversationItem) => {
+  if (!isPushSettingSupportedConversation(conversationItem.conversationType)) {
+    ElMessage.info('当前会话类型不支持单会话推送通知设置');
+    return;
+  }
+  selectedPushConversation.value = conversationItem;
+  pushSettingDialogVisible.value = true;
+  await refreshConversationPushSetting();
+};
+const refreshConversationPushSetting = async () => {
+  if (!selectedPushConversation.value) return;
+  pushSettingLoading.value = true;
+  try {
+    const result = await store.dispatch(
+      'getConversationPushSetting',
+      selectedPushConversation.value,
+    );
+    currentPushSettingRaw.value = result;
+    const remindType = getConversationPushRemindType(result);
+    currentPushRemindType.value = remindType;
+    if (remindType) {
+      selectedPushRemindType.value = remindType;
+    }
+  } catch (error) {
+    ElMessage.error(error?.message || '获取推送通知设置失败');
+  } finally {
+    pushSettingLoading.value = false;
+  }
+};
+const saveConversationPushSetting = async () => {
+  if (!selectedPushConversation.value) return;
+  pushSettingSaving.value = true;
+  try {
+    await store.dispatch('setConversationPushSetting', {
+      conversation: selectedPushConversation.value,
+      remindType: selectedPushRemindType.value,
+    });
+    ElMessage.success('推送通知方式设置成功');
+    await refreshConversationPushSetting();
+  } catch (error) {
+    ElMessage.error(error?.message || '推送通知方式设置失败');
+  } finally {
+    pushSettingSaving.value = false;
+  }
+};
+const saveConversationDndDuration = async () => {
+  if (!selectedPushConversation.value) return;
+  pushSettingSaving.value = true;
+  try {
+    await store.dispatch('setConversationDndDuration', {
+      conversation: selectedPushConversation.value,
+      durationMinutes: selectedDndDurationMinutes.value,
+    });
+    ElMessage.success('免打扰时长设置成功');
+    await refreshConversationPushSetting();
+  } catch (error) {
+    ElMessage.error(error?.message || '免打扰时长设置失败');
+  } finally {
+    pushSettingSaving.value = false;
+  }
+};
+const clearConversationPushSetting = async () => {
+  if (!selectedPushConversation.value) return;
+  pushSettingSaving.value = true;
+  try {
+    await store.dispatch(
+      'clearConversationPushSetting',
+      selectedPushConversation.value,
+    );
+    currentPushRemindType.value = '';
+    currentPushSettingRaw.value = null;
+    ElMessage.success('已清除会话推送通知方式');
+    await refreshConversationPushSetting();
+  } catch (error) {
+    ElMessage.error(error?.message || '清除推送通知方式失败');
+  } finally {
+    pushSettingSaving.value = false;
+  }
+};
 /* 加载到底拉取新数据 */
 const scrollbarComp = ref(null);
 const loadingStatus = ref(false);
@@ -420,6 +517,12 @@ const onScrollToBottom = (event) => {
             <div class="session_list_delete" @click="deleteConversation(item)">
               删除会话
             </div>
+            <div
+              class="session_list_push"
+              @click="openConversationPushSetting(item)"
+            >
+              推送通知设置
+            </div>
           </template>
         </el-popover>
       </li>
@@ -428,6 +531,78 @@ const onScrollToBottom = (event) => {
       <el-empty description="暂无最近会话" />
     </template>
   </el-scrollbar>
+  <el-dialog
+    v-model="pushSettingDialogVisible"
+    title="推送通知设置"
+    width="420px"
+    :destroy-on-close="true"
+  >
+    <div v-loading="pushSettingLoading" class="push_setting_dialog">
+      <p class="push_setting_line">
+        <span class="push_setting_label">会话</span>
+        <span>{{ selectedPushConversationName }}</span>
+      </p>
+      <p class="push_setting_line">
+        <span class="push_setting_label">会话 ID</span>
+        <span>{{ selectedPushConversation?.conversationId }}</span>
+      </p>
+      <p class="push_setting_line">
+        <span class="push_setting_label">会话类型</span>
+        <span>{{ selectedPushConversation?.conversationType }}</span>
+      </p>
+      <p class="push_setting_line">
+        <span class="push_setting_label">当前设置</span>
+        <span>{{ currentPushRemindType || '继承 app 设置或服务端未返回' }}</span>
+      </p>
+      <el-radio-group v-model="selectedPushRemindType" class="push_setting_modes">
+        <el-radio
+          v-for="item in CONVERSATION_PUSH_REMIND_TYPES"
+          :key="item.value"
+          :label="item.value"
+        >
+          {{ item.label }}
+        </el-radio>
+      </el-radio-group>
+      <div class="push_setting_dnd">
+        <span class="push_setting_dnd_label">免打扰时长</span>
+        <el-input-number
+          v-model="selectedDndDurationMinutes"
+          :min="1"
+          :max="10080"
+          :step="60"
+          step-strictly
+        />
+        <span>分钟</span>
+        <el-button
+          :loading="pushSettingSaving"
+          @click="saveConversationDndDuration"
+        >
+          设置免打扰
+        </el-button>
+      </div>
+      <pre class="push_setting_raw">{{
+        JSON.stringify(currentPushSettingRaw, null, 2)
+      }}</pre>
+    </div>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="refreshConversationPushSetting">刷新</el-button>
+        <el-button
+          :loading="pushSettingSaving"
+          @click="clearConversationPushSetting"
+        >
+          清除设置
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="pushSettingSaving"
+          @click="saveConversationPushSetting"
+        >
+          保存
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <style lang="scss" scoped>
@@ -582,12 +757,75 @@ const onScrollToBottom = (event) => {
   margin-top: 10px;
 }
 
-.session_list_delete {
+.session_list_pin,
+.session_list_mark,
+.session_list_delete,
+.session_list_push {
   cursor: pointer;
+  min-width: 96px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 18px;
+  white-space: nowrap;
+  color: #333333;
   transition: all 0.5s;
 
   &:hover {
     background: #e1e1e1;
   }
+}
+
+.push_setting_dialog {
+  min-height: 180px;
+}
+
+.push_setting_line {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #333333;
+}
+
+.push_setting_label {
+  width: 64px;
+  flex: 0 0 64px;
+  color: #666666;
+}
+
+.push_setting_modes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.push_setting_dnd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+  font-size: 13px;
+  color: #333333;
+}
+
+.push_setting_dnd_label {
+  flex: 0 0 auto;
+  color: #666666;
+}
+
+.push_setting_raw {
+  max-height: 120px;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 18px;
+  color: #666666;
+  background: #f6f7f9;
+  border-radius: 4px;
 }
 </style>

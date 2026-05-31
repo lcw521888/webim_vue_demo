@@ -11,7 +11,8 @@
 
 .conversation_popover {
   color: #333 !important;
-  width: 80px !important;
+  width: 144px !important;
+  box-sizing: border-box !important;
   text-align: center !important;
   padding: 5px 3px !important;
 }

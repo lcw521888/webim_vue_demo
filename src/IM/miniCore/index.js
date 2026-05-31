@@ -6,6 +6,7 @@ import * as contactPlugin from 'easemob-websdk/contact/contact';
 import * as groupPlugin from 'easemob-websdk/group/group';
 import * as presencePlugin from 'easemob-websdk/presence/presence';
 import * as chatroomPlugin from 'easemob-websdk/chatroom/chatroom';
+import * as silentPlugin from 'easemob-websdk/silent/silent';
 import * as localCachePlugin from 'easemob-websdk/localCache/localCache';
 import {
   DEFAULT_EASEMOB_APPKEY,
@@ -277,6 +278,7 @@ const initEMClient = () => {
   miniCore.usePlugin(groupPlugin);
   miniCore.usePlugin(presencePlugin);
   miniCore.usePlugin(chatroomPlugin);
+  miniCore.usePlugin(silentPlugin);
   miniCore.usePlugin(localCachePlugin, 'localCache');
 
   return miniCore;

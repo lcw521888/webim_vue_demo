@@ -8,6 +8,11 @@ import messageStore from '@/store/modules/message';
 import { EMClient } from '@/IM';
 import { INFORM_FROM } from '@/constant';
 import { GROUP_OPERATION_TYPE, CHAT_TYPE } from '@/IM/constant';
+import {
+  buildConversationDndDurationParams,
+  buildConversationPushQueryParams,
+  buildConversationPushSettingParams,
+} from '@/utils/conversationPushSettings';
 
 //获取messageList数组中的最新一条消息
 const getLatestMessageBodyFromMessageStore = (conversationId, chatType) => {
@@ -564,6 +569,101 @@ const Conversation = {
         return true;
       } catch (error) {
         console.error(error);
+        throw error;
+      }
+    },
+    getConversationPushSetting: async (context, conversation) => {
+      const options = buildConversationPushQueryParams(conversation);
+      try {
+        const result = await EMClient.getSilentModeForConversation(options);
+        console.log('获取单个会话推送通知设置成功', {
+          conversationId: options.conversationId,
+          chatType: options.type,
+          currentUser: EMClient.user,
+          result,
+        });
+        return result;
+      } catch (error) {
+        console.error('获取单个会话推送通知设置失败', {
+          conversationId: options.conversationId,
+          chatType: options.type,
+          currentUser: EMClient.user,
+          error,
+        });
+        throw error;
+      }
+    },
+    setConversationPushSetting: async (context, params) => {
+      const { conversation, remindType } = params;
+      const options = buildConversationPushSettingParams(conversation, remindType);
+      try {
+        const result = await EMClient.setSilentModeForConversation(options);
+        console.log('设置单个会话推送通知方式成功', {
+          conversationId: options.conversationId,
+          chatType: options.type,
+          remindType,
+          currentUser: EMClient.user,
+          result,
+        });
+        return result;
+      } catch (error) {
+        console.error('设置单个会话推送通知方式失败', {
+          conversationId: options.conversationId,
+          chatType: options.type,
+          remindType,
+          currentUser: EMClient.user,
+          error,
+        });
+        throw error;
+      }
+    },
+    setConversationDndDuration: async (context, params) => {
+      const { conversation, durationMinutes } = params;
+      const options = buildConversationDndDurationParams(
+        conversation,
+        durationMinutes,
+      );
+      try {
+        const result = await EMClient.setSilentModeForConversation(options);
+        console.log('设置单个会话免打扰时长成功', {
+          conversationId: options.conversationId,
+          chatType: options.type,
+          durationMinutes,
+          duration: options.options.duration,
+          currentUser: EMClient.user,
+          result,
+        });
+        return result;
+      } catch (error) {
+        console.error('设置单个会话免打扰时长失败', {
+          conversationId: options.conversationId,
+          chatType: options.type,
+          durationMinutes,
+          duration: options.options.duration,
+          currentUser: EMClient.user,
+          error,
+        });
+        throw error;
+      }
+    },
+    clearConversationPushSetting: async (context, conversation) => {
+      const options = buildConversationPushQueryParams(conversation);
+      try {
+        const result = await EMClient.clearRemindTypeForConversation(options);
+        console.log('清除单个会话推送通知方式成功', {
+          conversationId: options.conversationId,
+          chatType: options.type,
+          currentUser: EMClient.user,
+          result,
+        });
+        return result;
+      } catch (error) {
+        console.error('清除单个会话推送通知方式失败', {
+          conversationId: options.conversationId,
+          chatType: options.type,
+          currentUser: EMClient.user,
+          error,
+        });
         throw error;
       }
     },
