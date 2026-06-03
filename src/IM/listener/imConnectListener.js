@@ -27,8 +27,10 @@ export const imConnectListener = () => {
       },
       onDisconnected: () => {
         safeSync('connection.onDisconnected', () => {
-          router.push('/login');
           store.commit('CHANGE_LOGIN_STATUS', false);
+          console.warn(
+            '[connection.onDisconnected] IM 连接已断开，等待 SDK 自动重连；未跳转登录页。',
+          );
         });
       },
       onOnline: () => {

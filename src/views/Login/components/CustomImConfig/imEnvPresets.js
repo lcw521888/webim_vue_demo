@@ -7,12 +7,14 @@ import {
 export const IM_ENVIRONMENTS = {
   TKE: 'TKE',
   DEV: 'DEV',
+  QA: 'QA',
   NGI: 'NGI',
 };
 
 export const IM_ENV_OPTIONS = [
   { label: 'TKE', value: IM_ENVIRONMENTS.TKE },
   { label: 'DEV', value: IM_ENVIRONMENTS.DEV },
+  { label: 'QA隔舱', value: IM_ENVIRONMENTS.QA },
   { label: 'NGI', value: IM_ENVIRONMENTS.NGI },
 ];
 
@@ -43,6 +45,11 @@ const ENV_PRIVATE_CONFIGS = {
     appKey: 'easemob-demo#sdk111',
     restServer: 'https://a1-hsb.easemob.com',
     imServer: 'im-api-new-hsb.easemob.com/websocket',
+  },
+  [IM_ENVIRONMENTS.QA]: {
+    appKey: 'easemob-demo#qatest',
+    restServer: 'http://10.202.1.58:8081',
+    imServer: 'ws://10.202.1.58:4717/websocket',
   },
 };
 
