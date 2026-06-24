@@ -227,7 +227,7 @@ export const imReviceMessageListener = () => {
           pushNewMessage(message);
         }, // 收到图片消息。
         onCmdMessage: function (message) {
-          if (message == null || typeof message !== 'object') return;
+          pushNewMessage(message);
         }, // 收到命令消息。
         onAudioMessage: function (message) {
           pushNewMessage(message);
