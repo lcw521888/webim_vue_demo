@@ -113,7 +113,21 @@ const sendCmdMessage = async () => {
   sending.value = true;
   try {
     const msg = EMClient.Message.create(msgOptions);
-    const { message } = await EMClient.send(msg);
+    const sendResult = await EMClient.send(msg);
+    const message = {
+      ...msg,
+      id: sendResult?.serverMsgId || sendResult?.message?.id || msg.id,
+      mid: sendResult?.serverMsgId || sendResult?.message?.mid || msg.mid,
+      localMsgId: sendResult?.localMsgId,
+      serverMsgId: sendResult?.serverMsgId,
+    };
+    console.log('[Message Send] cmd success', {
+      targetId: targetId.value,
+      chatType: chatType.value,
+      action,
+      sendResult,
+      displayMessage: message,
+    });
     await store.dispatch('senedShowTypeMessage', message);
     ElMessage.success('透传消息发送成功');
     closeDialog();
