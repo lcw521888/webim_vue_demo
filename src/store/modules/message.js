@@ -355,34 +355,37 @@ const Message = {
     },
     // 更新消息送达状态
     UPDATE_MESSAGE_DELIVERED: (state, payload) => {
-      console.log('更新消息送达状态:', payload);
       const { messageId, conversationId, chatType } = payload;
       const key = setMessageKey({ to: conversationId, chatType });
-      console.log('生成的消息列表键:', key);
       if (state.messageList[key]) {
-        console.log('消息列表存在，查找消息:', messageId);
         const message = _.find(
           state.messageList[key],
           (o) => o.id === messageId,
         );
         if (message) {
           message.delivered = true;
-          console.log('消息送达状态更新成功:', messageId);
         } else {
-          console.log('未找到消息:', messageId);
+          console.warn('[Message Receipt] 未找到送达回执对应消息', {
+            messageId,
+            conversationId,
+            chatType,
+            listKey: key,
+          });
         }
       } else {
-        console.log('消息列表不存在:', key);
+        console.warn('[Message Receipt] 送达回执对应消息列表不存在', {
+          messageId,
+          conversationId,
+          chatType,
+          listKey: key,
+        });
       }
     },
     // 更新消息已读状态
     UPDATE_MESSAGE_READ: (state, payload) => {
-      console.log('更新消息已读状态:', payload);
       const { messageId, conversationId, chatType, groupReadCount } = payload;
       const key = setMessageKey({ to: conversationId, chatType });
-      console.log('生成的消息列表键:', key);
       if (state.messageList[key]) {
-        console.log('消息列表存在，查找消息:', messageId);
         const message = _.find(
           state.messageList[key],
           (o) => o.id === messageId,
@@ -392,22 +395,30 @@ const Message = {
           if (groupReadCount) {
             message.groupReadCount = groupReadCount;
           }
-          console.log('消息已读状态更新成功:', messageId);
         } else {
-          console.log('未找到消息:', messageId);
+          console.warn('[Message Receipt] 未找到已读回执对应消息', {
+            messageId,
+            conversationId,
+            chatType,
+            groupReadCount,
+            listKey: key,
+          });
         }
       } else {
-        console.log('消息列表不存在:', key);
+        console.warn('[Message Receipt] 已读回执对应消息列表不存在', {
+          messageId,
+          conversationId,
+          chatType,
+          groupReadCount,
+          listKey: key,
+        });
       }
     },
     // 发送消息已读回执
     SEND_MESSAGE_READ_RECEIPT: (state, payload) => {
-      console.log('发送消息已读回执:', payload);
       const { messageId, to, chatType } = payload;
       const key = setMessageKey({ to, chatType });
-      console.log('生成的消息列表键:', key);
       if (state.messageList[key]) {
-        console.log('消息列表存在，查找消息:', messageId);
         const message = _.find(
           state.messageList[key],
           (o) => o.id === messageId,
@@ -420,7 +431,6 @@ const Message = {
             to: to,
             id: messageId,
           };
-          console.log('创建已读回执消息:', readReceipt);
           // 发送已读回执
           if (
             typeof EMClient !== 'undefined' &&
@@ -428,39 +438,60 @@ const Message = {
             EMClient.send
           ) {
             const msg = EMClient.Message.create(readReceipt);
-            console.log('发送已读回执:', msg);
             EMClient.send(msg)
               .then((result) => {
-                console.log('发送已读回执成功:', result);
+                console.log('[Message Receipt] send read receipt success', {
+                  messageId,
+                  targetId: to,
+                  chatType,
+                  listKey: key,
+                  result,
+                });
               })
               .catch((error) => {
-                console.error('发送已读回执失败:', error);
+                console.error('[Message Receipt] send read receipt failed', {
+                  messageId,
+                  targetId: to,
+                  chatType,
+                  listKey: key,
+                  error,
+                });
               });
           } else {
-            console.error('EMClient 未定义或缺少必要方法');
+            console.error('[Message Receipt] EMClient 未定义或缺少必要方法', {
+              messageId,
+              targetId: to,
+              chatType,
+              listKey: key,
+            });
           }
         } else {
-          console.log('未找到消息:', messageId);
+          console.warn('[Message Receipt] 未找到需要发送已读回执的消息', {
+            messageId,
+            targetId: to,
+            chatType,
+            listKey: key,
+          });
         }
       } else {
-        console.log('消息列表不存在:', key);
+        console.warn('[Message Receipt] 已读回执对应消息列表不存在', {
+          messageId,
+          targetId: to,
+          chatType,
+          listKey: key,
+        });
       }
     },
   },
   actions: {
     //添加新消息
     createNewMessage: ({ dispatch, commit, state }, params) => {
-      console.log('[Vuex Action] createNewMessage 被调用');
-      console.log('消息参数:', params);
-
       const key = setMessageKey(params);
       const existedBefore = hasMessageInList(state, key, params?.id);
       const shouldTriggerSideEffects = shouldTriggerIncomingMessageEffects({
         message: params,
         existedBefore,
       });
-
-      console.log('生成的消息列表键:', key);
 
       commit('UPDATE_MESSAGE_LIST', params);
       // 流式消息后续分片只更新原消息内容，不重复触发新消息副作用
@@ -475,8 +506,6 @@ const Message = {
           incrementUnread: shouldTriggerSideEffects,
         });
       }
-
-      console.log('[Vuex Action] createNewMessage 执行完成');
     },
     //获取历史消息
     getHistoryMessage: async ({ state, dispatch, commit }, params) => {
@@ -488,14 +517,6 @@ const Message = {
         searchDirection = 'up',
         searchOptions,
       } = params;
-      console.log('【Store】开始拉取历史消息:', {
-        conversationId: id,
-        chatType: chatType,
-        cursor: cursor || '初始加载',
-        pageSize,
-        searchDirection,
-        searchOptions,
-      });
       return new Promise((resolve, reject) => {
         const options = {
           targetId: id,
@@ -505,21 +526,10 @@ const Message = {
           searchDirection,
           ...(searchOptions ? { searchOptions } : {}),
         };
-        console.log('【Store】拉取历史消息参数:', options);
-        console.log('【Store】开始调用 EMClient.getHistoryMessages');
         EMClient.getHistoryMessages(options)
           .then((res) => {
-            console.log('【Store】拉取历史消息成功，返回结果:', {
-              hasCursor: !!res.cursor,
-              messageCount: res.messages?.length || 0,
-            });
             const { cursor: nextCursor, messages } = res;
-            console.log('【Store】处理拉取到的历史消息:', {
-              originalCount: messages?.length || 0,
-              firstMessageId: messages?.length > 0 ? messages[0].id : '无',
-              lastMessageId:
-                messages?.length > 0 ? messages[messages.length - 1].id : '无',
-            });
+            const messageCount = messages?.length || 0;
             const reactionMessages = (messages || []).filter(
               (item) =>
                 Array.isArray(item?.reactions) && item.reactions.length > 0,
@@ -548,7 +558,6 @@ const Message = {
                 },
               );
             }
-            console.log('【Store】处理完成，准备解析结果');
             resolve({
               messages,
               cursor: nextCursor,
@@ -560,27 +569,43 @@ const Message = {
             const reversedMessages = _.reverse(_.cloneDeep(messages || []));
             // 为历史消息生成正确的listKey
             const listKey = setMessageKey({ to: id, chatType });
-            console.log('【Store】生成消息列表键:', listKey);
             commit('UPDATE_HISTORY_MESSAGE', {
               listKey: listKey,
               historyMessageList: reversedMessages,
             });
             if (!state.messageList[listKey]) {
-              console.log('【Store】消息列表不存在，更新会话列表');
               //提示会话列表更新
               dispatch('updateConversationList', {
                 conversationId: id,
                 chatType: chatType,
               });
             }
-            console.log('【Store】处理消息扩展信息');
             dispatch('UsersProfile/processMessageExt', reversedMessages, {
               root: true,
             });
-            console.log('【Store】历史消息拉取流程完成');
+            console.log('[History Message] getHistoryMessages success', {
+              conversationId: id,
+              chatType,
+              cursor,
+              nextCursor,
+              pageSize: options.pageSize,
+              searchDirection,
+              searchOptions,
+              messageCount,
+              firstMessageId: messageCount > 0 ? messages[0].id : '',
+              lastMessageId:
+                messageCount > 0 ? messages[messageCount - 1].id : '',
+              listKey,
+            });
           })
           .catch((error) => {
-            console.error('【Store】获取历史消息失败:', {
+            console.error('[History Message] getHistoryMessages failed', {
+              conversationId: id,
+              chatType,
+              cursor,
+              pageSize: options.pageSize,
+              searchDirection,
+              searchOptions,
               error,
               errorType: error.type,
               errorMessage: error.message,
@@ -593,7 +618,11 @@ const Message = {
               error.message?.includes('INVALID_TOKEN') ||
               error.message?.includes('Invalid token')
             ) {
-              console.error('【Store】令牌无效，跳转到登录页面');
+              console.error('[History Message] 令牌无效，跳转到登录页面', {
+                conversationId: id,
+                chatType,
+                error,
+              });
               // 清除本地存储的登录信息
               localStorage.removeItem('EASEIM_loginUser');
               // 跳转到登录页面
@@ -625,7 +654,6 @@ const Message = {
                     msg:''
                 }
             */
-      console.log('first', params);
       const msgBody = _.cloneDeep(params);
       msgBody.type = CUSTOM_MESSAGE_TYPE.INFORM;
       const key = setMessageKey(params);
@@ -802,21 +830,22 @@ const Message = {
         throw new Error('fetchMessageReactionList 缺少参数');
       }
       try {
-        console.log('[Reaction] getReactionlist 请求', {
-          messageId,
-          chatType,
-          groupId,
-        });
         const res = await EMClient.getReactionlist({
           messageId,
           chatType,
           groupId,
         });
-        console.log('[Reaction] getReactionlist 返回', res);
         const rawList = Array.isArray(res?.data) ? res.data : [];
         const target =
           rawList.find((item) => item?.messageId === messageId) || {};
         const reactions = normalizeReactionList(target?.reactions || []);
+        console.log('[Reaction] getReactionlist success', {
+          messageId,
+          chatType,
+          groupId,
+          reactionCount: reactions.length,
+          response: res,
+        });
         commit('UPDATE_MESSAGE_REACTIONS', {
           key,
           messageId,
@@ -824,7 +853,12 @@ const Message = {
         });
         return reactions;
       } catch (error) {
-        console.error('[Reaction] getReactionlist 失败', error);
+        console.error('[Reaction] getReactionlist failed', {
+          messageId,
+          chatType,
+          groupId,
+          error,
+        });
         throw error;
       }
     },
@@ -837,22 +871,29 @@ const Message = {
       } = params || {};
       if (!messageId || !reaction) return null;
       try {
-        console.log('[Reaction] getReactionDetail 请求', {
-          messageId,
-          reaction,
-          cursor,
-          pageSize,
-        });
         const res = await EMClient.getReactionDetail({
           messageId,
           reaction,
           cursor,
           pageSize,
         });
-        console.log('[Reaction] getReactionDetail 返回', res);
+        console.log('[Reaction] getReactionDetail success', {
+          messageId,
+          reaction,
+          cursor,
+          pageSize,
+          userCount: Array.isArray(res?.data) ? res.data.length : undefined,
+          response: res,
+        });
         return res;
       } catch (error) {
-        console.error('[Reaction] getReactionDetail 失败', error);
+        console.error('[Reaction] getReactionDetail failed', {
+          messageId,
+          reaction,
+          cursor,
+          pageSize,
+          error,
+        });
         throw error;
       }
     },
@@ -872,9 +913,13 @@ const Message = {
         throw new Error('聊天室暂不支持 Reaction');
       }
       try {
-        console.log('[Reaction] addReaction 请求', { messageId, reaction });
         await EMClient.addReaction({ messageId, reaction });
-        console.log('[Reaction] addReaction 成功', { messageId, reaction });
+        console.log('[Reaction] addReaction success', {
+          messageId,
+          reaction,
+          chatType,
+          groupId,
+        });
       } catch (error) {
         throw error;
       }
@@ -893,9 +938,13 @@ const Message = {
       if (chatType === CHAT_TYPE.CHATROOM) {
         throw new Error('聊天室暂不支持 Reaction');
       }
-      console.log('[Reaction] deleteReaction 请求', { messageId, reaction });
       await EMClient.deleteReaction({ messageId, reaction });
-      console.log('[Reaction] deleteReaction 成功', { messageId, reaction });
+      console.log('[Reaction] deleteReaction success', {
+        messageId,
+        reaction,
+        chatType,
+        groupId,
+      });
       return dispatch('fetchMessageReactionList', {
         messageId,
         chatType,

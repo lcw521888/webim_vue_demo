@@ -87,7 +87,13 @@ const sendFileMessage = async (commonFile) => {
     },
     onFileUploadProgress: (e) => {
       // 图片文件上传进度。
-      console.log('上传进度:', e);
+      console.log('[Message Upload] file progress', {
+        targetId: targetId.value,
+        chatType: chatType.value,
+        fileName: commonFile.name,
+        loaded: e?.loaded,
+        total: e?.total,
+      });
       emit('onStartLoading');
     },
     onFileUploadComplete: () => {
@@ -100,11 +106,16 @@ const sendFileMessage = async (commonFile) => {
   try {
     const msg = EMClient.Message.create(msgOptions);
     const { message } = await EMClient.send(msg);
-    console.log('message', message);
     store.dispatch('senedShowTypeMessage', { ...message });
-    } catch (error) {
-      notifySdkSendError(error);
-    } finally {
+  } catch (error) {
+    console.error('发送文件消息失败:', {
+      targetId: targetId.value,
+      chatType: chatType.value,
+      fileName: commonFile.name,
+      error,
+    });
+    notifySdkSendError(error);
+  } finally {
     if (uploadFiles.value) {
       uploadFiles.value.value = null;
     }

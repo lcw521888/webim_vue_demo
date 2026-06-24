@@ -11,7 +11,6 @@ export const imContactListener = () => {
     ).catch((err) => console.error('[imContactListener.createNewInform]', err));
   };
   const onDispatchContactEvent = (eventType, data) => {
-    console.log('onDispatchContactEvent', data);
     if (data == null || typeof data !== 'object') {
       console.warn('[onDispatchContactEvent] 无效 data', eventType, data);
       return;
@@ -61,7 +60,12 @@ export const imContactListener = () => {
       // 收到好友邀请触发此方法。
       onContactInvited: (data) => {
         //写入INFORM
-        console.log('onContactInvited', data);
+        console.log('[IM Contact Event] received', {
+          eventType: CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_INVITED,
+          from: data?.from,
+          to: data?.to,
+          rawEvent: data,
+        });
         onDispatchContactEvent(
           CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_INVITED,
           data,
@@ -70,7 +74,12 @@ export const imContactListener = () => {
       // 联系人被删除时触发此方法。
       onContactDeleted: (data) => {
         //写入INFORM
-        console.log('onContactDeleted', data);
+        console.log('[IM Contact Event] received', {
+          eventType: CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_DELETED,
+          from: data?.from,
+          to: data?.to,
+          rawEvent: data,
+        });
         onDispatchContactEvent(
           CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_DELETED,
           data,
@@ -78,7 +87,12 @@ export const imContactListener = () => {
       },
       // 新增联系人会触发此方法。
       onContactAdded: (data) => {
-        console.log('onContactAdded', data);
+        console.log('[IM Contact Event] received', {
+          eventType: CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_ADDED,
+          from: data?.from,
+          to: data?.to,
+          rawEvent: data,
+        });
         onDispatchContactEvent(
           CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_ADDED,
           data,
@@ -87,7 +101,12 @@ export const imContactListener = () => {
       // 好友请求被拒绝时触发此方法。
       onContactRefuse: (data) => {
         //写入INFORM
-        console.log('onContactRefuse', data);
+        console.log('[IM Contact Event] received', {
+          eventType: CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_REFUSE,
+          from: data?.from,
+          to: data?.to,
+          rawEvent: data,
+        });
         onDispatchContactEvent(
           CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_REFUSE,
           data,
@@ -96,7 +115,12 @@ export const imContactListener = () => {
       // 好友请求被同意时触发此方法。
       onContactAgreed: (data) => {
         //写入INFORM
-        console.log('onContactAgreed', data);
+        console.log('[IM Contact Event] received', {
+          eventType: CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_AGREED,
+          from: data?.from,
+          to: data?.to,
+          rawEvent: data,
+        });
         onDispatchContactEvent(
           CONTACT_OPERATION_CUSTOM_TYPE.CONTACT_AGREED,
           data,

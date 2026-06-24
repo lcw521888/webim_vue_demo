@@ -1,18 +1,18 @@
 <script setup>
 import { ref } from 'vue';
 import { EMClient } from '@/IM';
+import router from '@/router';
 const dialogVisible = ref(false);
 const isClearStorage = ref(true);
 
 const logoutTheUser = () => {
   if (isClearStorage.value) {
     clearLocalStorage();
-    dialogVisible.value = false;
-    EMClient.close();
-  } else {
-    dialogVisible.value = false;
-    EMClient.close();
   }
+  window.localStorage.removeItem('EASEIM_loginUser');
+  dialogVisible.value = false;
+  EMClient.close();
+  router.replace('/login');
 };
 
 const clearLocalStorage = () => {

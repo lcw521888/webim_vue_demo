@@ -74,7 +74,7 @@ const loadMore = async () => {
     try {
       store.dispatch('fetchJoinedGroupListFromServer');
     } catch (error) {
-      console.log('>>>>>>>接口获取失败', error);
+      console.error('[Contacts] fetchJoinedGroupListFromServer failed', error);
     } finally {
       loadingStatus.value = false;
     }

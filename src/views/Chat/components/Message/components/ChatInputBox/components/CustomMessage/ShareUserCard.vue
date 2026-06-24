@@ -137,7 +137,6 @@ const sendShareUserCardMessage = async () => {
   try {
     const msg = EMClient.Message.create(msgOptions);
     const { message } = await EMClient.send(msg);
-    console.log('message', message);
     await store.dispatch('senedShowTypeMessage', message);
   } catch (error) {
     console.error('发送信息卡片消息失败', error);

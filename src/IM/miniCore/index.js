@@ -55,6 +55,29 @@ function getRequestLogContext(payload) {
   };
 }
 
+function getMessageLogContext(message) {
+  if (!message || typeof message !== 'object') return {};
+  return {
+    messageId: message.id || message.mid || message.messageId || '',
+    from: message.from || '',
+    to: message.to || message.conversationId || '',
+    chatType: message.chatType || message.conversationType || '',
+    messageType: message.type || '',
+  };
+}
+
+function logImSdkEvent(eventName, payload = {}) {
+  console.log(`[IM SDK Event] ${eventName}`, payload);
+}
+
+function logAppEventDispatch(eventName, payload = {}) {
+  console.log(`[App Event Dispatch] ${eventName}`, payload);
+}
+
+function logEmClientSdkCall(methodName, payload = {}) {
+  console.log(`[EMClient SDK] ${methodName}`, payload);
+}
+
 function getSdkUser(client) {
   return client?.user || miniCore?.user || '';
 }
@@ -254,22 +277,17 @@ const initEMClient = () => {
         console.warn('[IM SDK] onRecallMessage 收到无效消息体，已忽略', msg);
         return;
       }
-      console.log(
-        '[IM SDK Event] Message Recall Event (onRecallMessage) Triggered',
-      );
-      console.log('Event Details:', {
-        messageId: msg.id,
-        from: msg.from,
-        to: msg.to,
-        chatType: msg.chatType,
-        messageType: msg.type,
+      logImSdkEvent('onRecallMessage', {
+        ...getMessageLogContext(msg),
         ext: msg.ext,
-        originalMessage: msg,
+        rawEvent: msg,
       });
       safeSync('messageRecall.dispatch hx:messageRecall', () => {
         window.dispatchEvent(new CustomEvent('hx:messageRecall', { detail: msg }));
       });
-      console.log('[IM SDK Event] Custom Event hx:messageRecall Sent');
+      logAppEventDispatch('hx:messageRecall', {
+        ...getMessageLogContext(msg),
+      });
     },
   });
 
@@ -292,8 +310,11 @@ if (Object.keys(miniCore).length) {
 
   // 包装方法
   miniCore.Message.create = function (options) {
-    console.log('调用 EMClient.Message.create，options:', options);
-
+    logEmClientSdkCall('Message.create request', {
+      user: getSdkUser(this),
+      options,
+      context: getRequestLogContext(options),
+    });
     // 验证参数
     if (!options) {
       console.error('EMClient.Message.create: 缺少options参数');
@@ -316,7 +337,12 @@ if (Object.keys(miniCore).length) {
           writable: true,
         });
       }
-      console.log('创建的消息对象:', message);
+      logEmClientSdkCall('Message.create success', {
+        user: getSdkUser(this),
+        options,
+        context: getRequestLogContext(message),
+        message,
+      });
       return message;
     } catch (error) {
       console.error('EMClient.Message.create 内部错误:', error);
@@ -328,8 +354,12 @@ if (Object.keys(miniCore).length) {
   // 包装 send 方法，添加参数验证
   const originalSendMessage = miniCore.send;
   miniCore.send = async function (message) {
-    console.log('调用 EMClient.send，message:', message);
-
+    const startTime = Date.now();
+    logEmClientSdkCall('send request', {
+      user: getSdkUser(this),
+      context: getRequestLogContext(message),
+      message,
+    });
     // 验证参数
     if (!message) {
       console.error('EMClient.send: 缺少message参数');
@@ -344,7 +374,12 @@ if (Object.keys(miniCore).length) {
     // 调用原始方法
     try {
       const result = await originalSendMessage.call(this, message);
-      console.log('EMClient.send 返回结果:', result);
+      logEmClientSdkCall('send success', {
+        user: getSdkUser(this),
+        durationMs: Date.now() - startTime,
+        context: getRequestLogContext(message),
+        result,
+      });
       return result;
     } catch (error) {
       console.error('EMClient.send 内部错误:', error);
@@ -357,8 +392,11 @@ if (Object.keys(miniCore).length) {
   if (typeof miniCore.reportMessage === 'function') {
     const originalReportMessage = miniCore.reportMessage;
     miniCore.reportMessage = function (params) {
-      console.log('调用 EMClient.reportMessage，参数:', params);
-
+      logEmClientSdkCall('reportMessage request', {
+        user: getSdkUser(this),
+        params,
+        context: getRequestLogContext(params),
+      });
       // 验证参数
       if (!params) {
         console.error('EMClient.reportMessage: 缺少参数');
@@ -383,7 +421,12 @@ if (Object.keys(miniCore).length) {
       // 调用原始方法
       try {
         const result = originalReportMessage.call(this, params);
-        console.log('EMClient.reportMessage 返回结果:', result);
+        logEmClientSdkCall('reportMessage success', {
+          user: getSdkUser(this),
+          params,
+          context: getRequestLogContext(params),
+          result,
+        });
         return result;
       } catch (error) {
         console.error('EMClient.reportMessage 内部错误:', error);
@@ -444,8 +487,11 @@ if (Object.keys(miniCore).length) {
   if (typeof miniCore.pinMessage === 'function') {
     const originalPinMessage = miniCore.pinMessage;
     miniCore.pinMessage = function (options) {
-      console.log('调用 EMClient.pinMessage，参数:', options);
-
+      logEmClientSdkCall('pinMessage request', {
+        user: getSdkUser(this),
+        options,
+        context: getRequestLogContext(options),
+      });
       // 验证参数
       if (!options) {
         console.error('EMClient.pinMessage: 缺少参数');
@@ -470,7 +516,12 @@ if (Object.keys(miniCore).length) {
       // 调用原始方法
       try {
         const result = originalPinMessage.call(this, options);
-        console.log('EMClient.pinMessage 返回结果:', result);
+        logEmClientSdkCall('pinMessage success', {
+          user: getSdkUser(this),
+          options,
+          context: getRequestLogContext(options),
+          result,
+        });
         return result;
       } catch (error) {
         console.error('EMClient.pinMessage 内部错误:', error);
@@ -484,8 +535,11 @@ if (Object.keys(miniCore).length) {
   if (typeof miniCore.unpinMessage === 'function') {
     const originalUnpinMessage = miniCore.unpinMessage;
     miniCore.unpinMessage = function (options) {
-      console.log('调用 EMClient.unpinMessage，参数:', options);
-
+      logEmClientSdkCall('unpinMessage request', {
+        user: getSdkUser(this),
+        options,
+        context: getRequestLogContext(options),
+      });
       // 验证参数
       if (!options) {
         console.error('EMClient.unpinMessage: 缺少参数');
@@ -510,7 +564,12 @@ if (Object.keys(miniCore).length) {
       // 调用原始方法
       try {
         const result = originalUnpinMessage.call(this, options);
-        console.log('EMClient.unpinMessage 返回结果:', result);
+        logEmClientSdkCall('unpinMessage success', {
+          user: getSdkUser(this),
+          options,
+          context: getRequestLogContext(options),
+          result,
+        });
         return result;
       } catch (error) {
         console.error('EMClient.unpinMessage 内部错误:', error);
@@ -523,8 +582,11 @@ if (Object.keys(miniCore).length) {
   if (typeof miniCore.getServerPinnedMessages === 'function') {
     const originalGetServerPinnedMessages = miniCore.getServerPinnedMessages;
     miniCore.getServerPinnedMessages = function (options) {
-      console.log('调用 EMClient.getServerPinnedMessages，参数:', options);
-
+      logEmClientSdkCall('getServerPinnedMessages request', {
+        user: getSdkUser(this),
+        options,
+        context: getRequestLogContext(options),
+      });
       // 验证参数
       if (!options) {
         console.error('EMClient.getServerPinnedMessages: 缺少参数');
@@ -544,7 +606,12 @@ if (Object.keys(miniCore).length) {
       // 调用原始方法
       try {
         const result = originalGetServerPinnedMessages.call(this, options);
-        console.log('EMClient.getServerPinnedMessages 返回结果:', result);
+        logEmClientSdkCall('getServerPinnedMessages success', {
+          user: getSdkUser(this),
+          options,
+          context: getRequestLogContext(options),
+          result,
+        });
         return result;
       } catch (error) {
         console.error('EMClient.getServerPinnedMessages 内部错误:', error);
@@ -556,27 +623,24 @@ if (Object.keys(miniCore).length) {
   // 添加消息置顶事件监听
   miniCore.addEventHandler('messagePin', {
     onMessagePinEvent: (event) => {
-      // 事件名
-      const eventName = event.operation || 'messagePin';
-      // 事件结果默认设为成功
-      let eventResult = '成功';
-      
-      console.log('[IM SDK Event] Message Pin Event (onMessagePinEvent) Triggered');
-      console.log('事件名:', eventName);
-      console.log('事件结果:', eventResult);
-      console.log('Event Details:', {
+      logImSdkEvent('onMessagePinEvent', {
         operation: event.operation,
         conversationType: event.conversationType,
         conversationId: event.conversationId,
         messageId: event.messageId,
         pinTime: event.pinTime,
         operator: event.operator,
-        originalEvent: event
+        rawEvent: event
       });
       // 发送自定义事件，让Vue应用能够监听并更新状态
       const customEvent = new CustomEvent('hx:messagePin', { detail: event });
       window.dispatchEvent(customEvent);
-      console.log('[IM SDK Event] Custom Event hx:messagePin Sent');
+      logAppEventDispatch('hx:messagePin', {
+        messageId: event.messageId,
+        conversationId: event.conversationId,
+        conversationType: event.conversationType,
+        operation: event.operation,
+      });
     }
   });
 
@@ -584,131 +648,86 @@ if (Object.keys(miniCore).length) {
   miniCore.addEventHandler('messageReceipt', {
     // 收到消息送达服务器回执
     onReceivedMessage: (message) => {
-      // 事件名
-      const eventName = 'onReceivedMessage';
-      // 事件结果默认设为成功
-      let eventResult = '成功';
-      
-      console.log('[IM SDK Event] Message Received Event (onReceivedMessage) Triggered');
-      console.log('事件名:', eventName);
-      console.log('事件结果:', eventResult);
-      console.log('Message Details:', {
-        id: message.id,
-        from: message.from,
-        to: message.to,
-        chatType: message.chatType,
-        type: message.type,
-        originalMessage: message
+      logImSdkEvent('onReceivedMessage', {
+        ...getMessageLogContext(message),
+        rawEvent: message,
       });
       // 发送自定义事件，让Vue应用能够监听并更新状态
       const customEvent = new CustomEvent('hx:messageReceived', { detail: message });
       window.dispatchEvent(customEvent);
-      console.log('[IM SDK Event] Custom Event hx:messageReceived Sent');
+      logAppEventDispatch('hx:messageReceived', {
+        ...getMessageLogContext(message),
+      });
     },
     // 收到消息送达客户端回执
     onDeliveredMessage: (message) => {
-      // 事件名
-      const eventName = 'onDeliveredMessage';
-      // 事件结果默认设为成功
-      let eventResult = '成功';
-      
-      console.log('[IM SDK Event] Message Delivered Event (onDeliveredMessage) Triggered');
-      console.log('事件名:', eventName);
-      console.log('事件结果:', eventResult);
-      console.log('Message Details:', {
-        id: message.id,
-        from: message.from,
-        to: message.to,
-        chatType: message.chatType,
-        type: message.type,
-        originalMessage: message
+      logImSdkEvent('onDeliveredMessage', {
+        ...getMessageLogContext(message),
+        rawEvent: message,
       });
       // 发送自定义事件，让Vue应用能够监听并更新状态
       const customEvent = new CustomEvent('hx:messageDelivered', { detail: message });
       window.dispatchEvent(customEvent);
-      console.log('[IM SDK Event] Custom Event hx:messageDelivered Sent');
+      logAppEventDispatch('hx:messageDelivered', {
+        ...getMessageLogContext(message),
+      });
     },
     // 收到消息已读回执
     onReadMessage: (message) => {
-      // 事件名
-      const eventName = 'onReadMessage';
-      // 事件结果默认设为成功
-      let eventResult = '成功';
-      
-      console.log('[IM SDK Event] Message Read Event (onReadMessage) Triggered');
-      console.log('事件名:', eventName);
-      console.log('事件结果:', eventResult);
-      console.log('Message Details:', {
-        id: message.id,
-        from: message.from,
-        to: message.to,
-        chatType: message.chatType,
-        type: message.type,
+      logImSdkEvent('onReadMessage', {
+        ...getMessageLogContext(message),
         groupReadCount: message.groupReadCount,
-        originalMessage: message
+        rawEvent: message,
       });
       // 发送自定义事件，让Vue应用能够监听并更新状态
       const customEvent = new CustomEvent('hx:messageRead', { detail: message });
       window.dispatchEvent(customEvent);
-      console.log('[IM SDK Event] Custom Event hx:messageRead Sent');
+      logAppEventDispatch('hx:messageRead', {
+        ...getMessageLogContext(message),
+        groupReadCount: message.groupReadCount,
+      });
     },
     // 收到会话已读回执
     onChannelMessage: (message) => {
-      const eventName = 'onChannelMessage';
-      let eventResult = '成功';
-
-      console.log(
-        '[IM SDK Event] Conversation Read Receipt Event (onChannelMessage) Triggered',
-      );
-      console.log('事件名:', eventName);
-      console.log('事件结果:', eventResult);
-      console.log('Message Details:', {
-        from: message.from,
-        to: message.to,
-        chatType: message.chatType,
-        type: message.type,
-        originalMessage: message,
+      logImSdkEvent('onChannelMessage', {
+        ...getMessageLogContext(message),
+        rawEvent: message,
       });
       const customEvent = new CustomEvent('hx:channelMessage', {
         detail: message,
       });
       window.dispatchEvent(customEvent);
-      console.log('[IM SDK Event] Custom Event hx:channelMessage Sent');
+      logAppEventDispatch('hx:channelMessage', {
+        ...getMessageLogContext(message),
+      });
     },
     // 收到统计消息（离线时收到的回执）
     onStatisticMessage: (message) => {
-      // 事件名
-      const eventName = 'onStatisticMessage';
-      // 事件结果默认设为成功
-      let eventResult = '成功';
-      
-      console.log('[IM SDK Event] Statistic Message Event (onStatisticMessage) Triggered');
-      console.log('事件名:', eventName);
-      console.log('事件结果:', eventResult);
-      console.log('Message Details:', {
-        id: message.id,
-        from: message.from,
-        to: message.to,
-        location: message.location,
-        originalMessage: message
-      });
-      // 解析群组已读回执信息
+      let groupAck = [];
+      let parseError = null;
       if (message.location) {
         try {
           const statisticMsg = JSON.parse(message.location);
-          const groupAck = statisticMsg.group_ack || [];
-          console.log('Group Ack Details:', groupAck);
+          groupAck = statisticMsg.group_ack || [];
         } catch (error) {
+          parseError = error;
           console.error('Failed to parse statistic message location:', error);
-          // 如果解析失败，更新事件结果为失败
-          eventResult = '失败';
-          console.log('事件结果:', eventResult);
         }
       }
+      logImSdkEvent('onStatisticMessage', {
+        ...getMessageLogContext(message),
+        location: message.location,
+        groupAck,
+        parseError,
+        rawEvent: message,
+      });
       // 发送自定义事件，让Vue应用能够监听并更新状态
       const customEvent = new CustomEvent('hx:statisticMessage', { detail: message });
       window.dispatchEvent(customEvent);
-      console.log('[IM SDK Event] Custom Event hx:statisticMessage Sent');
+      logAppEventDispatch('hx:statisticMessage', {
+        ...getMessageLogContext(message),
+        groupAckCount: groupAck.length,
+      });
     }
   });
 
@@ -716,8 +735,11 @@ if (Object.keys(miniCore).length) {
   if (typeof miniCore.getGroupMsgReadUser === 'function') {
     const originalGetGroupMsgReadUser = miniCore.getGroupMsgReadUser;
     miniCore.getGroupMsgReadUser = function (params) {
-      console.log('调用 EMClient.getGroupMsgReadUser，参数:', params);
-
+      logEmClientSdkCall('getGroupMsgReadUser request', {
+        user: getSdkUser(this),
+        params,
+        context: getRequestLogContext(params),
+      });
       // 验证参数
       if (!params) {
         console.error('EMClient.getGroupMsgReadUser: 缺少参数');
@@ -737,7 +759,12 @@ if (Object.keys(miniCore).length) {
       // 调用原始方法
       try {
         const result = originalGetGroupMsgReadUser.call(this, params);
-        console.log('EMClient.getGroupMsgReadUser 返回结果:', result);
+        logEmClientSdkCall('getGroupMsgReadUser success', {
+          user: getSdkUser(this),
+          params,
+          context: getRequestLogContext(params),
+          result,
+        });
         return result;
       } catch (error) {
         console.error('EMClient.getGroupMsgReadUser 内部错误:', error);
@@ -752,8 +779,11 @@ if (Object.keys(miniCore).length) {
   
   // 定义包装后的方法
   const wrappedGetGroupInfo = function (params) {
-    console.log('调用 EMClient.getGroupInfo，参数:', params);
-
+    logEmClientSdkCall('getGroupInfo request', {
+      user: getSdkUser(miniCore),
+      params,
+      context: getRequestLogContext(params),
+    });
     // 验证参数
     if (!params) {
       console.error('EMClient.getGroupInfo: 缺少参数');
@@ -767,17 +797,18 @@ if (Object.keys(miniCore).length) {
 
     // 动态检查原始方法是否存在
     const currentOriginalMethod = originalGetGroupInfo || miniCore.getGroupInfo;
-    
-    console.log('currentOriginalMethod:', currentOriginalMethod);
-    console.log('currentOriginalMethod === wrappedGetGroupInfo:', currentOriginalMethod === wrappedGetGroupInfo);
-    
+
     if (typeof currentOriginalMethod === 'function' && currentOriginalMethod !== wrappedGetGroupInfo) {
       // 调用原始方法，确保不传递 chatType 参数
       const cleanParams = { groupId: params.groupId };
-      console.log('调用原始 getGroupInfo 方法，参数:', cleanParams);
       try {
         const result = currentOriginalMethod.call(miniCore, cleanParams);
-        console.log('EMClient.getGroupInfo 返回结果:', result);
+        logEmClientSdkCall('getGroupInfo success', {
+          user: getSdkUser(miniCore),
+          params: cleanParams,
+          context: getRequestLogContext(cleanParams),
+          result,
+        });
         return result;
       } catch (error) {
         console.error('EMClient.getGroupInfo 内部错误:', error);
@@ -797,8 +828,11 @@ if (Object.keys(miniCore).length) {
   
   // 定义包装后的方法
   const wrappedRecallMessage = function (params) {
-    console.log('调用 EMClient.recallMessage，参数:', params);
-
+    logEmClientSdkCall('recallMessage request', {
+      user: getSdkUser(miniCore),
+      params,
+      context: getRequestLogContext(params),
+    });
     // 验证参数
     if (!params) {
       console.error('EMClient.recallMessage: 缺少参数');
@@ -827,7 +861,12 @@ if (Object.keys(miniCore).length) {
             // 调用原始方法
             try {
               const result = currentOriginalMethod.call(miniCore, params);
-              console.log('EMClient.recallMessage 返回结果:', result);
+              logEmClientSdkCall('recallMessage success', {
+                user: getSdkUser(miniCore),
+                params,
+                context: getRequestLogContext(params),
+                result,
+              });
               return result;
             } catch (error) {
               console.error('EMClient.recallMessage 内部错误:', error);
@@ -871,8 +910,11 @@ if (Object.keys(miniCore).length) {
   if (typeof miniCore.getServerConversations === 'function') {
     const originalGetServerConversations = miniCore.getServerConversations;
     miniCore.getServerConversations = function (params) {
-      console.log('调用 EMClient.getServerConversations，参数:', params);
-
+      logEmClientSdkCall('getServerConversations request', {
+        user: getSdkUser(this),
+        params,
+        context: getRequestLogContext(params),
+      });
       // 验证参数
       if (!params) {
         console.error('EMClient.getServerConversations: 缺少参数');
@@ -889,7 +931,17 @@ if (Object.keys(miniCore).length) {
       }
       
       // 使用.catch()处理Promise错误
-      return result.catch(error => {
+      return result
+        .then((response) => {
+          logEmClientSdkCall('getServerConversations success', {
+            user: getSdkUser(this),
+            params,
+            context: getRequestLogContext(params),
+            result: response,
+          });
+          return response;
+        })
+        .catch(error => {
         console.error('EMClient.getServerConversations 内部错误:', error);
         // 处理网络超时错误
         if (error && error.errorType === 'timeout_error') {

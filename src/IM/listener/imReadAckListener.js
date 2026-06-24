@@ -5,7 +5,6 @@ import { wrapImEventHandler } from '@/utils/safeCall';
 
 export const imReadAckListener = () => {
   const mountReadAckEventListener = () => {
-    console.log('mountReadAckEventListener');
     EMClient.addEventHandler(
       'aboutReadAckMessage',
       wrapImEventHandler({

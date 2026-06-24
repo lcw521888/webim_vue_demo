@@ -49,13 +49,6 @@ export const imReviceMessageListener = () => {
       return;
     }
 
-    console.log('[IM Message] 准备写入消息列表', {
-      messageId: message.id || message.mid,
-      chatType: message.chatType,
-      from: message.from,
-      to: message.to,
-      rawMessage: message,
-    });
     Promise.resolve(store.dispatch('createNewMessage', message)).catch(
       (err) => {
         console.error('[pushNewMessage.createNewMessage]', err);

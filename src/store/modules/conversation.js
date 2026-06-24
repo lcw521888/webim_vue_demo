@@ -289,7 +289,6 @@ const Conversation = {
           getTargetName: () => informContent.to || '你',
         };
         if (Object.values(GROUP_OPERATION_TYPE).includes(config.operation)) {
-          console.log('<<<<提交系统通知>>>>');
           dispatch('createInformMessage', generateMessage('group', config));
         }
       }
@@ -297,7 +296,6 @@ const Conversation = {
     //从本地加载会话列表数据
     getConversationListFromLocal: async ({ dispatch, commit }, params) => {
       let conversationList = [];
-      console.log('>>>>>从本地加载会话列表数据');
       try {
         const result = await EMClient.localCache.getLocalConversations();
         if (result.data.length) {
@@ -334,6 +332,10 @@ const Conversation = {
         commit('GET_CONVERSATION_LIST_FROM_LOCAL', conversationList);
 
         dispatch('callGroupDetailWithConversationId', conversationList);
+        console.log('[Conversation] getConversationListFromLocal success', {
+          count: conversationList.length,
+          currentUser: EMClient.user,
+        });
         //获取群组详情
       } catch (error) {
         console.error('获取会话列表失败', error);
@@ -342,7 +344,6 @@ const Conversation = {
     //从服务端获取会话列表
     getConversationListFromServer: async ({ state, commit, dispatch }, params) => {
       const { isInit } = params || {};
-      console.log('>>>>>服务端获取会话列表数据');
       try {
         // 从服务器获取会话列表（不包含聊天室）
         const result = await EMClient.getServerConversations({
@@ -472,7 +473,6 @@ const Conversation = {
       try {
         // localCache 插件不支持聊天室（chatRoom），只支持单聊（singleChat）和群聊（groupChat）
         if (chatType === CHAT_TYPE.CHATROOM) {
-          console.log('聊天室会话跳过本地缓存更新');
           return;
         }
         const result = await EMClient.localCache.getLocalConversation({
@@ -498,7 +498,11 @@ const Conversation = {
         toBeUpdateConversationItem.customField = { ...customField };
         commit('UPDATE_CONVERSATION_LIST', toBeUpdateConversationItem);
       } catch (error) {
-        console.log('error', error);
+        console.error('[Conversation] getLocalConversation failed', {
+          conversationId,
+          chatType,
+          error,
+        });
       }
     },
     //更新Store中的会话列表（远端会话会在环信服务自动更新。）
@@ -690,7 +694,11 @@ const Conversation = {
         //通知更新缓存中的会话未读数。
         commit('CLEAR_CONVERSATION_ITEM_UNREAD_COUNT', conversationId);
       } catch (error) {
-        console.log('clearConversationUnreadCount error', error);
+        console.error('[Conversation] clearConversationUnreadCount failed', {
+          conversationId,
+          chatType,
+          error,
+        });
       }
     },
     //清除会话@提及状态
@@ -733,7 +741,10 @@ const Conversation = {
           await dispatch('fetchGroupDetailFromServer', groupConversationIds);
         }
       } catch (error) {
-        console.log('error', error);
+        console.error('[Conversation] fetch group details for conversations failed', {
+          groupConversationIds,
+          error,
+        });
       }
     },
   },

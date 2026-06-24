@@ -181,7 +181,12 @@ const sendVideoMessage = async (event) => {
   try {
     await doSendVideoFile(videoFile);
   } catch (error) {
-    console.log('视频消息发送失败', error);
+    console.error('发送视频消息失败', {
+      targetId: targetId.value,
+      chatType: chatType.value,
+      fileName: videoFile.name,
+      error,
+    });
     notifySdkSendError(error);
   } finally {
     uploadVideo.value.value = '';

@@ -9,13 +9,15 @@ export const imMultiDeviceListener = () => {
       return;
     }
     const { eventType, payload } = event;
-    console.log('多设备事件：', eventType, payload);
+    console.log('[IM MultiDevice Event] received', {
+      eventType,
+      payload,
+    });
 
     switch (eventType) {
       // 会话置顶事件
       case 'pinnedConversation':
         {
-          console.log('收到多设备会话置顶事件', payload);
           Promise.resolve(
             store.dispatch('getServerPinnedConversations'),
           ).catch((err) =>
@@ -26,7 +28,6 @@ export const imMultiDeviceListener = () => {
       // 取消会话置顶事件
       case 'unpinnedConversation':
         {
-          console.log('收到多设备取消会话置顶事件', payload);
           Promise.resolve(
             store.dispatch('getServerPinnedConversations'),
           ).catch((err) =>
@@ -35,7 +36,10 @@ export const imMultiDeviceListener = () => {
         }
         break;
       default:
-        console.log('未处理的多设备事件：', eventType);
+        console.warn('[IM MultiDevice Event] unhandled eventType', {
+          eventType,
+          payload,
+        });
         break;
     }
   };
@@ -45,7 +49,6 @@ export const imMultiDeviceListener = () => {
       'multiDeviceEvent',
       wrapImEventHandler({
       onMultiDeviceEvent: (event) => {
-        console.log('onMultiDeviceEvent:', event);
         onDispatchMultiDeviceEvent(event);
       },
     }),

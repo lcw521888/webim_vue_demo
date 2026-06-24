@@ -136,7 +136,7 @@ const mutations = {
 };
 const actions = {
   processMessageExt({ commit, state }, msg) {
-    console.log('[Message Ext] 处理消息扩展入参', {
+    console.log('[Store Message Ext] processMessageExt input', {
       isArray: Array.isArray(msg),
       arrayOwnChatType: Array.isArray(msg)
         ? Object.prototype.hasOwnProperty.call(msg, 'chatType')
@@ -162,7 +162,11 @@ const actions = {
             commit('UPDATE_MESSAGE_EXT', { userId, msg: msgItem });
           }
         } catch (e) {
-          console.log(`第 ${idx} 条消息处理异常`, e, msgItem);
+          console.error('[Message Ext] process message ext failed', {
+            index: idx,
+            error: e,
+            rawMessage: msgItem,
+          });
         }
       });
       return;

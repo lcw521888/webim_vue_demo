@@ -72,14 +72,12 @@ export const imGroupListener = () => {
       case GROUP_OPERATION_TYPE.UPDATE_ANNOUNCEMENT:
       case GROUP_OPERATION_TYPE.DELETE_ANNOUNCEMENT:
         {
-          console.log('>>>>群组公告更新', groupevent);
           store.dispatch('fetchAnnounmentFromServer', groupId);
         }
         break;
       case GROUP_OPERATION_TYPE.UPLOAD_FILE:
       case GROUP_OPERATION_TYPE.DELETE_FILE:
         {
-          console.log('>>>>群共享文件变更', groupevent);
           store.dispatch('fetchGroupSharedFilesFromServer', { groupId });
         }
         break;
@@ -139,7 +137,6 @@ export const imGroupListener = () => {
       //群组解散
       case GROUP_OPERATION_TYPE.DESTROY:
         {
-          console.log('>>>>解散删除群组');
           //从群组列表中删除某群
           store.commit('DELETE_JOINED_GROUP_LIST', {
             groupId: groupId,
@@ -149,7 +146,6 @@ export const imGroupListener = () => {
       //群成员更新了群组内成员属性
       case GROUP_OPERATION_TYPE.MEMBER_ATTRIBUTES_UPDATE:
         {
-          console.log('groupevent', groupevent);
           store.commit('UsersProfile/UPDATE_USER_PROFILE', {
             userId: from,
             sourceType: 'group',
@@ -167,7 +163,13 @@ export const imGroupListener = () => {
       'groupEvent',
       wrapImEventHandler({
         onGroupEvent: (groupevent) => {
-          console.log('groupEvent: ', groupevent);
+          console.log('[IM Group Event] received', {
+            operation: groupevent?.operation,
+            groupId: groupevent?.id,
+            from: groupevent?.from,
+            memberCount: groupevent?.memberCount,
+            rawEvent: groupevent,
+          });
           submitInformData(INFORM_FROM.GROUP, groupevent);
           onDispatchGroupEvent(groupevent);
         },

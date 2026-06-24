@@ -186,7 +186,6 @@ onMounted(() => {
 // 处理消息送达回执
 const handleMessageDelivered = (event) => {
   const message = event.detail;
-  console.log('收到消息送达回执:', message);
 
   // 确定会话 ID
   const conversationId =
@@ -203,7 +202,6 @@ const handleMessageDelivered = (event) => {
 // 处理消息已读回执
 const handleMessageRead = (event) => {
   const message = event.detail;
-  console.log('收到消息已读回执:', message);
 
   // 确定会话 ID
   const conversationId =
@@ -221,7 +219,6 @@ const handleMessageRead = (event) => {
 // 处理会话已读回执
 const handleChannelMessage = (event) => {
   const message = event.detail;
-  console.log('收到会话已读回执:', message);
 
   const conversationId = message?.from || message?.to;
   if (!conversationId) return;
@@ -246,14 +243,12 @@ const handleChannelMessage = (event) => {
 // 处理统计消息事件（离线回执）
 const handleStatisticMessage = (event) => {
   const message = event.detail;
-  console.log('收到统计消息:', message);
   
   // 解析群组已读回执信息
   if (message.location) {
     try {
       const statisticMsg = JSON.parse(message.location);
       const groupAck = statisticMsg.group_ack || [];
-      console.log('群组已读回执信息:', groupAck);
       
       // 处理群组已读回执
       groupAck.forEach(ack => {

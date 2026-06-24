@@ -101,7 +101,6 @@ const chooseImages = () => {
 const previewSendImg = ref(null);
 //从输入框剪切板获取图片
 const getImageFileFromClipboard = (items) => {
-  console.log('items', items);
   const item = Array.from(items).find(
     (item) => item.kind === 'file' && item.type.startsWith('image/'),
   );
@@ -318,7 +317,14 @@ const sendLocationMessage = async () => {
   try {
     const msg = EMClient.Message.create(msgOptions);
     const { message } = await EMClient.send(msg);
-    console.log('发送位置消息成功:', message);
+    console.log('[Message Send] location success', {
+      messageId: message?.id || message?.mid,
+      targetId: routeQueryData.value.id,
+      chatType: routeQueryData.value.chatType,
+      lat: msgOptions.lat,
+      lng: msgOptions.lng,
+      addr: msgOptions.addr,
+    });
     ElMessage.success('发送位置消息成功');
     await store.dispatch('senedShowTypeMessage', message);
   } catch (error) {
@@ -448,7 +454,13 @@ const sendCombineMessage = async () => {
     // 发送合并消息
     const msg = EMClient.Message.create(combineMsgOptions);
     const { message } = await EMClient.send(msg);
-    console.log('合并消息发送成功:', message);
+    console.log('[Message Send] combine success', {
+      messageId: message?.id || message?.mid,
+      targetId: routeQueryData.value.id,
+      chatType: routeQueryData.value.chatType,
+      sourceMessageCount: recentMessages.length,
+      summary: combineMsgOptions.summary,
+    });
     // 确保返回的消息包含 messageList
     if (!message.messageList) {
       message.messageList = recentMessages;

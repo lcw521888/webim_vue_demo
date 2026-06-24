@@ -68,7 +68,13 @@ const sendImagesMessage = () => {
     },
     onFileUploadProgress: (e) => {
       // 图片文件上传进度。
-      console.log(e);
+      console.log('[Message Upload] image progress', {
+        targetId: targetId.value,
+        chatType: chatType.value,
+        fileName: fileObj?.name,
+        loaded: e?.loaded,
+        total: e?.total,
+      });
       emit('onStartLoading');
     },
     onFileUploadComplete: () => {
@@ -90,7 +96,12 @@ const sendImagesMessage = () => {
       const { message } = await EMClient.send(msg);
       store.dispatch('senedShowTypeMessage', { ...message });
     } catch (error) {
-      console.log('>>>>>>error', error);
+      console.error('发送图片消息失败:', {
+        targetId: targetId.value,
+        chatType: chatType.value,
+        fileName: imgFile?.name,
+        error,
+      });
       notifySdkSendError(error);
     }
   };

@@ -26,7 +26,6 @@ const changeRemarkEditMode = () => {
 };
 const saveEditedRemark = async () => {
   if (userRemark.value === getUserRemark.value) return (isEdit.value = false);
-  console.log('>>>>>>保存备注');
   try {
     await store.dispatch('setContactsRemark', {
       userId: userId.value,

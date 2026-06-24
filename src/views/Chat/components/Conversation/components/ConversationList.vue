@@ -133,7 +133,6 @@ const debouncedToChatMessage = _.debounce(
   300,
 ); // 300毫秒内的连续触发将被防抖处理
 const toChatMessage = (conversationItem, index) => {
-  console.log('点击会话项:', conversationItem);
   checkedConverItemIndex.value = index;
   const { conversationId, unReadCount, customField, conversationType } = conversationItem;
   if (unReadCount > 0) {

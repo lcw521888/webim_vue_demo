@@ -76,7 +76,13 @@ const sendImageFile = async (imgFile) => {
     },
     onFileUploadProgress: (e) => {
       // 图片文件上传进度。
-      console.log(e);
+      console.log('[Message Upload] image progress', {
+        targetId: targetId.value,
+        chatType: chatType.value,
+        fileName: imgFile?.name,
+        loaded: e?.loaded,
+        total: e?.total,
+      });
       emit('onStartLoading');
     },
     onFileUploadComplete: () => {

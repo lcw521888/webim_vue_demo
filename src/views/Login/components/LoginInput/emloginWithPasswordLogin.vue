@@ -51,7 +51,7 @@ const loginIM = async () => {
     // 登录成功后跳转到聊天页面
     window.location.href = '/chat';
   } catch (error) {
-    console.log(error);
+    console.error('[Login] password login failed', error);
 
     if (error.type === 28 || error.message === 'INVALID_TOKEN' || error.message?.includes('Invalid token')) {
       ElMessage({

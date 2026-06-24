@@ -138,7 +138,6 @@ const Groups = {
     //更新本地缓存群组信息
     UPDATE_CACHE_GROUP_INFO: (state, payload) => {
       const { groupId, type, params } = payload;
-      console.log('>>>>>执行更新', payload);
       //更新群组列表内数据
       if (type === 'groupName') {
         state.joinedGroup.joinedGroupList.length > 0 &&
@@ -349,14 +348,15 @@ const Groups = {
       { dispatch, commit },
       { groupId, chatType },
     ) => {
-      console.log('>>>>>获取群组成员', { groupId, chatType });
       if (!EMClient.user) {
-        console.error('>>>>>用户未登录，无法获取群组成员');
+        console.error('[Group Members] 用户未登录，无法获取群组成员', {
+          groupId,
+          chatType,
+        });
         return;
       }
       // 仅群聊调用 getGroupInfo；与 CHAT_TYPE.GROUP（'groupChat'）对齐
       if (chatType !== CHAT_TYPE.GROUP) {
-        console.log('>>>>>chatType 不是群组，跳过获取群组成员');
         return;
       }
       try {
@@ -379,7 +379,11 @@ const Groups = {
           members,
         });
       } catch (error) {
-        console.error('>>>>>群组成员获取失败', error);
+        console.error('[Group Members] getGroupMembers failed', {
+          groupId,
+          chatType,
+          error,
+        });
       }
     },
     fetchPublicGroupListFromServer: async ({ state, commit }, params = {}) => {
@@ -772,7 +776,11 @@ const Groups = {
           type: 'success',
         });
       } catch (error) {
-        console.log('>>>>邀请失败', error);
+        console.error('[Group Invite] inviteUsersToGroup failed', {
+          groupId,
+          users,
+          error,
+        });
         ElMessage({
           message: '群组邀请失败，请稍后重试~',
           type: 'error',
@@ -841,7 +849,11 @@ const Groups = {
         //重新获取黑名单列表
         dispatch('fetchGroupsBlackListFromServer', groupId);
       } catch (error) {
-        console.log('error', error);
+        console.error('[Group Blocklist] unblockGroupMembers failed', {
+          groupId,
+          usernames,
+          error,
+        });
         ElMessage({
           message: '黑名单移除失败，请稍后重试~',
           type: 'error',
@@ -867,7 +879,11 @@ const Groups = {
           dispatch('fetchGroupsMuteListFromServer', groupId);
         }, 800);
       } catch (error) {
-        console.log('>>>>>error', error);
+        console.error('[Group Mutelist] muteGroupMember failed', {
+          groupId,
+          username: targetUsername,
+          error,
+        });
         ElMessage({
           message: '禁言失败，请稍后重试~',
           type: 'error',
@@ -898,7 +914,11 @@ const Groups = {
           dispatch('fetchGroupsMuteListFromServer', groupId);
         }, 800);
       } catch (error) {
-        console.log('>>>>>error', error);
+        console.error('[Group Mutelist] unmuteGroupMember failed', {
+          groupId,
+          username: targetUsername,
+          error,
+        });
         ElMessage({
           message: '移除禁言失败，请稍后重试~',
           type: 'error',

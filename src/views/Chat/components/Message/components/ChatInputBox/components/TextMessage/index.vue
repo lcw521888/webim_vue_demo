@@ -165,7 +165,6 @@ const sendTextMessage = _.debounce(async () => {
   try {
     const msg = EMClient.Message.create(msgOptions);
     const { message } = await EMClient.send(msg);
-    console.log('message', message);
     await store.dispatch('senedShowTypeMessage', message);
   } catch (error) {
     console.error('发送文本消息失败', error);
@@ -183,10 +182,7 @@ const dispatchPasteEvent = (event) => {
     (item) => item.kind === 'file' && item.type.startsWith('image/'),
   );
   if (isImage) {
-    console.log('粘贴内容是图片');
     emit('getImageFileFromClipboard', items);
-  } else {
-    console.log('粘贴内容不是图片');
   }
 };
 const onEditMessage = (msg) => {

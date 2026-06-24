@@ -78,9 +78,7 @@ const Contacts = {
     fetchAllFriendListFromServer: async ({ dispatch, commit }) => {
       try {
         //获取好友列表
-        console.log('开始获取好友列表');
         const result = await EMClient.getContacts();
-        console.log('获取好友列表结果', result);
         
         // 安全检查
         if (!result || !result.data) {
@@ -88,7 +86,6 @@ const Contacts = {
         }
         
         const { data } = result;
-        console.log('获取好友列表数据', data);
         
         const friendListData = {};
         data.length > 0 &&
@@ -100,6 +97,11 @@ const Contacts = {
         commit('SET_FRIEND_LIST', mergedFriendList);
         //提交之后订阅好友状态
         data.length > 0 && dispatch('subFriendsPresence', data);
+        console.log('[Contacts] getContacts success', {
+          count: data.length,
+          currentUser: EMClient.user,
+          response: result,
+        });
       } catch (error) {
         console.error('获取好友列表失败', error);
         throw error;
@@ -109,9 +111,7 @@ const Contacts = {
     fetchAllContactsListWithRemarkFromServer: async ({ dispatch, commit }) => {
       try {
         //获取好友列表
-        console.log('开始获取全部好友列表');
         const result = await EMClient.getAllContacts();
-        console.log('获取全部好友列表结果', result);
         
         // 安全检查
         if (!result || !result.data) {
@@ -119,7 +119,6 @@ const Contacts = {
         }
         
         const { data } = result;
-        console.log('>>>>>获取全部好友列表', data);
         
         if (data?.length > 0) {
           commit('SET_FRIEND_LIST_WITH_REMARK', {
@@ -137,6 +136,11 @@ const Contacts = {
             dispatch('subFriendsPresence', userIds);
           }
         }
+        console.log('[Contacts] getAllContacts success', {
+          count: Array.isArray(data) ? data.length : 0,
+          currentUser: EMClient.user,
+          response: result,
+        });
       } catch (error) {
         console.error('好友列表获取失败', error);
         throw error;
@@ -149,7 +153,6 @@ const Contacts = {
         userId,
         remark: '',
       };
-      console.log('>>>>>新增联系人', newContactParams);
       commit('ADD_NEW_CONTACT', newContactParams);
       dispatch('fetchContactsUserInfos', [userId]);
       dispatch('subFriendsPresence', [userId]);
@@ -228,9 +231,9 @@ const Contacts = {
           commit('SET_CONTACTS_PRESENCE_TO_MAP', list);
         }
         console.log('[环信 Presence] subscribePresence 已请求', {
-          订阅的用户名列表: users,
-          返回快照条数: list.length,
-          快照: list,
+          usernames: users,
+          snapshotCount: list.length,
+          snapshot: list,
         });
       } catch (error) {
         console.error('[环信 Presence] subscribePresence 失败', error);
@@ -311,7 +314,6 @@ const Contacts = {
     //返回排序后的好友列表
     //legacy
     sortedFriendList: (state) => {
-      console.log(state.friendList);
       return sortPinyinFriendItem(state.friendList);
     },
     //获取基础好友列表 //legacy
