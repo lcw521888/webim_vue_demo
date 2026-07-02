@@ -40,6 +40,33 @@ const sortConversationList = (conversationList) => {
   });
 };
 
+const getFirstValidValue = (values) =>
+  values.find((value) => value !== undefined && value !== null && value !== '');
+
+const normalizeGroupEventUserIds = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const getGroupEventDisplayName = (informContent, getters, fallbackText = '') => {
+  const userId = getFirstValidValue([
+    informContent?.from,
+    informContent?.userId,
+    informContent?.invitee,
+    informContent?.applicant,
+    ...normalizeGroupEventUserIds(informContent?.users),
+    ...normalizeGroupEventUserIds(informContent?.members),
+  ]);
+  if (!userId) return fallbackText;
+  return getters['UsersProfile/getDisplayName'](userId) || userId;
+};
+
 const Conversation = {
   state: {
     informDetail: [],
@@ -209,12 +236,22 @@ const Conversation = {
 
       // 消息生成器函数
       const generateMessage = (type, config) => {
+        const fromName = getGroupEventDisplayName(
+          informContent,
+          getters,
+          '',
+        );
+        const memberName = getGroupEventDisplayName(
+          informContent,
+          getters,
+          '成员',
+        );
         const baseMsg = {
           id: Date.now() + '',
           chatType: type === 'friend' ? CHAT_TYPE.SINGLE : CHAT_TYPE.GROUP,
           from: informContent.from,
           to: type === 'friend' ? informContent.to : informContent.id,
-          fromName: getters['UsersProfile/getDisplayName'](informContent.from),
+          fromName,
           toName:
             type === 'friend'
               ? getters['UsersProfile/getDisplayName'](informContent.to)
@@ -229,8 +266,8 @@ const Conversation = {
           },
           group: {
             [GROUP_OPERATION_TYPE.CREATE]: `${baseMsg.fromName}创建了群组`,
-            [GROUP_OPERATION_TYPE.MEMBER_PRESENCE]: `${baseMsg.fromName}加入了群组`,
-            [GROUP_OPERATION_TYPE.MEMBERS_PRESENCE]: `${baseMsg.fromName}邀请成员加入了群组`,
+            [GROUP_OPERATION_TYPE.MEMBER_PRESENCE]: `${memberName}加入了群组`,
+            [GROUP_OPERATION_TYPE.MEMBERS_PRESENCE]: `${memberName}加入了群组`,
             [GROUP_OPERATION_TYPE.MEMBER_ABSENCE]: `${baseMsg.fromName}退出了群组`,
             [GROUP_OPERATION_TYPE.MEMBERS_ABSENCE]: `${baseMsg.fromName}移除了多个群成员`,
             [GROUP_OPERATION_TYPE.UPDATE_ANNOUNCEMENT]: `${baseMsg.fromName}更新了群组公告，去看看更新的什么吧~`,
@@ -239,8 +276,8 @@ const Conversation = {
             [GROUP_OPERATION_TYPE.REMOVE_ADMIN]: `${baseMsg.fromName}移除了${baseMsg.toName}的管理员身份~`,
             [GROUP_OPERATION_TYPE.CHANGE_OWNER]: `${baseMsg.fromName}转让了群组`,
             [GROUP_OPERATION_TYPE.INVITE_TO_JOIN]: `${baseMsg.fromName}邀请你加入群组`,
-            [GROUP_OPERATION_TYPE.ACCEPT_INVITE]: `${baseMsg.fromName}接受了入群邀请`,
-            [GROUP_OPERATION_TYPE.REJECT_INVITE]: `${baseMsg.fromName}拒绝了入群邀请`,
+            [GROUP_OPERATION_TYPE.ACCEPT_INVITE]: `${getGroupEventDisplayName(informContent, getters, '成员')}接受了入群邀请`,
+            [GROUP_OPERATION_TYPE.REJECT_INVITE]: `${getGroupEventDisplayName(informContent, getters, '成员')}拒绝了入群邀请`,
             [GROUP_OPERATION_TYPE.REQUEST_TO_JOIN]: `${baseMsg.fromName}申请加入群组`,
             [GROUP_OPERATION_TYPE.JOIN_PUBLIC_GROUP_DECLINED]: `${baseMsg.fromName}的入群申请被拒绝`,
             [GROUP_OPERATION_TYPE.MUTE_MEMBER]: `${
