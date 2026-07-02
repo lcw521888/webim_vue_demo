@@ -27,6 +27,7 @@ const chatroomList = ref([]);
 const joinedChatroomList = ref([]);
 const joinedChatroomDetailsMap = ref(new Map());
 const loading = ref(false);
+const joiningRoomIds = ref(new Set());
 const searchKeyword = ref('');
 
 const CHATROOM_TYPE = {
@@ -123,6 +124,24 @@ const isRoomJoined = (roomId) => {
   return joinedChatroomList.value.some(
     (j) => normalizeChatroomId(j.id) === key,
   );
+};
+
+const isJoiningRoom = (roomId) => {
+  const key = normalizeChatroomId(roomId);
+  if (!key) return false;
+  return joiningRoomIds.value.has(key);
+};
+
+const setJoiningRoom = (roomId, joining) => {
+  const key = normalizeChatroomId(roomId);
+  if (!key) return;
+  const nextJoiningRoomIds = new Set(joiningRoomIds.value);
+  if (joining) {
+    nextJoiningRoomIds.add(key);
+  } else {
+    nextJoiningRoomIds.delete(key);
+  }
+  joiningRoomIds.value = nextJoiningRoomIds;
 };
 
 const getJoinedChatroomMemberCount = (roomId) => {
@@ -286,12 +305,24 @@ const refreshChatroomListsFromServer = async () => {
 
 const joinChatroom = async (roomId) => {
   if (!checkLoginStatus()) return;
+  if (isJoiningRoom(roomId)) {
+    console.warn(
+      `[ChatroomUI] 忽略重复加入请求:`,
+      `\n调用方法: joinChatRoom`,
+      `\n目标聊天室ID:`,
+      roomId,
+      `\n当前用户:`,
+      EMClient.user,
+    );
+    return;
+  }
   const JOIN_CHAT_ROOM_METHOD = 'joinChatRoom';
   const joinChatRoomParams = {
     roomId: roomId,
     ext: joinRoomExt.value,
     leaveOtherRooms: false,
   };
+  setJoiningRoom(roomId, true);
   try {
     console.log(
       `开始加入聊天室:`,
@@ -349,6 +380,8 @@ const joinChatroom = async (roomId) => {
     );
 
     ElMessage.error(error?.message || '加入聊天室失败');
+  } finally {
+    setJoiningRoom(roomId, false);
   }
 };
 
@@ -597,6 +630,8 @@ onUnmounted(() => {
                     v-if="!isRoomJoined(item.id)"
                     type="primary"
                     size="small"
+                    :loading="isJoiningRoom(item.id)"
+                    :disabled="isJoiningRoom(item.id)"
                     @click="joinChatroom(item.id)"
                   >
                     加入
