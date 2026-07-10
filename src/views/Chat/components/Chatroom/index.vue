@@ -303,6 +303,26 @@ const refreshChatroomListsFromServer = async () => {
   await Promise.all([getChatrooms(), getJoinedChatrooms()]);
 };
 
+const refreshOpenChatroomDetailsIfNeeded = (roomId) => {
+  const currentRoomId = normalizeChatroomId(route.query.roomId);
+  const joinedRoomId = normalizeChatroomId(roomId);
+  if (
+    route.path !== '/chat/chatroom/details' ||
+    !currentRoomId ||
+    currentRoomId !== joinedRoomId
+  ) {
+    return;
+  }
+  router.replace({
+    path: '/chat/chatroom/details',
+    query: {
+      ...route.query,
+      roomId,
+      refreshAt: Date.now(),
+    },
+  });
+};
+
 const joinChatroom = async (roomId) => {
   if (!checkLoginStatus()) return;
   if (isJoiningRoom(roomId)) {
@@ -359,6 +379,7 @@ const joinChatroom = async (roomId) => {
       EMClient.connectionState || '未知',
     );
     await refreshChatroomListsFromServer();
+    refreshOpenChatroomDetailsIfNeeded(roomId);
   } catch (error) {
     console.error(
       `加入聊天室失败:`,

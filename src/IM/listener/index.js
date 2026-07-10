@@ -6,6 +6,7 @@ import { imContactListener } from './imContactListener';
 import { imGroupListener } from './imGroupListener';
 import { imReadAckListener } from './imReadAckListener';
 import { imMultiDeviceListener } from './imMultiDeviceListener';
+import { imThreadListener } from './imThreadListener';
 import { safeSync } from '@/utils/safeCall';
 
 function mountSafe(label, fn) {
@@ -30,6 +31,8 @@ export const mountAllEMListener = () => {
   mountSafe('imReadAckListener', mountReadAckEventListener);
   const { mountMultiDeviceEventListener } = imMultiDeviceListener();
   mountSafe('imMultiDeviceListener', mountMultiDeviceEventListener);
+  const { mountThreadEventListener } = imThreadListener();
+  mountSafe('imThreadListener', mountThreadEventListener);
 };
 export {
   imConnectListener,
@@ -40,4 +43,5 @@ export {
   imGroupListener,
   imReadAckListener,
   imMultiDeviceListener,
+  imThreadListener,
 };

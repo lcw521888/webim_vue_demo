@@ -109,6 +109,32 @@ const describeThreadError = (error) => {
   };
 };
 
+const logThreadApiSuccess = (methodName, params, response) => {
+  console.log(`[Thread] ${methodName} success`, {
+    params,
+    response,
+  });
+};
+
+const logThreadApiFailure = (methodName, params, error) => {
+  console.error(`[Thread] ${methodName} failed`, {
+    params,
+    errorSummary: describeThreadError(error),
+    error,
+  });
+};
+
+const callThreadApi = async (methodName, params, request) => {
+  try {
+    const res = await request();
+    logThreadApiSuccess(methodName, params, res);
+    return res;
+  } catch (error) {
+    logThreadApiFailure(methodName, params, error);
+    throw error;
+  }
+};
+
 const getHistoryNextCursor = (res) =>
   res?.cursor ??
   res?.next_key ??
@@ -1048,6 +1074,112 @@ const Message = {
         });
         throw error;
       }
+    },
+    fetchMessageThreadLastMessages: async (_, params) => {
+      const { chatThreadIds } = params || {};
+      if (!Array.isArray(chatThreadIds) || chatThreadIds.length === 0) {
+        throw new Error('fetchMessageThreadLastMessages 缺少 chatThreadIds');
+      }
+      try {
+        const res = await EMClient.getChatThreadLastMessage({
+          chatThreadIds,
+        });
+        console.log('[Thread] getChatThreadLastMessage success', {
+          chatThreadIds,
+          response: res,
+        });
+        return res;
+      } catch (error) {
+        console.error('[Thread] getChatThreadLastMessage failed', {
+          chatThreadIds,
+          errorSummary: describeThreadError(error),
+          error,
+        });
+        throw error;
+      }
+    },
+    joinMessageThread: async (_, params) => {
+      const { chatThreadId } = params || {};
+      if (!chatThreadId) {
+        throw new Error('joinMessageThread 缺少 chatThreadId');
+      }
+      return callThreadApi('joinChatThread', { chatThreadId }, () =>
+        EMClient.joinChatThread({ chatThreadId }),
+      );
+    },
+    leaveMessageThread: async (_, params) => {
+      const { chatThreadId } = params || {};
+      if (!chatThreadId) {
+        throw new Error('leaveMessageThread 缺少 chatThreadId');
+      }
+      return callThreadApi('leaveChatThread', { chatThreadId }, () =>
+        EMClient.leaveChatThread({ chatThreadId }),
+      );
+    },
+    destroyMessageThread: async (_, params) => {
+      const { chatThreadId } = params || {};
+      if (!chatThreadId) {
+        throw new Error('destroyMessageThread 缺少 chatThreadId');
+      }
+      return callThreadApi('destroyChatThread', { chatThreadId }, () =>
+        EMClient.destroyChatThread({ chatThreadId }),
+      );
+    },
+    renameMessageThread: async (_, params) => {
+      const { chatThreadId, name } = params || {};
+      if (!chatThreadId || !name) {
+        throw new Error('renameMessageThread 缺少参数');
+      }
+      return callThreadApi('changeChatThreadName', { chatThreadId, name }, () =>
+        EMClient.changeChatThreadName({ chatThreadId, name }),
+      );
+    },
+    fetchMessageThreadDetail: async (_, params) => {
+      const { chatThreadId } = params || {};
+      if (!chatThreadId) {
+        throw new Error('fetchMessageThreadDetail 缺少 chatThreadId');
+      }
+      return callThreadApi('getChatThreadDetail', { chatThreadId }, () =>
+        EMClient.getChatThreadDetail({ chatThreadId }),
+      );
+    },
+    fetchMessageThreadMembers: async (_, params) => {
+      const { chatThreadId, cursor = '', pageSize = 20 } = params || {};
+      if (!chatThreadId) {
+        throw new Error('fetchMessageThreadMembers 缺少 chatThreadId');
+      }
+      const options = {
+        chatThreadId,
+        cursor,
+        pageSize,
+      };
+      return callThreadApi('getChatThreadMembers', options, () =>
+        EMClient.getChatThreadMembers(options),
+      );
+    },
+    removeMessageThreadMember: async (_, params) => {
+      const { chatThreadId, username } = params || {};
+      if (!chatThreadId || !username) {
+        throw new Error('removeMessageThreadMember 缺少参数');
+      }
+      const options = {
+        chatThreadId,
+        username,
+      };
+      return callThreadApi('removeChatThreadMember', options, () =>
+        EMClient.removeChatThreadMember(options),
+      );
+    },
+    fetchJoinedMessageThreads: async (_, params = {}) => {
+      const { parentId, cursor = '', pageSize = 20 } = params || {};
+      const options = {
+        ...(parentId ? { parentId } : {}),
+        cursor,
+        pageSize,
+      };
+      return callThreadApi('getJoinedChatThreads', options, () =>
+        EMClient.getJoinedChatThreads(options),
+      );
     },
   },
   getters: {
