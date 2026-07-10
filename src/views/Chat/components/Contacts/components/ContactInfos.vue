@@ -113,7 +113,7 @@ const delTheFriend = async () => {
 /* 进入会话 */
 const toChatMessage = () => {
   router.push({
-    path: '/chat/conversation/message',
+    path: '/chat/contacts/message',
     query: {
       id: route.query.id,
       chatType: route.query.chatType,
