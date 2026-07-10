@@ -1,5 +1,5 @@
 import { EMClient } from '../index';
-import { INFORM_FROM } from '@/constant';
+import { INFORM_FROM, INFORM_TYPE } from '@/constant';
 import store from '@/store';
 import { GROUP_OPERATION_TYPE } from '../constant';
 import { wrapImEventHandler } from '@/utils/safeCall';
@@ -9,6 +9,37 @@ export const imGroupListener = () => {
     Promise.resolve(
       store.dispatch('createNewInform', { fromType, informContent }),
     ).catch((err) => console.error('[imGroupListener.createNewInform]', err));
+  };
+  const refreshGroupDetailFromServer = (groupId) => {
+    if (!groupId) return;
+    store.dispatch('fetchGroupDetailFromServer', [groupId]).catch(() => {});
+  };
+  const normalizeGroupEventMembers = (groupevent) => {
+    const members = [
+      groupevent?.member,
+      groupevent?.user,
+      groupevent?.username,
+      ...(Array.isArray(groupevent?.members) ? groupevent.members : []),
+      ...(Array.isArray(groupevent?.users) ? groupevent.users : []),
+    ].filter(Boolean);
+    return [...new Set(members)];
+  };
+  const describeGroupEvent = (groupevent) => {
+    const operation = groupevent?.operation || '';
+    return {
+      eventName: INFORM_TYPE[operation] || operation || '未知群组事件',
+      operation: operation,
+      groupId: groupevent?.id || groupevent?.groupId || '',
+      operator: groupevent?.from || groupevent?.operator || '',
+      members: normalizeGroupEventMembers(groupevent),
+      invitee: groupevent?.invitee || '',
+      applicant: groupevent?.applicant || '',
+      owner: groupevent?.owner || '',
+      memberCount: groupevent?.memberCount ?? '',
+      reason: groupevent?.reason || '',
+      attributes: groupevent?.attributes || {},
+      rawEvent: groupevent,
+    };
   };
   const onDispatchGroupEvent = (groupevent) => {
     if (!groupevent || typeof groupevent !== 'object') {
@@ -27,9 +58,7 @@ export const imGroupListener = () => {
             startPageNum: 0,
             reset: true,
           });
-          if (groupId) {
-            store.dispatch('fetchGroupDetailFromServer', [groupId]);
-          }
+          refreshGroupDetailFromServer(groupId);
         }
         break;
       //入群通知
@@ -46,7 +75,7 @@ export const imGroupListener = () => {
             type: GROUP_OPERATION_TYPE.MEMBER_PRESENCE,
             member: from,
           });
-          store.dispatch('fetchGroupDetailFromServer', [groupId]);
+          refreshGroupDetailFromServer(groupId);
         }
         break;
       //群成员退群通知
@@ -65,7 +94,7 @@ export const imGroupListener = () => {
             type: GROUP_OPERATION_TYPE.MEMBER_ABSENCE,
             member: from,
           });
-          store.dispatch('fetchGroupDetailFromServer', [groupId]);
+          refreshGroupDetailFromServer(groupId);
         }
         break;
       //群组公告更新
@@ -99,7 +128,7 @@ export const imGroupListener = () => {
             groupId,
             userId: from,
           });
-          store.dispatch('fetchGroupDetailFromServer', [groupId]);
+          refreshGroupDetailFromServer(groupId);
         }
         break;
       //群组成员禁言
@@ -122,7 +151,7 @@ export const imGroupListener = () => {
       case GROUP_OPERATION_TYPE.CHANGE_OWNER:
       case GROUP_OPERATION_TYPE.UPDATE_INFO:
         {
-          store.dispatch('fetchGroupDetailFromServer', [groupId]);
+          refreshGroupDetailFromServer(groupId);
         }
         break;
       //被移出群组
@@ -163,13 +192,7 @@ export const imGroupListener = () => {
       'groupEvent',
       wrapImEventHandler({
         onGroupEvent: (groupevent) => {
-          console.log('[IM Group Event] received', {
-            operation: groupevent?.operation,
-            groupId: groupevent?.id,
-            from: groupevent?.from,
-            memberCount: groupevent?.memberCount,
-            rawEvent: groupevent,
-          });
+          console.log('[IM Group Event] received', describeGroupEvent(groupevent));
           submitInformData(INFORM_FROM.GROUP, groupevent);
           onDispatchGroupEvent(groupevent);
         },

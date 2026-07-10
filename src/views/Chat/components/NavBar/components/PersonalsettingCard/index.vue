@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { usePlayRing, useSetEMLogConfig } from '@/hooks';
 import { RefreshRight } from '@element-plus/icons-vue';
 import store from '@/store';
+import { getCurrentImEnvironmentInfo } from '@/utils/currentImEnvironment';
 
 const dialogVisible = ref(false);
 const { isOpenPlayRing } = usePlayRing();
@@ -11,6 +12,7 @@ const presencePageNum = ref(0);
 const presencePageSize = 50;
 const loadingSubscribedPresence = ref(false);
 const loadingBlackList = ref(false);
+const currentEnvironmentInfo = computed(() => getCurrentImEnvironmentInfo());
 const subscribedPresenceList = computed(
   () => store.getters.getSubscribedPresenceList,
 );
@@ -109,6 +111,33 @@ defineExpose({
         </el-tooltip>
         <span>服务端获取</span>
       </div>
+      <div class="environment_section">
+        <div class="presence_section_header">
+          <span>当前运行环境</span>
+        </div>
+        <div class="environment_info_list">
+          <div class="environment_info_item">
+            <span>环境</span>
+            <span>{{ currentEnvironmentInfo.label }}</span>
+          </div>
+          <div class="environment_info_item">
+            <span>AppKey</span>
+            <span>{{ currentEnvironmentInfo.appKey }}</span>
+          </div>
+          <div class="environment_info_item">
+            <span>REST</span>
+            <span>{{ currentEnvironmentInfo.apiUrl }}</span>
+          </div>
+          <div class="environment_info_item">
+            <span>Socket</span>
+            <span>{{ currentEnvironmentInfo.socketUrl }}</span>
+          </div>
+          <div class="environment_info_item">
+            <span>私有化</span>
+            <span>{{ currentEnvironmentInfo.isPrivate ? '是' : '否' }}</span>
+          </div>
+        </div>
+      </div>
       <div class="presence_section">
         <div class="presence_section_header">
           <span>在线状态订阅列表</span>
@@ -192,7 +221,8 @@ defineExpose({
     justify-content: space-between;
   }
 
-  .presence_section {
+  .presence_section,
+  .environment_section {
     margin-top: 18px;
     border-top: 1px solid #f0f0f0;
     padding-top: 14px;
@@ -218,6 +248,28 @@ defineExpose({
       background: #f7f8fa;
       font-size: 13px;
       color: #333;
+      word-break: break-all;
+    }
+  }
+
+  .environment_info_list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .environment_info_item {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #f7f8fa;
+    color: #333;
+    font-size: 13px;
+
+    span:last-child {
+      min-width: 0;
       word-break: break-all;
     }
   }

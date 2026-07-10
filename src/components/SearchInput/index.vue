@@ -350,11 +350,31 @@ const {
 </template>
 <style lang="scss" scoped>
 :deep(.el-input__wrapper) {
-  box-shadow: none;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 0 0 1px #e0e4ea inset;
+}
+
+:deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #c5ccd6 inset;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #409eff inset;
+}
+
+:deep(.el-input__prefix-inner .el-icon) {
+  color: #7a8491;
+  font-size: 15px;
 }
 
 :deep(.el-input__inner) {
   border-radius: 0 !important;
+  color: #1f2933;
+}
+
+:deep(.el-input__inner::placeholder) {
+  color: #7a8491;
 }
 
 .search_box {

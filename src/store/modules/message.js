@@ -18,7 +18,7 @@ const normalizeReactionList = (reactions = []) => {
     .filter((item) => item && item.reaction)
     .map((item) => ({
       reaction: item.reaction,
-      count: Number(item.count) || 0,
+      count: Number(item.count ?? item.userCount) || 0,
       userList: Array.isArray(item.userList) ? item.userList : [],
       isAddedBySelf: !!item.isAddedBySelf,
       op: Array.isArray(item.op) ? item.op : [],
@@ -94,7 +94,38 @@ const findLocalMessageMetaById = (state, messageId) => {
     to: message.to,
     from: message.from,
     chatType: message.chatType,
+    isChatThread: message.isChatThread,
+    groupId: message.groupId,
   };
+};
+
+const describeThreadError = (error) => {
+  if (!error) return null;
+  return {
+    message: error.message || '',
+    type: error.type || '',
+    code: error.code || error.status || '',
+    name: error.name || '',
+  };
+};
+
+const getHistoryNextCursor = (res) =>
+  res?.cursor ??
+  res?.next_key ??
+  res?.nextKey ??
+  res?.nex_key ??
+  res?.data?.cursor ??
+  res?.data?.next_key ??
+  res?.data?.nextKey ??
+  res?.data?.nex_key;
+
+const normalizeHistoryCursor = (cursor) => {
+  if (cursor === undefined || cursor === null) return '';
+  const normalized = String(cursor).trim();
+  if (normalized === '') return '';
+  if (normalized.toLowerCase() === 'undefined') return '';
+  if (normalized.toLowerCase() === 'null') return '';
+  return normalized;
 };
 
 const shouldPreserveEditedText = (currentMessage, incomingMessage) => {
@@ -392,7 +423,7 @@ const Message = {
         );
         if (message) {
           message.read = true;
-          if (groupReadCount) {
+          if (groupReadCount !== undefined && groupReadCount !== null) {
             message.groupReadCount = groupReadCount;
           }
         } else {
@@ -430,6 +461,7 @@ const Message = {
             chatType: chatType,
             to: to,
             id: messageId,
+            ackContent: 'read',
           };
           // 发送已读回执
           if (
@@ -523,12 +555,14 @@ const Message = {
           pageSize: Math.min(Math.max(Number(pageSize) || 20, 1), 50),
           cursor,
           chatType: chatType,
+          isChatThread: params.isChatThread === true,
           searchDirection,
           ...(searchOptions ? { searchOptions } : {}),
         };
         EMClient.getHistoryMessages(options)
           .then((res) => {
-            const { cursor: nextCursor, messages } = res;
+            const nextCursor = normalizeHistoryCursor(getHistoryNextCursor(res));
+            const { messages } = res;
             const messageCount = messages?.length || 0;
             const reactionMessages = (messages || []).filter(
               (item) =>
@@ -561,10 +595,7 @@ const Message = {
             resolve({
               messages,
               cursor: nextCursor,
-              hasMore:
-                typeof nextCursor === 'string'
-                  ? nextCursor !== ''
-                  : (messages?.length || 0) >= options.pageSize,
+              hasMore: String(nextCursor) !== '',
             });
             const reversedMessages = _.reverse(_.cloneDeep(messages || []));
             // 为历史消息生成正确的listKey
@@ -730,9 +761,13 @@ const Message = {
     //撤回消息
     recallMessage: async ({ dispatch, commit }, params) => {
       const { mid, to, chatType } = params;
+      const isChatThread = params.isChatThread === true;
 
       return new Promise((resolve, reject) => {
-        EMClient.recallMessage(params)
+        EMClient.recallMessage({
+          ...params,
+          isChatThread,
+        })
           .then((result) => {
             const key = setMessageKey({ to, chatType });
             commit('CHANGE_MESSAGE_BODAY', {
@@ -837,8 +872,12 @@ const Message = {
         });
         const rawList = Array.isArray(res?.data) ? res.data : [];
         const target =
-          rawList.find((item) => item?.messageId === messageId) || {};
-        const reactions = normalizeReactionList(target?.reactions || []);
+          rawList.find(
+            (item) => item?.msgId === messageId || item?.messageId === messageId,
+          ) || {};
+        const reactions = normalizeReactionList(
+          target?.reactionList || target?.reactions || [],
+        );
         console.log('[Reaction] getReactionlist success', {
           messageId,
           chatType,
@@ -951,6 +990,64 @@ const Message = {
         groupId,
         key,
       });
+    },
+    createMessageThread: async (_, params) => {
+      const { parentId, name, messageId } = params || {};
+      if (!parentId || !name || !messageId) {
+        throw new Error('createMessageThread 缺少参数');
+      }
+      try {
+        const res = await EMClient.createChatThread({
+          parentId,
+          name,
+          messageId,
+        });
+        console.log('[Thread] createChatThread success', {
+          parentId,
+          name,
+          messageId,
+          response: res,
+        });
+        return res;
+      } catch (error) {
+        console.error('[Thread] createChatThread failed', {
+          parentId,
+          name,
+          messageId,
+          errorSummary: describeThreadError(error),
+          error,
+        });
+        throw error;
+      }
+    },
+    fetchMessageThreads: async (_, params) => {
+      const { parentId, cursor = '', pageSize = 20 } = params || {};
+      if (!parentId) {
+        throw new Error('fetchMessageThreads 缺少 parentId');
+      }
+      try {
+        const res = await EMClient.getChatThreads({
+          parentId,
+          cursor,
+          pageSize,
+        });
+        console.log('[Thread] getChatThreads success', {
+          parentId,
+          cursor,
+          pageSize,
+          response: res,
+        });
+        return res;
+      } catch (error) {
+        console.error('[Thread] getChatThreads failed', {
+          parentId,
+          cursor,
+          pageSize,
+          errorSummary: describeThreadError(error),
+          error,
+        });
+        throw error;
+      }
     },
   },
   getters: {

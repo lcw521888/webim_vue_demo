@@ -311,7 +311,7 @@ const Groups = {
         commit('SET_JOINED_GROUP', { total, entities });
         const groupIds = _.map(entities, 'groupId');
         if (groupIds?.length === 0) return;
-        dispatch('fetchGroupDetailFromServer', groupIds);
+        dispatch('fetchGroupDetailFromServer', groupIds).catch(() => {});
       } catch (error) {
         console.error('加入的群组列表获取失败', error);
       }
@@ -329,7 +329,11 @@ const Groups = {
             groupDetailsList: groupDetails,
           });
         } catch (error) {
-          console.error('>>>群详情获取失败', error);
+          console.error('[Group Details] fetchGroupDetailFromServer failed', {
+            groupIds: groupIdArray,
+            currentUser: EMClient.user,
+            error,
+          });
           throw error;
         }
       }

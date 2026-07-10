@@ -3,8 +3,24 @@ import { CHANGE_MESSAGE_BODAY_TYPE } from '@/constant';
 import { setMessageKey } from '@/utils/handleSomeData';
 import store from '@/store';
 import { safeSync, wrapImEventHandler } from '@/utils/safeCall';
+import {
+  getThreadIdFromMessage,
+  normalizeThreadMessage as normalizeThreadMessagePayload,
+} from '@/utils/messageThread';
 
 export const imReviceMessageListener = () => {
+  const normalizeThreadMessage = (message) => {
+    const normalizedMessage = normalizeThreadMessagePayload(message);
+    if (normalizedMessage?.isChatThread && normalizedMessage?.chatThread) {
+      normalizedMessage.to = normalizedMessage.chatThread.chatThreadId;
+    } else {
+      const chatThreadId = getThreadIdFromMessage(normalizedMessage);
+      if (chatThreadId) {
+        normalizedMessage.to = chatThreadId;
+      }
+    }
+    return normalizedMessage;
+  };
   //接收的消息往store中push
   const pushNewMessage = (message) => {
     if (Array.isArray(message)) {
@@ -29,33 +45,38 @@ export const imReviceMessageListener = () => {
       console.warn('【IM】忽略空或非对象消息:', message);
       return;
     }
+    const normalizedMessage = normalizeThreadMessage(message);
     console.log('[IM Message] SDK 收到消息', {
-      messageId: message.id || message.mid,
-      type: message.type,
-      chatType: message.chatType,
-      from: message.from,
-      to: message.to,
+      messageId: normalizedMessage.id || normalizedMessage.mid,
+      type: normalizedMessage.type,
+      chatType: normalizedMessage.chatType,
+      from: normalizedMessage.from,
+      to: normalizedMessage.to,
+      isChatThread: normalizedMessage.isChatThread,
+      chatThread: normalizedMessage.chatThread,
       rawMessage: message,
     });
 
-    if (!message.chatType) {
+    if (!normalizedMessage.chatType) {
       console.error('[IM Message] SDK 消息缺少 chatType，未写入本地消息列表', {
-        messageId: message.id || message.mid,
-        type: message.type,
-        from: message.from,
-        to: message.to,
+        messageId: normalizedMessage.id || normalizedMessage.mid,
+        type: normalizedMessage.type,
+        from: normalizedMessage.from,
+        to: normalizedMessage.to,
         rawMessage: message,
       });
       return;
     }
 
-    Promise.resolve(store.dispatch('createNewMessage', message)).catch(
+    Promise.resolve(store.dispatch('createNewMessage', normalizedMessage)).catch(
       (err) => {
         console.error('[pushNewMessage.createNewMessage]', err);
       },
     );
     Promise.resolve(
-      store.dispatch('UsersProfile/processMessageExt', message, { root: true }),
+      store.dispatch('UsersProfile/processMessageExt', normalizedMessage, {
+        root: true,
+      }),
     ).catch((err) => {
       console.error('[pushNewMessage.processMessageExt]', err);
     });

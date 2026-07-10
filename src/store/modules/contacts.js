@@ -3,6 +3,20 @@ import { EMClient } from '@/IM';
 import { sortPinyinFriendItem, handlePresence } from '@/utils/handleSomeData';
 import _ from 'lodash';
 import { userProfileUtils, SOURCE_TYPE } from './usersProfile';
+
+const getSubscribedPresenceSublist = (res) => {
+  const candidates = [
+    res?.data?.result?.sublist,
+    res?.result?.sublist,
+    res?.data?.sublist,
+    res?.sublist,
+    res?.data?.result,
+    res?.result,
+    res?.data,
+  ];
+  return candidates.find((item) => Array.isArray(item)) || [];
+};
+
 const Contacts = {
   state: {
     contactsWithRemarkMap: new Map(),
@@ -258,8 +272,7 @@ const Contacts = {
     ) => {
       try {
         const res = await EMClient.getSubscribedPresencelist(option);
-        const rawList = res?.result || res?.data || [];
-        const list = Array.isArray(rawList) ? rawList : [];
+        const list = getSubscribedPresenceSublist(res);
         commit('SET_SUBSCRIBED_PRESENCE_LIST', list);
         return list;
       } catch (error) {
@@ -287,9 +300,11 @@ const Contacts = {
     //设置联系人备注
     setContactsRemark: async ({ commit }, params) => {
       const { userId, remark } = params;
-      if (!userId && !remark) throw new Error('userId or remark is required');
+      if (!userId || typeof remark !== 'string') {
+        throw new Error('userId and remark are required');
+      }
       try {
-        EMClient.setContactRemark({
+        const result = await EMClient.setContactRemark({
           userId, // 添加备注的目标好友的用户 ID
           remark, // 好友备注
         });
@@ -305,8 +320,10 @@ const Contacts = {
           },
           { root: true },
         );
+        return result;
       } catch (error) {
         console.error('设置联系人备注失败', error);
+        throw error;
       }
     },
   },

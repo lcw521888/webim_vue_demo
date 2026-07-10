@@ -68,6 +68,18 @@ export default createStore({
       const { data } = await EMClient.updateUserInfo({ ...params });
       commit('SET_LOGIN_USER_INFO', data);
     },
+    //查询登录用户自己的在线状态。只展示 SDK/服务端返回的真实状态，不做本地默认在线。
+    fetchLoginUserPresenceStatus: async ({ commit, dispatch }, userId) => {
+      const currentUserId = userId || EMClient.user;
+      if (!currentUserId) {
+        commit('SET_LOGIN_USER_ONLINE_STATUS', 'Unset');
+        return null;
+      }
+      const list = await dispatch('fetchPresenceStatusByUsers', [currentUserId]);
+      const presence = list.find((item) => item.uid === currentUserId) || list[0];
+      commit('SET_LOGIN_USER_ONLINE_STATUS', presence?.ext || 'Unset');
+      return presence || null;
+    },
     //处理在线状态订阅变更（包含他人的用户状态）
     handlePresenceChanges: ({ commit }, status) => {
       const presenceUserId = status?.userId ?? status?.uid;

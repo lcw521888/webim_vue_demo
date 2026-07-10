@@ -143,6 +143,10 @@ const subscribeCurrentPresence = async () => {
   isSubscribingPresence.value = true;
   try {
     await store.dispatch('subFriendsPresence', [route.query.id]);
+    await store.dispatch('fetchSubscribedPresenceList', {
+      pageNum: 0,
+      pageSize: 50,
+    });
     ElMessage.success('已订阅该用户在线状态');
   } catch (error) {
     ElMessage.error('订阅失败，请稍后重试');
@@ -156,6 +160,10 @@ const unsubscribeCurrentPresence = async () => {
   isUnsubscribingPresence.value = true;
   try {
     await store.dispatch('unsubFriendsPresence', route.query.id);
+    await store.dispatch('fetchSubscribedPresenceList', {
+      pageNum: 0,
+      pageSize: 50,
+    });
     ElMessage.success('已取消订阅该用户在线状态');
   } catch (error) {
     ElMessage.error('取消订阅失败，请稍后重试');

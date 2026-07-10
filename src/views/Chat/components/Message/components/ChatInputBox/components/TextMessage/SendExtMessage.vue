@@ -54,9 +54,13 @@ const props = defineProps({
     default: '',
     required: true,
   },
+  isChatThread: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-const { chatType, targetId } = toRefs(props);
+const { chatType, targetId, isChatThread } = toRefs(props);
 const { setUserInfoExt } = useUserInfoExt();
 
 const dialogVisible = ref(false);
@@ -114,6 +118,7 @@ const sendExtMessage = async () => {
     from: EMClient.user,
     to: targetId.value,
     chatType: chatType.value,
+    ...(isChatThread.value ? { isChatThread: true } : {}),
     msg,
     ext,
   };

@@ -10,6 +10,7 @@ import { useRoute } from 'vue-router';
 import _ from 'lodash';
 /* icon */
 import { ChatDotRound, Message, UserFilled } from '@element-plus/icons-vue';
+import { getCurrentImEnvironmentInfo } from '@/utils/currentImEnvironment';
 /* 组件 */
 import MiniInfoCard from './components/AboutUserInfoCard/MiniInfoCard.vue';
 import UserOnlineStatusCard from './components/UserOnlineStatusCard.vue';
@@ -23,6 +24,7 @@ import { onLineStatus } from '@/constant';
 import { onClickOutside } from '@vueuse/core';
 const route = useRoute();
 const store = useStore();
+const currentEnvironmentInfo = computed(() => getCurrentImEnvironmentInfo());
 /* 取用户头像 */
 const loginUserAvatar = computed(() => {
   return store.getters.loginUserInfo.avatarurl;
@@ -122,6 +124,15 @@ const toSendFeedback = () => window.open('mailto:yunying@easemob.com');
       <UserOnlineStatusCard />
     </el-popover>
   </div>
+  <el-tooltip placement="right" effect="dark">
+    <template #content>
+      <div>环境：{{ currentEnvironmentInfo.label }}</div>
+      <div>AppKey：{{ currentEnvironmentInfo.appKey }}</div>
+    </template>
+    <div class="environment_badge">
+      {{ currentEnvironmentInfo.label }}
+    </div>
+  </el-tooltip>
   <!-- 用户个人信息卡片 -->
   <MiniInfoCard ref="changeUserInfoCard" v-show="isShowUserInfoCard" />
   <!-- 去往会话 -->
@@ -443,6 +454,23 @@ const toSendFeedback = () => window.open('mailto:yunying@easemob.com');
       transform: scale(1.2);
     }
   }
+}
+
+.environment_badge {
+  max-width: 56px;
+  margin: 10px auto 8px;
+  padding: 2px 6px;
+  border: 1px solid rgba(51, 160, 255, 0.45);
+  border-radius: 6px;
+  background: rgba(51, 160, 255, 0.12);
+  color: #dcecff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat_icon_box {

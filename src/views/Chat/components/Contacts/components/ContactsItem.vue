@@ -19,9 +19,9 @@ const { getContactsNickNameById, getContactsAvatarById } = useGetUserMapInfo();
       :key="friendItemKey"
     >
       <div class="friend_main">
-        <div class="friend_title">
+        <div v-if="friendItemKey !== ' '" class="friend_title">
           <p>
-            {{ friendItemKey === ' ' ? '#' : friendItemKey.toUpperCase() }}
+            {{ friendItemKey.toUpperCase() }}
           </p>
 
           <el-divider style="margin: 0" />

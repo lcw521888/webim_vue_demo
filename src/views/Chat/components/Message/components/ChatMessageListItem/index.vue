@@ -26,6 +26,8 @@ import {
   getStreamStatusText,
   isStreamMessage,
 } from '@/utils/streamMessageSupport';
+import { getThreadIdFromResponse } from '@/utils/messageThread';
+import router from '@/router';
 /* utils */
 import paseLink from '@/utils/paseLink';
 /* 默认头像 */
@@ -497,8 +499,9 @@ const clickQuoteMessage = (msgQuote) => {
 const recallMessage = async ({ id, to, chatType }) => {
   const options = {
     mid: id,
-    to: to,
+    to: routeQueryData.value.isChatThread === true ? routeQueryData.value.id : to,
     chatType: chatType,
+    isChatThread: routeQueryData.value.isChatThread === true,
   };
   try {
     await store.dispatch('recallMessage', options);
@@ -616,6 +619,84 @@ const canUseReaction = (msgBody) => {
     !msgBody.isRecall &&
     routeQueryData.value.chatType !== CHAT_TYPE.CHATROOM
   );
+};
+const getMessageThreadParentMessageId = (msgBody) => {
+  return msgBody?.mid || msgBody?.id || '';
+};
+const describeThreadError = (error) => {
+  if (!error) return null;
+  return {
+    message: error.message || '',
+    type: error.type || '',
+    code: error.code || error.status || '',
+    name: error.name || '',
+  };
+};
+const getCreatedThreadId = (response) => getThreadIdFromResponse(response);
+const canCreateMessageThread = (msgBody) => {
+  return (
+    !!getMessageThreadParentMessageId(msgBody) &&
+    !msgBody.isRecall &&
+    routeQueryData.value.chatType === CHAT_TYPE.GROUP &&
+    !!routeQueryData.value.id
+  );
+};
+const createMessageThreadLoading = ref(false);
+const createMessageThread = async (msgBody) => {
+  if (!canCreateMessageThread(msgBody)) return;
+  const messageId = getMessageThreadParentMessageId(msgBody);
+  try {
+    const { value: threadName } = await ElMessageBox.prompt(
+      '请输入消息话题名称',
+      '创建消息话题',
+      {
+        confirmButtonText: '创建',
+        cancelButtonText: '取消',
+        inputPattern: /\S+/,
+        inputErrorMessage: '话题名称不能为空',
+      },
+    );
+    const name = String(threadName || '').trim();
+    if (!name) return;
+    createMessageThreadLoading.value = true;
+    const response = await store.dispatch('createMessageThread', {
+      parentId: routeQueryData.value.id,
+      name,
+      messageId: getMessageThreadParentMessageId(msgBody),
+    });
+    const chatThreadId = getCreatedThreadId(response);
+    if (!chatThreadId) {
+      throw new Error('createChatThread 响应缺少 chatThreadId');
+    }
+    ElMessage({
+      type: 'success',
+      message: `消息话题创建成功：${chatThreadId || name}`,
+      center: true,
+    });
+    router.push({
+      path: '/chat/conversation/message',
+      query: {
+        id: getCreatedThreadId(response),
+        chatType: CHAT_TYPE.GROUP,
+        isChatThread: 'true',
+        groupId: routeQueryData.value.id,
+        threadName: name,
+      },
+    });
+  } catch (error) {
+    if (error === 'cancel') return;
+    console.error('[Thread] createMessageThread UI failed', {
+      parentId: routeQueryData.value.id,
+      messageId,
+      localMessageId: msgBody?.id,
+      serverMessageId: msgBody?.mid,
+      errorSummary: describeThreadError(error),
+      error,
+    });
+    handleSDKErrorNotifi(error?.type, error?.message || '消息话题创建失败');
+  } finally {
+    createMessageThreadLoading.value = false;
+  }
 };
 const getExistingReactionItem = (msgBody, reaction) => {
   return getMessageReactions(msgBody).find((item) => item.reaction === reaction);
@@ -1030,6 +1111,13 @@ const getReactionUserAvatar = (userId) => {
                     引用
                   </el-dropdown-item>
                   <el-dropdown-item
+                    v-if="canCreateMessageThread(msgBody)"
+                    :disabled="createMessageThreadLoading"
+                    @click="createMessageThread(msgBody)"
+                  >
+                    创建消息话题
+                  </el-dropdown-item>
+                  <el-dropdown-item
                     v-if="canUseReaction(msgBody) && getMessageReactions(msgBody).length > 0"
                     @click="openReactionDetailDialog(msgBody)"
                   >
@@ -1140,7 +1228,11 @@ const getReactionUserAvatar = (userId) => {
             />
             <!-- 群组消息已读计数 -->
             <span
-              v-if="msgBody.groupReadCount && msgBody._isMyself"
+              v-if="
+                msgBody.groupReadCount !== undefined &&
+                msgBody.groupReadCount !== null &&
+                msgBody._isMyself
+              "
               class="message_item_group_read_count"
               title="已读人数"
             >

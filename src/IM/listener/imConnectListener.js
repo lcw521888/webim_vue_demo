@@ -54,6 +54,7 @@ export const imConnectListener = () => {
   //fetch 登陆用户的初始数据
   const fetchLoginUsersInitData = () => {
     getMyUserInfos();
+    fetchLoginUserPresenceStatus();
     fetchFriendList();
     fetchTheLoginUserBlickList();
     fetchGroupList();
@@ -66,6 +67,13 @@ export const imConnectListener = () => {
     const userId = EMClient.user;
     Promise.resolve(store.dispatch('getMyUserInfo', userId)).catch((err) =>
       console.error('[getMyUserInfos]', err),
+    );
+  };
+  //获取登录用户自己的在线状态
+  const fetchLoginUserPresenceStatus = () => {
+    const userId = EMClient.user;
+    Promise.resolve(store.dispatch('fetchLoginUserPresenceStatus', userId)).catch(
+      (err) => console.error('[fetchLoginUserPresenceStatus]', err),
     );
   };
   //获取好友列表
@@ -94,6 +102,7 @@ export const imConnectListener = () => {
     mountConnectEventListener,
     fetchLoginUsersInitData,
     getMyUserInfos,
+    fetchLoginUserPresenceStatus,
     fetchFriendList,
     fetchTheLoginUserBlickList,
     fetchGroupList,

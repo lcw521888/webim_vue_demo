@@ -56,8 +56,12 @@ const props = defineProps({
     default: '',
     required: true,
   },
+  isChatThread: {
+    type: Boolean,
+    default: false,
+  },
 });
-const { chatType, targetId } = toRefs(props);
+const { chatType, targetId, isChatThread } = toRefs(props);
 const emit = defineEmits(['onStartLoading', 'onLoadending']);
 const uploadVideo = ref(null);
 const dialogVisible = ref(false);
@@ -144,6 +148,7 @@ async function doSendVideoFile(videoFile) {
     to: targetId.value,
     from: EMClient.user,
     chatType: chatType.value,
+    ...(isChatThread.value ? { isChatThread: true } : {}),
     onFileUploadError: (error) => {
       console.error('视频上传失败:', error);
       if (error?.type === 413 || error?.data?.error === 'Request Entity Too Large') {

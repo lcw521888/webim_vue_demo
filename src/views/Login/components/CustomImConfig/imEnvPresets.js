@@ -5,6 +5,7 @@ import {
 } from '@/IM/config';
 
 export const IM_ENVIRONMENTS = {
+  VIP6: 'VIP6',
   TKE: 'TKE',
   DEV: 'DEV',
   QA: 'QA',
@@ -12,6 +13,7 @@ export const IM_ENVIRONMENTS = {
 };
 
 export const IM_ENV_OPTIONS = [
+  { label: '线上 VIP6', value: IM_ENVIRONMENTS.VIP6 },
   { label: 'TKE', value: IM_ENVIRONMENTS.TKE },
   { label: 'DEV', value: IM_ENVIRONMENTS.DEV },
   { label: 'QA隔舱', value: IM_ENVIRONMENTS.QA },
@@ -36,6 +38,11 @@ const PRIVATE_ENV_DEFAULTS = {
 };
 
 const ENV_PRIVATE_CONFIGS = {
+  [IM_ENVIRONMENTS.VIP6]: {
+    appKey: DEFAULT_EASEMOB_APPKEY,
+    restServer: 'https://ovuni-rest.easemob.com',
+    imServer: 'ovuni-websocket.easemob.com/websocket',
+  },
   [IM_ENVIRONMENTS.TKE]: {
     appKey: 'easemob-demo#qatkeflink',
     restServer: 'https://tke-sdb-a1.easemob.com',

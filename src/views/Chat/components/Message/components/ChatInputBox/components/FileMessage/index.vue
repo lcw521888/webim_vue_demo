@@ -27,8 +27,12 @@ const props = defineProps({
     default: '',
     required: true,
   },
+  isChatThread: {
+    type: Boolean,
+    default: false,
+  },
 });
-const { chatType, targetId } = toRefs(props);
+const { chatType, targetId, isChatThread } = toRefs(props);
 const emit = defineEmits(['onStartLoading', 'onLoadending']);
 const PRESET_FILE_PATH = '/resource/loadtest-ngi.jmx';
 //选择文件
@@ -72,6 +76,7 @@ const sendFileMessage = async (commonFile) => {
     from: EMClient.user,
     to: targetId.value,
     chatType: chatType.value,
+    ...(isChatThread.value ? { isChatThread: true } : {}),
     file: file,
     onFileUploadError: (error) => {
       console.error('文件上传失败:', error);

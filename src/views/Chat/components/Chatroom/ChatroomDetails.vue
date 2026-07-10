@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { EMClient } from '@/IM';
 import { CHAT_TYPE } from '@/IM/constant';
 import { DEFAULT_EASEMOB_REST_URL } from '@/IM/config';
+import ConversationDndSwitch from '@/components/ConversationDndSwitch';
 import {
   CHATROOM_EVENT_OPERATIONS,
   createChatroomEventHandler,
@@ -17,12 +18,15 @@ const router = useRouter();
 const chatroomDetails = ref({});
 const loading = ref(false);
 const admins = ref([]);
+const isCurrentUserJoined = ref(false);
+const membershipLoading = ref(false);
 const isOwner = computed(() => {
   return chatroomDetails.value.owner === EMClient.user;
 });
 const isAdmin = computed(() =>
   admins.value.some((admin) => admin.userId === EMClient.user),
 );
+const canUseJoinedChatroomActions = computed(() => isCurrentUserJoined.value);
 const hasAnnouncementPermission = computed(() => isOwner.value || isAdmin.value);
 const hasChatroomInfoPermission = computed(() => isOwner.value || isAdmin.value);
 
@@ -32,6 +36,59 @@ const checkLoginStatus = () => {
     return false;
   }
   return true;
+};
+
+const normalizeChatroomId = (id) => {
+  if (id == null || id === '') return '';
+  return String(id);
+};
+
+const refreshCurrentUserChatroomMembership = async () => {
+  if (!checkLoginStatus()) return false;
+
+  const roomId = normalizeChatroomId(route.query.roomId);
+  if (!roomId) {
+    isCurrentUserJoined.value = false;
+    return false;
+  }
+
+  const requestParams = {
+    pageNum: 1,
+    pageSize: 100,
+  };
+  membershipLoading.value = true;
+  try {
+    const res = await EMClient.getJoinedChatRooms(requestParams);
+    const joinedRooms = Array.isArray(res?.data) ? res.data : [];
+    isCurrentUserJoined.value = joinedRooms.some(
+      (item) => normalizeChatroomId(item?.id) === roomId,
+    );
+    console.log('[ChatroomDetails] current user membership refreshed', {
+      methodName: 'getJoinedChatRooms',
+      params: requestParams,
+      roomId,
+      currentUser: EMClient.user,
+      isCurrentUserJoined: isCurrentUserJoined.value,
+      response: res,
+    });
+    return isCurrentUserJoined.value;
+  } catch (error) {
+    isCurrentUserJoined.value = false;
+    console.error('[ChatroomDetails] refresh membership failed', {
+      methodName: 'getJoinedChatRooms',
+      params: requestParams,
+      roomId,
+      currentUser: EMClient.user,
+      error,
+    });
+    throw error;
+  } finally {
+    membershipLoading.value = false;
+  }
+};
+
+const showJoinedOnlyTip = () => {
+  ElMessage.warning('请先加入该聊天室后再使用此功能');
 };
 //获取聊天室详情
 const getChatroomDetails = async () => {
@@ -70,14 +127,24 @@ const getChatroomDetails = async () => {
       ? res.data[0] || {}
       : res.data || {};
 
-    // 获取聊天室公告
-    getChatRoomAnnouncement();
-
     try {
-      await getChatRoomAttributes();
+      await refreshCurrentUserChatroomMembership();
+      if (canUseJoinedChatroomActions.value) {
+        await getChatRoomAdmin();
+        await getChatRoomAnnouncement();
+        await getChatRoomAttributes();
+      } else {
+        admins.value = [];
+        announcement.value = '';
+        attributes.value = {};
+        console.info('[ChatroomDetails] 未加入聊天室，跳过成员态接口查询', {
+          roomId,
+          currentUser: EMClient.user,
+        });
+      }
     } catch (error) {
-      console.error('获取聊天室属性失败，已保留服务端错误:', error);
-      ElMessage.error(error?.message || '获取聊天室属性失败');
+      console.error('获取聊天室成员状态或属性失败，已保留服务端错误:', error);
+      ElMessage.error(error?.message || '获取聊天室成员状态或属性失败');
     }
   } catch (error) {
     ElMessage.error('获取聊天室详情失败');
@@ -103,6 +170,10 @@ const getChatroomDetails = async () => {
 //退出聊天室
 const leaveChatroom = async () => {
   if (!checkLoginStatus()) return;
+  if (!canUseJoinedChatroomActions.value) {
+    showJoinedOnlyTip();
+    return;
+  }
   const LEAVE_CHAT_ROOM_METHOD = 'leaveChatRoom';
   const targetRoomId = route.query.roomId;
   const leaveChatRoomParams = { roomId: targetRoomId };
@@ -459,6 +530,10 @@ const getChatRoomAttributes = async () => {
 };
 
 const openAttributeDialog = () => {
+  if (!canUseJoinedChatroomActions.value) {
+    showJoinedOnlyTip();
+    return;
+  }
   attributeForm.value = {
     attributeKey: DEFAULT_ATTRIBUTE_KEY,
     attributeValue: DEFAULT_ATTRIBUTE_VALUE,
@@ -470,6 +545,10 @@ const openAttributeDialog = () => {
 
 const setChatRoomAttribute = async () => {
   if (!checkLoginStatus()) return;
+  if (!canUseJoinedChatroomActions.value) {
+    showJoinedOnlyTip();
+    return;
+  }
 
   if (
     !attributeForm.value.attributeKey ||
@@ -510,6 +589,10 @@ const setChatRoomAttribute = async () => {
 };
 
 const openBatchAttributeDialog = () => {
+  if (!canUseJoinedChatroomActions.value) {
+    showJoinedOnlyTip();
+    return;
+  }
   batchAttributeForm.value = {
     attributes: DEFAULT_BATCH_ATTRIBUTES,
     autoDelete: true,
@@ -520,6 +603,10 @@ const openBatchAttributeDialog = () => {
 
 const setChatRoomAttributes = async () => {
   if (!checkLoginStatus()) return;
+  if (!canUseJoinedChatroomActions.value) {
+    showJoinedOnlyTip();
+    return;
+  }
 
   if (
     !batchAttributeForm.value.attributes ||
@@ -569,6 +656,10 @@ const setChatRoomAttributes = async () => {
 
 const removeChatRoomAttribute = async (key) => {
   if (!checkLoginStatus()) return;
+  if (!canUseJoinedChatroomActions.value) {
+    showJoinedOnlyTip();
+    return;
+  }
 
   try {
     await ElMessageBox.confirm(`确定要删除属性 "${key}" 吗？`, '提示', {
@@ -608,6 +699,10 @@ const removeChatRoomAttribute = async (key) => {
 
 const removeChatRoomAttributes = async () => {
   if (!checkLoginStatus()) return;
+  if (!canUseJoinedChatroomActions.value) {
+    showJoinedOnlyTip();
+    return;
+  }
   const attributeKeys = Object.keys(attributes.value || {});
   if (attributeKeys.length === 0) {
     ElMessage.warning('当前没有可删除的聊天室属性');
@@ -679,7 +774,9 @@ const registerChatroomDetailEventHandler = () => {
         case CHATROOM_EVENT_OPERATIONS.REMOVE_ADMIN:
         case CHATROOM_EVENT_OPERATIONS.CHANGE_OWNER:
           getChatroomDetails();
-          getChatRoomAdmin();
+          if (canUseJoinedChatroomActions.value) {
+            getChatRoomAdmin();
+          }
           break;
         case CHATROOM_EVENT_OPERATIONS.UPDATE_INFO:
         case CHATROOM_EVENT_OPERATIONS.UNBLOCK_MEMBER:
@@ -687,11 +784,15 @@ const registerChatroomDetailEventHandler = () => {
           break;
         case CHATROOM_EVENT_OPERATIONS.DELETE_ANNOUNCEMENT:
         case CHATROOM_EVENT_OPERATIONS.UPDATE_ANNOUNCEMENT:
-          getChatRoomAnnouncement();
+          if (canUseJoinedChatroomActions.value) {
+            getChatRoomAnnouncement();
+          }
           break;
         case CHATROOM_EVENT_OPERATIONS.UPDATE_CHATROOM_ATTRIBUTES:
         case CHATROOM_EVENT_OPERATIONS.REMOVE_CHATROOM_ATTRIBUTES:
-          getChatRoomAttributes();
+          if (canUseJoinedChatroomActions.value) {
+            getChatRoomAttributes();
+          }
           break;
         case CHATROOM_EVENT_OPERATIONS.DESTROY:
           ElMessage.warning('当前聊天室已被解散');
@@ -706,7 +807,6 @@ const registerChatroomDetailEventHandler = () => {
 
 onMounted(() => {
   getChatroomDetails();
-  getChatRoomAdmin();
   registerChatroomDetailEventHandler();
 });
 
@@ -721,7 +821,6 @@ watch(
   () => {
     if (route.query.roomId) {
       getChatroomDetails();
-      getChatRoomAdmin();
       registerChatroomDetailEventHandler();
     }
   },
@@ -771,9 +870,27 @@ watch(
         </el-descriptions-item>
       </el-descriptions>
 
+      <div class="chatroom_dnd_row">
+        <ConversationDndSwitch
+          label="消息免打扰"
+          :conversation-id="String(route.query.roomId || '')"
+          conversation-type="chatRoom"
+        />
+      </div>
+
+      <el-alert
+        v-if="!canUseJoinedChatroomActions"
+        class="joined_only_alert"
+        title="当前用户未加入该聊天室，仅展示基础详情；进入、成员管理和自定义属性操作需先加入聊天室。"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
+
       <div class="action_buttons">
         <el-button
           type="primary"
+          :disabled="!canUseJoinedChatroomActions"
           @click="
             () =>
               router.push({
@@ -786,6 +903,7 @@ watch(
         </el-button>
         <el-button
           type="success"
+          :disabled="!canUseJoinedChatroomActions"
           @click="
             () =>
               router.push({
@@ -802,9 +920,21 @@ watch(
         <el-button v-if="hasAnnouncementPermission" @click="openAnnouncementDialog">
           更新公告
         </el-button>
-        <el-button @click="openAttributeDialog"> 添加自定义属性 </el-button>
-        <el-button @click="openBatchAttributeDialog"> 批量添加属性 </el-button>
-        <el-button @click="leaveChatroom"> 退出聊天室 </el-button>
+        <el-button
+          :disabled="!canUseJoinedChatroomActions"
+          @click="openAttributeDialog"
+        >
+          添加自定义属性
+        </el-button>
+        <el-button
+          :disabled="!canUseJoinedChatroomActions"
+          @click="openBatchAttributeDialog"
+        >
+          批量添加属性
+        </el-button>
+        <el-button :disabled="!canUseJoinedChatroomActions" @click="leaveChatroom">
+          退出聊天室
+        </el-button>
         <el-button v-if="isOwner" type="danger" @click="destroyChatroom">
           解散聊天室
         </el-button>
@@ -989,6 +1119,16 @@ watch(
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+    }
+
+    .chatroom_dnd_row {
+      margin-top: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid #ebeef5;
+    }
+
+    .joined_only_alert {
+      margin-top: 16px;
     }
   }
 }

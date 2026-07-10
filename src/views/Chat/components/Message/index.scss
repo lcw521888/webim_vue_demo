@@ -36,6 +36,14 @@
     }
   }
 
+  .header_actions {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+
   .more {
     display: flex;
     width: 35px;
@@ -43,12 +51,17 @@
     align-items: center;
     justify-content: center;
     font-size: 20px;
+    color: #333333;
     cursor: pointer;
     transition: all 0.3s;
 
     &:hover {
       transform: scale(1.1);
     }
+  }
+
+  .thread_list_trigger {
+    font-size: 19px;
   }
 }
 
@@ -111,7 +124,7 @@
   border-radius: 0 0 3px 0;
 }
 
-:deep(.el-drawer) {
+:deep(.conversation_details_drawer) {
   margin-top: 60px;
   width: 150px;
   height: calc(100% - 60px);
@@ -126,4 +139,42 @@
     padding: 0;
     // padding-left: 16px;
   }
+}
+
+.friend_black_list_dialog {
+  min-height: 120px;
+}
+
+.friend_black_list_header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.friend_black_list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friend_black_list_item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f7f8fa;
+  color: #333333;
+  font-size: 13px;
+}
+
+.friend_black_list_user {
+  min-width: 0;
+  flex: 1;
+  word-break: break-all;
 }

@@ -379,7 +379,8 @@ const joinChatroom = async (roomId) => {
       error.message,
     );
 
-    ElMessage.error(error?.message || '加入聊天室失败');
+    const joinChatroomErrorMessage = `加入聊天室${roomId}失败：${error?.message || '未知错误'}`;
+    ElMessage.error(joinChatroomErrorMessage);
   } finally {
     setJoiningRoom(roomId, false);
   }

@@ -15,6 +15,7 @@ export function isImAuthFailedReason(reason) {
     if (msg.includes('INVALID_TOKEN')) return true;
     if (lower.includes('invalid token')) return true;
     if (lower.includes('unauthorized')) return true;
+    if (lower.includes('not login')) return true;
     return false;
   }
   if (reason instanceof Error) {
@@ -26,7 +27,8 @@ export function isImAuthFailedReason(reason) {
         rawMsg.includes('Auth failed') ||
         rawMsg.includes('INVALID_TOKEN') ||
         rawMsg.toLowerCase().includes('invalid token') ||
-        rawMsg.toLowerCase().includes('unauthorized')
+        rawMsg.toLowerCase().includes('unauthorized') ||
+        rawMsg.toLowerCase().includes('not login')
       ) {
         return true;
       }
@@ -36,6 +38,7 @@ export function isImAuthFailedReason(reason) {
     if (msg.includes('INVALID_TOKEN')) return true;
     if (msg.toLowerCase().includes('invalid token')) return true;
     if (msg.toLowerCase().includes('unauthorized')) return true;
+    if (msg.toLowerCase().includes('not login')) return true;
   }
   return false;
 }

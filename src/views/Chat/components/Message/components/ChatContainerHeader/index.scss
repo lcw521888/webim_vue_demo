@@ -17,6 +17,15 @@
     height: 20px;
     max-width: 80%;
 
+    .thread_back_button {
+      flex: 0 0 auto;
+      margin-right: 8px;
+      padding: 0;
+      color: #333333;
+      font-size: 13px;
+      font-weight: 400;
+    }
+
     .chat_user_name {
       font-family: 'PingFang SC';
       overflow: hidden;

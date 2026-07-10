@@ -6,14 +6,16 @@ import { CHAT_TYPE } from '@/IM/constant';
 import { useStore } from 'vuex';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import { EASEIM_HINT, SWINDLER_GO_DIE, WARM_TIP } from '@/constant';
-import { ElMessage, ElDialog, ElInput, ElButton } from 'element-plus';
-import { Close } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { ChatLineSquare, Close } from '@element-plus/icons-vue';
 import waterMark from '@/utils/waterMark';
 /* 组件 */
 import ChatMessageListItem from './components/ChatMessageListItem';
 import ChatInputBox from './components/ChatInputBox';
 import GroupsDetails from '@/views/Chat/components/AboutGroups/GroupsDetails';
 import ChatContainerHeader from './components/ChatContainerHeader';
+import SingleChatDetails from './components/SingleChatDetails.vue';
+import MessageThreadListDrawer from './components/MessageThreadListDrawer.vue';
 /* store */
 const store = useStore();
 /* route */
@@ -25,6 +27,26 @@ const loginState = computed(() => store.state.loginState);
 const drawer = ref(false); //抽屉显隐
 const handleDrawer = () => {
   drawer.value = !drawer.value;
+};
+const blackListDialogVisible = ref(false);
+const blackListLoading = ref(false);
+const removingBlackListUserId = ref('');
+const friendBlackList = computed(() => store.state.Contacts.friendBlackList || []);
+const threadListDrawer = ref(false);
+const showThreadListDrawer = () => {
+  threadListDrawer.value = true;
+};
+const refreshFriendBlackList = async () => {
+  blackListLoading.value = true;
+  try {
+    await store.dispatch('fetchBlackList');
+  } finally {
+    blackListLoading.value = false;
+  }
+};
+const openFriendBlackList = async () => {
+  blackListDialogVisible.value = true;
+  await refreshFriendBlackList();
 };
 //删除好友
 const delTheFriend = async () => {
@@ -66,9 +88,9 @@ const setFriendRemark = async () => {
     }
     
     try {
-      await EMClient.setContactRemark({
+      await store.dispatch('setContactsRemark', {
         userId: targetId,
-        remark: remark
+        remark,
       });
       ElMessage({ type: 'success', center: true, message: '好友备注设置成功~' });
       remarkDialogVisible.value = false;
@@ -122,6 +144,46 @@ const removeFriendFromBlackList = async () => {
     } catch (error) {
       ElMessage({ type: 'error', center: true, message: '从黑名单中移除失败，请稍后重试' });
       console.error('从黑名单中移除失败:', error);
+    }
+  }
+};
+const removeUserFromFriendBlackList = async (userId) => {
+  if (!userId || removingBlackListUserId.value) return;
+  removingBlackListUserId.value = userId;
+  try {
+    await EMClient.removeUserFromBlocklist({
+      name: [userId],
+    });
+    ElMessage({ type: 'success', center: true, message: `${userId} 已移出黑名单` });
+    await refreshFriendBlackList();
+  } catch (error) {
+    console.error('从黑名单列表移除用户失败:', {
+      userId,
+      error,
+    });
+    ElMessage({
+      type: 'error',
+      center: true,
+      message: error?.message || `${userId} 移出黑名单失败`,
+    });
+  } finally {
+    removingBlackListUserId.value = '';
+  }
+};
+const clearCurrentConversationMessages = async () => {
+  if (!routeQueryData.value?.id) return;
+  try {
+    await ElMessageBox.confirm('确认清空当前聊天记录？', '清空聊天记录', {
+      confirmButtonText: '确认',
+      cancelButtonText: '取消',
+      type: 'warning',
+    });
+    store.commit('CLEAR_SOMEONE_MESSAGE', routeQueryData.value.id);
+    ElMessage({ type: 'success', center: true, message: '聊天记录已清空' });
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('清空聊天记录失败:', error);
+      ElMessage({ type: 'error', center: true, message: '清空聊天记录失败' });
     }
   }
 };
@@ -278,11 +340,19 @@ const closeWarningTips = () => store.commit('CLOSE_WARNING_TIPS');
 const routeQueryData = ref({
   id: '',
   chatType: CHAT_TYPE.SINGLE,
+  isChatThread: false,
+  groupId: '',
+  threadName: '',
 });
 const getRouteQueryWithIdInfo = (data) => {
-  const { id, chatType } = data;
-  routeQueryData.value.id = id;
-  routeQueryData.value.chatType = chatType;
+  const { id, chatType, groupId, threadName } = data;
+  routeQueryData.value = {
+    id,
+    chatType,
+    isChatThread: data.isChatThread === 'true',
+    groupId: groupId || '',
+    threadName: threadName || '',
+  };
 };
 //监听路由改变获取对应的getIdInfo
 const stopWatchRoute = watch(
@@ -322,6 +392,7 @@ const fechHistoryMessage = async (loadType) => {
     if (loadType == 'fistLoad') {
       const result = await store.dispatch('getHistoryMessage', {
         ...routeQueryData.value,
+        isChatThread: routeQueryData.value.isChatThread === true,
         cursor: -1,
         pageSize: 20,
         searchDirection: 'up',
@@ -338,6 +409,7 @@ const fechHistoryMessage = async (loadType) => {
 
       const result = await store.dispatch('getHistoryMessage', {
         ...routeQueryData.value,
+        isChatThread: routeQueryData.value.isChatThread === true,
         cursor: historyMessageCursor.value,
         pageSize: 20,
         searchDirection: 'up',
@@ -461,26 +533,23 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
     <!-- 聊天页头部 -->
     <ChatContainerHeader :routeQueryData="routeQueryData">
       <template v-slot:more>
-        <!-- 群组展示抽屉 -->
-        <div
-          class="more"
-          v-if="routeQueryData.chatType === CHAT_TYPE.GROUP"
-          @click="handleDrawer"
-        >
-          <svg
-            width="18"
-            height="4"
-            viewBox="0 0 18 4"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+        <div class="header_actions">
+          <div
+            class="more thread_list_trigger"
+            v-if="routeQueryData.chatType === CHAT_TYPE.GROUP && !routeQueryData.isChatThread"
+            title="子区列表"
+            @click="showThreadListDrawer"
           >
-            <circle cx="2" cy="2" r="2" fill="#333333" />
-            <circle cx="9" cy="2" r="2" fill="#333333" />
-            <circle cx="16" cy="2" r="2" fill="#333333" />
-          </svg>
-        </div>
-        <div class="more" v-if="routeQueryData.chatType === CHAT_TYPE.SINGLE">
-          <el-dropdown placement="bottom-end" trigger="click">
+            <el-icon>
+              <ChatLineSquare />
+            </el-icon>
+          </div>
+          <!-- 群组展示抽屉 -->
+          <div
+            class="more"
+            v-if="routeQueryData.chatType === CHAT_TYPE.GROUP && !routeQueryData.isChatThread"
+            @click="handleDrawer"
+          >
             <svg
               width="18"
               height="4"
@@ -492,23 +561,24 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
               <circle cx="9" cy="2" r="2" fill="#333333" />
               <circle cx="16" cy="2" r="2" fill="#333333" />
             </svg>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="remarkDialogVisible = true">
-                  设置好友备注
-                </el-dropdown-item>
-                <el-dropdown-item v-if="!isInBlackList" @click="addFriendToBlackList">
-                  加入黑名单
-                </el-dropdown-item>
-                <el-dropdown-item v-else @click="removeFriendFromBlackList">
-                  从黑名单中移除
-                </el-dropdown-item>
-                <el-dropdown-item @click="delTheFriend">
-                  删除好友
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          </div>
+          <div
+            class="more"
+            v-if="routeQueryData.chatType === CHAT_TYPE.SINGLE"
+            @click="handleDrawer"
+          >
+            <svg
+              width="18"
+              height="4"
+              viewBox="0 0 18 4"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="2" cy="2" r="2" fill="#333333" />
+              <circle cx="9" cy="2" r="2" fill="#333333" />
+              <circle cx="16" cy="2" r="2" fill="#333333" />
+            </svg>
+          </div>
         </div>
       </template>
     </ChatContainerHeader>
@@ -564,6 +634,7 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
     <!-- 聊天右侧抽屉 -->
     <el-drawer
       v-model="drawer"
+      class="conversation_details_drawer"
       :show-close="false"
       :close-on-click-modal="true"
       :destroy-on-close="true"
@@ -572,11 +643,27 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
       size="280px"
     >
       <GroupsDetails
+        v-if="routeQueryData.chatType === CHAT_TYPE.GROUP"
         ref="groupsDetailsComponent"
         :groupId="routeQueryData.id"
         @handleDrawer="handleDrawer"
       />
+      <SingleChatDetails
+        v-else-if="routeQueryData.chatType === CHAT_TYPE.SINGLE"
+        :user-id="routeQueryData.id"
+        :is-in-black-list="isInBlackList"
+        @setRemark="remarkDialogVisible = true"
+        @addBlackList="addFriendToBlackList"
+        @removeBlackList="removeFriendFromBlackList"
+        @openBlackList="openFriendBlackList"
+        @clearMessages="clearCurrentConversationMessages"
+        @deleteContact="delTheFriend"
+      />
     </el-drawer>
+    <MessageThreadListDrawer
+      v-model="threadListDrawer"
+      :group-id="routeQueryData.id"
+    />
     
     <!-- 设置好友备注对话框 -->
     <el-dialog
@@ -596,6 +683,47 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
           <el-button type="primary" @click="setFriendRemark">确定</el-button>
         </span>
       </template>
+    </el-dialog>
+    <el-dialog
+      v-model="blackListDialogVisible"
+      title="黑名单列表"
+      width="360px"
+      :destroy-on-close="true"
+    >
+      <div class="friend_black_list_dialog" v-loading="blackListLoading">
+        <div class="friend_black_list_header">
+          <span>当前黑名单用户</span>
+          <el-button
+            link
+            type="primary"
+            :loading="blackListLoading"
+            @click="refreshFriendBlackList"
+          >
+            刷新
+          </el-button>
+        </div>
+        <el-scrollbar max-height="260px">
+          <div v-if="friendBlackList.length > 0" class="friend_black_list">
+            <div
+              v-for="item in friendBlackList"
+              :key="item"
+              class="friend_black_list_item"
+            >
+              <span class="friend_black_list_user">{{ item }}</span>
+              <el-button
+                link
+                type="danger"
+                :loading="removingBlackListUserId === item"
+                :disabled="blackListLoading"
+                @click="removeUserFromFriendBlackList(item)"
+              >
+                移除
+              </el-button>
+            </div>
+          </div>
+          <el-empty v-else :image-size="60" description="暂无黑名单用户" />
+        </el-scrollbar>
+      </div>
     </el-dialog>
   </el-container>
 </template>

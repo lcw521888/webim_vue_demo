@@ -9,6 +9,7 @@ import GroupsManagement from '../GroupsManagement';
 /* icons */
 import { ArrowRight, Edit, View } from '@element-plus/icons-vue';
 import store from '@/store';
+import ConversationDndSwitch from '@/components/ConversationDndSwitch';
 /* porps */
 const props = defineProps({
   groupId: {
@@ -287,12 +288,6 @@ const groupMutelist = computed(() => {
 const currentGroupDetail = computed(() => {
   return store.getters.getGroupDetailMap.get(groupId.value) || {};
 });
-const isGroupMessageBlocked = computed(() => {
-  return Boolean(
-    currentGroupDetail.value?.shieldgroup ??
-      getGroupDetailFromGroupList.value?.shieldgroup,
-  );
-});
 const maxUsersDisplay = computed(() => {
   return (
     getGroupDetailFromGroupList.value.maxUsers ||
@@ -300,17 +295,6 @@ const maxUsersDisplay = computed(() => {
     '500'
   );
 });
-const toggleGroupMessageBlock = async () => {
-  try {
-    if (isGroupMessageBlocked.value) {
-      await store.dispatch('unblockGroupMessage', groupId.value);
-    } else {
-      await store.dispatch('blockGroupMessage', groupId.value);
-    }
-  } catch (error) {
-    console.error(error);
-  }
-};
 const handleUpdateGroupData = async () => {
   try {
     await store.dispatch('fetchGroupDetailFromServer', [groupId.value]);
@@ -510,19 +494,14 @@ onMounted(() => {
       </div>
     </div>
     <el-divider style="margin: 0" />
-    <div class="group_list_card group_message_block">
-      <div class="label">群消息免打扰</div>
+    <div class="group_list_card group_conversation_dnd">
+      <div class="label">消息免打扰</div>
       <div class="main">
-        <el-switch
-          :model-value="isGroupMessageBlocked"
-          :disabled="
-            getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.OWNER ||
-            getGroupDetailFromGroupList.role === GROUP_ROLE_TYPE.ADMIN
-          "
-          inline-prompt
-          active-text="开"
-          inactive-text="关"
-          @change="toggleGroupMessageBlock"
+        <ConversationDndSwitch
+          label="消息免打扰"
+          :show-label="false"
+          :conversation-id="groupId"
+          conversation-type="groupChat"
         />
       </div>
     </div>

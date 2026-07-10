@@ -16,8 +16,12 @@ const props = defineProps({
     default: '',
     required: true,
   },
+  isChatThread: {
+    type: Boolean,
+    default: false,
+  },
 });
-const { chatType, targetId } = toRefs(props);
+const { chatType, targetId, isChatThread } = toRefs(props);
 const emit = defineEmits(['onStartLoading', 'onLoadending']);
 import fileSizeFormat from '@/utils/fileSizeFormat';
 let fileObj = null;
@@ -50,6 +54,7 @@ const sendImagesMessage = () => {
     type: MESSAGE_TYPE.IMAGE,
     to: targetId.value,
     chatType: chatType.value,
+    ...(isChatThread.value ? { isChatThread: true } : {}),
     file: file,
     width: 0,
     height: 0,

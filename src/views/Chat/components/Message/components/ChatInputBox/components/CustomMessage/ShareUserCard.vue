@@ -75,8 +75,12 @@ const props = defineProps({
     default: '',
     required: true,
   },
+  isChatThread: {
+    type: Boolean,
+    default: false,
+  },
 });
-const { chatType, targetId } = toRefs(props);
+const { chatType, targetId, isChatThread } = toRefs(props);
 //modal显隐
 const dialogVisible = ref(false);
 const closeDialogVisible = () => (dialogVisible.value = false);
@@ -126,6 +130,7 @@ const sendShareUserCardMessage = async () => {
     type: MESSAGE_TYPE.CUSTOM,
     to: targetId.value,
     chatType: chatType.value,
+    ...(isChatThread.value ? { isChatThread: true } : {}),
     customEvent: 'userCard',
     customExts: {
       uid: shareContactUserId.value,

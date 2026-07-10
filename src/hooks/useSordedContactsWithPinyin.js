@@ -2,6 +2,7 @@ import { computed, reactive, watch, toRefs } from 'vue';
 import _ from 'lodash';
 import { pinyin } from 'pinyin-pro';
 import store from '@/store';
+import { normalizeContactInitial } from '@/utils/handleSomeData/contactInitial';
 
 const useSortedContactsWithPinyin = () => {
   const state = reactive({
@@ -39,9 +40,13 @@ const useSortedContactsWithPinyin = () => {
         const resultObj = {};
         const containerObj = {};
         for (const [key, value] of newMap) {
-          const pinyinKey = pinyin(_getUserNickName(key), {
-            pattern: 'initial',
-          })[0];
+          const displayName = _getUserNickName(key);
+          const pinyinKey = normalizeContactInitial(
+            displayName,
+            pinyin(displayName, {
+              pattern: 'initial',
+            }),
+          );
           if (!containerObj[pinyinKey]) {
             containerObj[pinyinKey] = [];
           }

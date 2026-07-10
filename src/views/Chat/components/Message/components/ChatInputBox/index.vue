@@ -45,7 +45,11 @@ const props = defineProps({
 });
 const { routeQueryData } = toRefs(props);
 const isDirectedMessageEnabled = computed(() =>
-  supportsDirectedMessage(routeQueryData.value.chatType),
+  !isChatThread.value && supportsDirectedMessage(routeQueryData.value.chatType),
+);
+const isChatThread = computed(() => routeQueryData.value.isChatThread === true);
+const threadMessageOptions = computed(() =>
+  isChatThread.value ? { isChatThread: true } : {},
 );
 //附件类上传加载状态
 const loadingBox = ref(null);
@@ -183,6 +187,7 @@ const sendPresetAudio = async () => {
       to: routeQueryData.value.id,
       from: EMClient.user,
       chatType: routeQueryData.value.chatType,
+      ...threadMessageOptions.value,
       file: {
         data: file,
         filename: file.name,
@@ -232,6 +237,7 @@ const sendAudioMessages = async (audioData) => {
     to: routeQueryData.value.id,
     from: EMClient.user,
     chatType: routeQueryData.value.chatType,
+    ...threadMessageOptions.value,
     file: file,
     length: audioData.length,
   };
@@ -308,6 +314,7 @@ const sendLocationMessage = async () => {
     to: routeQueryData.value.id,
     from: EMClient.user,
     chatType: routeQueryData.value.chatType,
+    ...threadMessageOptions.value,
     addr: '四通桥东',
     buildingName: '数码大厦',
     lat: 39,
@@ -442,6 +449,7 @@ const sendCombineMessage = async () => {
       chatType: routeQueryData.value.chatType,
       type: MESSAGE_TYPE.COMBINE,
       to: routeQueryData.value.id,
+      ...threadMessageOptions.value,
       compatibleText: 'SDK 版本低，请升级',
       title: '聊天记录',
       summary: `共${recentMessages.length}条消息`,
@@ -614,6 +622,7 @@ defineExpose({
       ref="ImageMessageComp"
       :targetId="routeQueryData.id"
       :chatType="routeQueryData.chatType"
+      :isChatThread="isChatThread"
       @onStartLoading="onStartLoading"
       @onLoadending="onLoadending"
     />
@@ -622,6 +631,7 @@ defineExpose({
       ref="videoMessageComp"
       :targetId="routeQueryData.id"
       :chatType="routeQueryData.chatType"
+      :isChatThread="isChatThread"
       @onStartLoading="onStartLoading"
       @onLoadending="onLoadending"
     />
@@ -630,6 +640,7 @@ defineExpose({
       ref="fileMessageComp"
       :targetId="routeQueryData.id"
       :chatType="routeQueryData.chatType"
+      :isChatThread="isChatThread"
       @onStartLoading="onStartLoading"
       @onLoadending="onLoadending"
     />
@@ -652,6 +663,8 @@ defineExpose({
     ref="textMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
+    :isChatThread="isChatThread"
+    :groupId="routeQueryData.isChatThread ? routeQueryData.groupId : routeQueryData.id"
     @getMessageQuoteContent="getMessageQuoteContent"
     @getImageFileFromClipboard="getImageFileFromClipboard"
     @clearQuoteContent="clearQuoteContent"
@@ -660,6 +673,7 @@ defineExpose({
     ref="extMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
+    :isChatThread="isChatThread"
   />
   <MsgQuote ref="messageQuoteRef" />
   <!-- <InviteCallMembers ref="inviteCallMembersComp" @sendMulitInviteMsg="sendMulitInviteMsg" /> -->
@@ -667,6 +681,7 @@ defineExpose({
     ref="previewSendImg"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
+    :isChatThread="isChatThread"
     @onStartLoading="onStartLoading"
     @onLoadending="onLoadending"
   />
@@ -674,16 +689,19 @@ defineExpose({
     ref="personalCardMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
+    :isChatThread="isChatThread"
   />
   <CmdMessage
     ref="cmdMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
+    :isChatThread="isChatThread"
   />
   <SendCustomMessage
     ref="customMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
+    :isChatThread="isChatThread"
   />
   <SendDirectedMessage
     ref="directedMessageComp"

@@ -8,6 +8,7 @@ import * as presencePlugin from 'easemob-websdk/presence/presence';
 import * as chatroomPlugin from 'easemob-websdk/chatroom/chatroom';
 import * as silentPlugin from 'easemob-websdk/silent/silent';
 import * as localCachePlugin from 'easemob-websdk/localCache/localCache';
+import * as threadPlugin from 'easemob-websdk/thread/thread';
 import {
   DEFAULT_EASEMOB_APPKEY,
   DEFAULT_EASEMOB_SOCKET_URL,
@@ -17,7 +18,10 @@ import {
 } from '../config';
 import { sdkErrorToError } from '../sdkError';
 import { safeSync } from '@/utils/safeCall';
-import { redirectToLoginClearImSession } from '@/utils/imAuthRedirect';
+import {
+  isImAuthFailedReason,
+  redirectToLoginClearImSession,
+} from '@/utils/imAuthRedirect';
 
 function parseJSONSafe(raw, fallback) {
   if (raw == null || raw === '') return fallback;
@@ -102,6 +106,29 @@ function logSdkResponse(client, methodName, params, result, startTime) {
   });
 }
 
+function summarizeSdkError(error) {
+  if (!error) return {};
+  const rawError = error.originalError || error;
+  const summary = {
+    message:
+      error.message ||
+      rawError.message ||
+      rawError.msg ||
+      rawError.error_description ||
+      rawError.error ||
+      '',
+    type: rawError.type ?? rawError.code ?? error.type ?? error.code ?? '',
+    data: rawError.data ?? '',
+    name: error.name || rawError.name || '',
+  };
+
+  if (error.stack || rawError.stack) {
+    summary.stack = error.stack || rawError.stack;
+  }
+
+  return summary;
+}
+
 function logSdkRequestError(client, methodName, params, error, startTime) {
   console.error(`[EMClient request] ${methodName} -> 请求失败`, {
     methodName,
@@ -109,6 +136,7 @@ function logSdkRequestError(client, methodName, params, error, startTime) {
     durationMs: Date.now() - startTime,
     params,
     context: getRequestLogContext(params),
+    errorSummary: summarizeSdkError(error),
     error,
   });
 }
@@ -224,24 +252,10 @@ const initEMClient = () => {
           );
         }
 
-        if (error?.type === 2 || error?.message?.includes('Auth failed')) {
+        if (isImAuthFailedReason(error)) {
           console.warn(
-            '[IM] 长连接鉴权失败，将清除本地登录状态并返回登录页。',
+            '[IM] 连接错误: 鉴权失败或未登录，将清除本地登录状态并返回登录页。',
             error?.message || error,
-          );
-          redirectToLoginClearImSession();
-          return;
-        }
-        if (
-          error?.type === 401 ||
-          error?.type === 28 ||
-          error?.message?.includes('401') ||
-          error?.message?.includes('Unauthorized') ||
-          error?.message?.includes('INVALID_TOKEN') ||
-          error?.message?.includes('Invalid token')
-        ) {
-          console.warn(
-            '[IM] 连接错误: 未授权或令牌无效，将清除本地登录状态并返回登录页。',
           );
           redirectToLoginClearImSession();
           return;
@@ -298,6 +312,7 @@ const initEMClient = () => {
   miniCore.usePlugin(chatroomPlugin);
   miniCore.usePlugin(silentPlugin);
   miniCore.usePlugin(localCachePlugin, 'localCache');
+  miniCore.usePlugin(threadPlugin);
 
   return miniCore;
 };

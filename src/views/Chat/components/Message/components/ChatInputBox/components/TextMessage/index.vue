@@ -21,8 +21,16 @@ const props = defineProps({
     default: '',
     required: true,
   },
+  isChatThread: {
+    type: Boolean,
+    default: false,
+  },
+  groupId: {
+    type: String,
+    default: '',
+  },
 });
-const { chatType, targetId } = toRefs(props);
+const { chatType, targetId, isChatThread, groupId } = toRefs(props);
 const emit = defineEmits([
   'getImageFileFromClipboard',
   'getMessageQuoteContent',
@@ -41,20 +49,20 @@ onUpdated(() => {
  */
 const { getUserDisplayNameById } = useGetUserMapInfo();
 //AT 逻辑
+const atGroupId = computed(() => groupId.value || targetId.value);
 const atMembersList = computed(() => {
   const members = [{ text: MENTION_ALL.TEXT, value: MENTION_ALL.VALUE }];
-  const groupId = targetId.value;
   //TODO text部分应为获取群组成员的自定义属性，待后续增加可设置自定在群组当中的自定义属性。
-  if (groupId) {
+  if (atGroupId.value) {
     const sourceMembers =
-      store.getters.getGroupMembersMap.get(groupId) ||
-      store.dispatch('fetchGroupsMemberFromServer', { groupId, chatType: chatType.value }) ||
+      store.getters.getGroupMembersMap.get(atGroupId.value) ||
+      store.dispatch('fetchGroupsMemberFromServer', { groupId: atGroupId.value, chatType: chatType.value }) ||
       [];
     sourceMembers.length &&
       sourceMembers.forEach((item) => {
         if (item.owner !== EMClient.user && item.member !== EMClient.user) {
           members.push({
-            text: getUserDisplayNameById(item.owner || item.member, groupId),
+            text: getUserDisplayNameById(item.owner || item.member, atGroupId.value),
             value: item.owner || item.member,
           });
         }
@@ -144,6 +152,10 @@ const sendTextMessage = _.debounce(async () => {
     from: EMClient.user,
     to: targetId.value,
     chatType: chatType.value,
+    ...(isChatThread.value ? { isChatThread: true } : {}),
+    ...(chatType.value === CHAT_TYPE.GROUP
+      ? { msgConfig: { allowGroupAck: true } }
+      : {}),
     msg: textContent.value,
     ext: {
       em_at_list: isAtAll.value

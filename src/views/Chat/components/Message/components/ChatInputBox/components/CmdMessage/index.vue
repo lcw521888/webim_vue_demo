@@ -55,9 +55,13 @@ const props = defineProps({
     default: '',
     required: true,
   },
+  isChatThread: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-const { chatType, targetId } = toRefs(props);
+const { chatType, targetId, isChatThread } = toRefs(props);
 
 const dialogVisible = ref(false);
 const sending = ref(false);
@@ -105,6 +109,7 @@ const sendCmdMessage = async () => {
     chatType: chatType.value,
     to: targetId.value,
     from: EMClient.user,
+    ...(isChatThread.value ? { isChatThread: true } : {}),
     action,
     ext,
   };
