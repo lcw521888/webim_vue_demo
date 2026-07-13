@@ -10,7 +10,11 @@ import {
 } from '@/constant';
 import { isDirectedMessage } from '@/utils/directedMessage';
 import eventEmitter from '@/utils/eventEmitter';
-import { shouldTriggerIncomingMessageEffects } from '@/utils/streamMessageSupport';
+import {
+  STREAM_MIN_SDK_VERSION,
+  isSdkVersionAtLeast,
+  shouldTriggerIncomingMessageEffects,
+} from '@/utils/streamMessageSupport';
 
 const normalizeReactionList = (reactions = []) => {
   if (!Array.isArray(reactions)) return [];
@@ -576,6 +580,27 @@ const Message = {
         searchOptions,
       } = params;
       return new Promise((resolve, reject) => {
+        if (
+          chatType === CHAT_TYPE.CHATROOM &&
+          !isSdkVersionAtLeast(
+            EMClient.version || '',
+            STREAM_MIN_SDK_VERSION,
+          )
+        ) {
+          const error = new Error(
+            `聊天室历史消息需要 Web SDK >= ${STREAM_MIN_SDK_VERSION}，当前版本 ${EMClient.version || '未知'}`,
+          );
+          console.error('[History Message] chatroom history unsupported', {
+            conversationId: id,
+            chatType,
+            sdkVersion: EMClient.version || '',
+            minimumVersion: STREAM_MIN_SDK_VERSION,
+            error,
+          });
+          reject(error);
+          return;
+        }
+
         const options = {
           targetId: id,
           pageSize: Math.min(Math.max(Number(pageSize) || 20, 1), 50),

@@ -20,8 +20,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  deliverOnlineOnlyOptions: {
+    type: Object,
+    default: () => ({}),
+  },
 });
-const { chatType, targetId, isChatThread } = toRefs(props);
+const { chatType, targetId, isChatThread, deliverOnlineOnlyOptions } =
+  toRefs(props);
 const emit = defineEmits(['onStartLoading', 'onLoadending']);
 import fileSizeFormat from '@/utils/fileSizeFormat';
 let fileObj = null;
@@ -55,6 +60,7 @@ const sendImagesMessage = () => {
     to: targetId.value,
     chatType: chatType.value,
     ...(isChatThread.value ? { isChatThread: true } : {}),
+    ...deliverOnlineOnlyOptions.value,
     file: file,
     width: 0,
     height: 0,

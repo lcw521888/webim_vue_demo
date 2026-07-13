@@ -68,9 +68,13 @@ const props = defineProps({
     default: '',
     required: true,
   },
+  deliverOnlineOnlyOptions: {
+    type: Object,
+    default: () => ({}),
+  },
 });
 
-const { chatType, targetId } = toRefs(props);
+const { chatType, targetId, deliverOnlineOnlyOptions } = toRefs(props);
 const store = useStore();
 const { setUserInfoExt } = useUserInfoExt();
 
@@ -235,6 +239,7 @@ const sendDirectedMessage = async () => {
     from: EMClient.user,
     to: targetId.value,
     chatType: chatType.value,
+    ...deliverOnlineOnlyOptions.value,
     msg,
     ext: {},
   };

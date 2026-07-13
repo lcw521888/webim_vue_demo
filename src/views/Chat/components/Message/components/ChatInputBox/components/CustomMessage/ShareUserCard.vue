@@ -79,8 +79,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  deliverOnlineOnlyOptions: {
+    type: Object,
+    default: () => ({}),
+  },
 });
-const { chatType, targetId, isChatThread } = toRefs(props);
+const { chatType, targetId, isChatThread, deliverOnlineOnlyOptions } =
+  toRefs(props);
 //modal显隐
 const dialogVisible = ref(false);
 const closeDialogVisible = () => (dialogVisible.value = false);
@@ -131,6 +136,7 @@ const sendShareUserCardMessage = async () => {
     to: targetId.value,
     chatType: chatType.value,
     ...(isChatThread.value ? { isChatThread: true } : {}),
+    ...deliverOnlineOnlyOptions.value,
     customEvent: 'userCard',
     customExts: {
       uid: shareContactUserId.value,

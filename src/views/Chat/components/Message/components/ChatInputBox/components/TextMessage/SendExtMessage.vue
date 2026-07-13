@@ -58,9 +58,14 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  deliverOnlineOnlyOptions: {
+    type: Object,
+    default: () => ({}),
+  },
 });
 
-const { chatType, targetId, isChatThread } = toRefs(props);
+const { chatType, targetId, isChatThread, deliverOnlineOnlyOptions } =
+  toRefs(props);
 const { setUserInfoExt } = useUserInfoExt();
 
 const dialogVisible = ref(false);
@@ -119,6 +124,7 @@ const sendExtMessage = async () => {
     to: targetId.value,
     chatType: chatType.value,
     ...(isChatThread.value ? { isChatThread: true } : {}),
+    ...deliverOnlineOnlyOptions.value,
     msg,
     ext,
   };

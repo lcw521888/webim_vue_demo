@@ -1,5 +1,5 @@
 <script setup>
-import { ref, toRefs, computed, onMounted } from 'vue';
+import { ref, toRefs, computed, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import {
   handleSDKErrorNotifi,
@@ -14,6 +14,10 @@ import _ from 'lodash';
 import { EMClient } from '@/IM';
 import parseDownloadResponse from '@/utils/parseDownloadResponse';
 import { supportsDirectedMessage } from '@/utils/directedMessage';
+import {
+  buildDeliverOnlineOnlyOptions,
+  supportsDeliverOnlineOnly,
+} from '@/utils/deliverOnlineOnly';
 /* 组件 */
 import CollectAudio from '../suit/audio.vue';
 import PreviewSendImg from '../suit/previewSendImg.vue';
@@ -47,9 +51,41 @@ const { routeQueryData } = toRefs(props);
 const isDirectedMessageEnabled = computed(() =>
   !isChatThread.value && supportsDirectedMessage(routeQueryData.value.chatType),
 );
+const isDeliverOnlineOnlySupported = computed(() =>
+  supportsDeliverOnlineOnly(routeQueryData.value.chatType, isChatThread.value),
+);
 const isChatThread = computed(() => routeQueryData.value.isChatThread === true);
 const threadMessageOptions = computed(() =>
   isChatThread.value ? { isChatThread: true } : {},
+);
+const deliverOnlineOnlyEnabled = ref(false);
+const deliverOnlineOnlyOptions = computed(() =>
+  buildDeliverOnlineOnlyOptions(
+    deliverOnlineOnlyEnabled.value && isDeliverOnlineOnlySupported.value,
+  ),
+);
+const onDeliverOnlineOnlySwitchChange = (enabled) => {
+  const context = {
+    targetId: routeQueryData.value.id,
+    chatType: routeQueryData.value.chatType,
+    currentUser: EMClient.user,
+  };
+  if (enabled) {
+    console.log('[Deliver Online Only] switch enabled', context);
+    ElMessage.success('已开启只投在线用户发送');
+    return;
+  }
+  console.log('[Deliver Online Only] switch disabled', context);
+  ElMessage.info('已关闭只投在线用户发送');
+};
+watch(
+  isDeliverOnlineOnlySupported,
+  (supported) => {
+    if (!supported) {
+      deliverOnlineOnlyEnabled.value = false;
+    }
+  },
+  { immediate: true },
 );
 //附件类上传加载状态
 const loadingBox = ref(null);
@@ -188,6 +224,7 @@ const sendPresetAudio = async () => {
       from: EMClient.user,
       chatType: routeQueryData.value.chatType,
       ...threadMessageOptions.value,
+      ...deliverOnlineOnlyOptions.value,
       file: {
         data: file,
         filename: file.name,
@@ -238,6 +275,7 @@ const sendAudioMessages = async (audioData) => {
     from: EMClient.user,
     chatType: routeQueryData.value.chatType,
     ...threadMessageOptions.value,
+    ...deliverOnlineOnlyOptions.value,
     file: file,
     length: audioData.length,
   };
@@ -315,6 +353,7 @@ const sendLocationMessage = async () => {
     from: EMClient.user,
     chatType: routeQueryData.value.chatType,
     ...threadMessageOptions.value,
+    ...deliverOnlineOnlyOptions.value,
     addr: '四通桥东',
     buildingName: '数码大厦',
     lat: 39,
@@ -450,6 +489,7 @@ const sendCombineMessage = async () => {
       type: MESSAGE_TYPE.COMBINE,
       to: routeQueryData.value.id,
       ...threadMessageOptions.value,
+      ...deliverOnlineOnlyOptions.value,
       compatibleText: 'SDK 版本低，请升级',
       title: '聊天记录',
       summary: `共${recentMessages.length}条消息`,
@@ -590,14 +630,36 @@ defineExpose({
 </script>
 <template>
   <div class="chat_func_box">
-    <span
+    <el-tooltip
+      v-if="isDeliverOnlineOnlySupported"
+      content="只投在线用户"
+      placement="top"
+      :show-after="300"
+    >
+      <el-switch
+        v-model="deliverOnlineOnlyEnabled"
+        class="deliver_online_only_switch"
+        size="small"
+        inline-prompt
+        active-text="在线"
+        inactive-text="普通"
+        aria-label="只投在线用户"
+        @change="onDeliverOnlineOnlySwitchChange"
+      />
+    </el-tooltip>
+    <el-tooltip
       v-for="iconItem in visibleFuncs"
-      :class="['iconfont', iconItem.className]"
       :key="iconItem.id"
-      :style="iconItem.style"
-      :title="iconItem.title"
-      @click.stop="iconItem.methodName"
-    ></span>
+      :content="iconItem.title"
+      placement="top"
+      :show-after="300"
+    >
+      <span
+        :class="['iconfont', iconItem.className]"
+        :style="iconItem.style"
+        @click.stop="iconItem.methodName"
+      ></span>
+    </el-tooltip>
     <!-- EaseCallKit 音视频邀请icon【不需要可移除】 -->
     <!-- 群组没有语音发起 -->
     <!-- <template v-if="isHttps">
@@ -623,6 +685,7 @@ defineExpose({
       :targetId="routeQueryData.id"
       :chatType="routeQueryData.chatType"
       :isChatThread="isChatThread"
+      :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
       @onStartLoading="onStartLoading"
       @onLoadending="onLoadending"
     />
@@ -632,6 +695,7 @@ defineExpose({
       :targetId="routeQueryData.id"
       :chatType="routeQueryData.chatType"
       :isChatThread="isChatThread"
+      :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
       @onStartLoading="onStartLoading"
       @onLoadending="onLoadending"
     />
@@ -641,6 +705,7 @@ defineExpose({
       :targetId="routeQueryData.id"
       :chatType="routeQueryData.chatType"
       :isChatThread="isChatThread"
+      :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
       @onStartLoading="onStartLoading"
       @onLoadending="onLoadending"
     />
@@ -664,6 +729,7 @@ defineExpose({
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
     :isChatThread="isChatThread"
+    :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
     :groupId="routeQueryData.isChatThread ? routeQueryData.groupId : routeQueryData.id"
     @getMessageQuoteContent="getMessageQuoteContent"
     @getImageFileFromClipboard="getImageFileFromClipboard"
@@ -674,6 +740,7 @@ defineExpose({
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
     :isChatThread="isChatThread"
+    :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
   />
   <MsgQuote ref="messageQuoteRef" />
   <!-- <InviteCallMembers ref="inviteCallMembersComp" @sendMulitInviteMsg="sendMulitInviteMsg" /> -->
@@ -682,6 +749,7 @@ defineExpose({
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
     :isChatThread="isChatThread"
+    :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
     @onStartLoading="onStartLoading"
     @onLoadending="onLoadending"
   />
@@ -690,23 +758,27 @@ defineExpose({
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
     :isChatThread="isChatThread"
+    :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
   />
   <CmdMessage
     ref="cmdMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
     :isChatThread="isChatThread"
+    :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
   />
   <SendCustomMessage
     ref="customMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
     :isChatThread="isChatThread"
+    :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
   />
   <SendDirectedMessage
     ref="directedMessageComp"
     :targetId="routeQueryData.id"
     :chatType="routeQueryData.chatType"
+    :deliverOnlineOnlyOptions="deliverOnlineOnlyOptions"
   />
 </template>
 

@@ -59,9 +59,14 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  deliverOnlineOnlyOptions: {
+    type: Object,
+    default: () => ({}),
+  },
 });
 
-const { chatType, targetId, isChatThread } = toRefs(props);
+const { chatType, targetId, isChatThread, deliverOnlineOnlyOptions } =
+  toRefs(props);
 
 const dialogVisible = ref(false);
 const sending = ref(false);
@@ -121,6 +126,7 @@ const sendCustomMessage = async () => {
     to: targetId.value,
     from: EMClient.user,
     ...(isChatThread.value ? { isChatThread: true } : {}),
+    ...deliverOnlineOnlyOptions.value,
     customEvent,
     customExts,
     ext: {},

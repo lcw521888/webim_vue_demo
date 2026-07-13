@@ -32,8 +32,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  deliverOnlineOnlyOptions: {
+    type: Object,
+    default: () => ({}),
+  },
 });
-const { chatType, targetId, isChatThread } = toRefs(props);
+const { chatType, targetId, isChatThread, deliverOnlineOnlyOptions } =
+  toRefs(props);
 const emit = defineEmits(['onStartLoading', 'onLoadending']);
 const uploadImgs = ref(null);
 const PRESET_IMAGE_PATH = '/resource/image_1080p.jpg';
@@ -62,6 +67,7 @@ const sendImageFile = async (imgFile) => {
     to: targetId.value,
     chatType: chatType.value,
     ...(isChatThread.value ? { isChatThread: true } : {}),
+    ...deliverOnlineOnlyOptions.value,
     file: file,
     width: 0,
     height: 0,

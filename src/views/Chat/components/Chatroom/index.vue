@@ -13,6 +13,10 @@ import {
   createChatroomEventHandler,
   logChatroomActionResult,
 } from '@/utils/chatroomEvents';
+import {
+  isImAuthFailedReason,
+  redirectToLoginClearImSession,
+} from '@/utils/imAuthRedirect';
 
 /** 列表与已加入列表的 id 可能为 string / number，严格 === 会导致「加入/进入」状态不更新 */
 function normalizeChatroomId(id) {
@@ -399,6 +403,11 @@ const joinChatroom = async (roomId) => {
       `\n错误消息:`,
       error.message,
     );
+
+    if (isImAuthFailedReason(error)) {
+      redirectToLoginClearImSession();
+      return;
+    }
 
     const joinChatroomErrorMessage = `加入聊天室${roomId}失败：${error?.message || '未知错误'}`;
     ElMessage.error(joinChatroomErrorMessage);

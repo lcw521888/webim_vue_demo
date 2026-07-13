@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
 import router from '@/router';
+import { useRoute } from 'vue-router';
 import _ from 'lodash';
 import { RefreshRight } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
@@ -14,6 +15,8 @@ import JoinedGroupItem from './components/JoinedGroupsItem.vue';
 import informIcon from '@/assets/images/avatar/inform.png';
 /* store */
 const store = useStore();
+const route = useRoute();
+const isContactsHome = computed(() => route.path === '/chat/contacts');
 //好友列表
 const getContactsWithRemarkMap = computed(
   () => store.getters.getContactsWithRemarkMap,
@@ -182,7 +185,7 @@ const refreshContactsList = async () => {
     </el-aside>
     <el-main ref class="contacts_infors_main_box">
       <router-view></router-view>
-      <Welcome />
+      <Welcome v-if="isContactsHome" />
     </el-main>
   </el-container>
 </template>

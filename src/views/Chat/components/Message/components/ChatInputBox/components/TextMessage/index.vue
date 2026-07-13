@@ -29,8 +29,18 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  deliverOnlineOnlyOptions: {
+    type: Object,
+    default: () => ({}),
+  },
 });
-const { chatType, targetId, isChatThread, groupId } = toRefs(props);
+const {
+  chatType,
+  targetId,
+  isChatThread,
+  groupId,
+  deliverOnlineOnlyOptions,
+} = toRefs(props);
 const emit = defineEmits([
   'getImageFileFromClipboard',
   'getMessageQuoteContent',
@@ -153,6 +163,7 @@ const sendTextMessage = _.debounce(async () => {
     to: targetId.value,
     chatType: chatType.value,
     ...(isChatThread.value ? { isChatThread: true } : {}),
+    ...deliverOnlineOnlyOptions.value,
     ...(chatType.value === CHAT_TYPE.GROUP
       ? { msgConfig: { allowGroupAck: true } }
       : {}),
