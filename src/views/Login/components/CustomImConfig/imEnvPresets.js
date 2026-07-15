@@ -55,8 +55,8 @@ const ENV_PRIVATE_CONFIGS = {
   },
   [IM_ENVIRONMENTS.QA]: {
     appKey: 'easemob-demo#qatest',
-    restServer: 'http://10.202.1.58:8081',
-    imServer: 'ws://10.202.1.58:4717/websocket',
+    restServer: 'http://test.isolation.qa.easemob.com',
+    imServer: 'ws://test.isolation.qa.easemob.com:4200/websocket',
   },
 };
 
