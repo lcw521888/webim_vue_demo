@@ -5,8 +5,6 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import store from './store';
-import { EMClient } from './IM';
-import { CHANGE_MESSAGE_BODAY_TYPE } from './constant';
 
 import ElementPlus from 'element-plus';
 import './styles/element/index.scss';
@@ -28,24 +26,6 @@ app.config.errorHandler = (err, instance, info) => {
           : String(err);
   console.error('[Vue errorHandler]', message, '\ninfo:', info, '\nraw:', err);
 };
-
-// 监听自定义消息撤回事件
-window.addEventListener('hx:messageRecall', (event) => {
-  const msg = event.detail;
-  if (msg == null || typeof msg !== 'object') {
-    console.error('[hx:messageRecall] 无效的 event.detail，已忽略', msg);
-    return;
-  }
-  try {
-    store.commit('CHANGE_MESSAGE_BODAY', {
-      type: CHANGE_MESSAGE_BODAY_TYPE.RECALL,
-      key: msg.chatType ? (msg.chatType === 'singleChat' ? (msg.to === EMClient.user ? msg.from : msg.to) : msg.to) : msg.to,
-      mid: msg.mid || msg.id,
-    });
-  } catch (error) {
-    console.error('[Vue App] hx:messageRecall 更新本地状态失败:', error);
-  }
-});
 
 // 全局 error：只记录日志，不强制整页跳转（避免一般异常导致应用不可用）
 window.addEventListener('error', (event) => {

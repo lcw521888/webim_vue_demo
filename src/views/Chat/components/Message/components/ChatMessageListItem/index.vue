@@ -513,7 +513,15 @@ const recallMessage = async ({ id, to, chatType }) => {
 const modifyMessageRef = ref(null);
 const showModifyMsgModal = (msgBody) => {
   nextTick(() => {
-    modifyMessageRef.value.initModifyMessage(msgBody);
+    modifyMessageRef.value.initModifyMessage({
+      ...msgBody,
+      to:
+        routeQueryData.value.isChatThread === true
+          ? routeQueryData.value.id
+          : msgBody.to,
+      isChatThread: routeQueryData.value.isChatThread === true,
+      groupId: routeQueryData.value.groupId || msgBody.groupId || '',
+    });
   });
 };
 //删除消息
@@ -550,12 +558,24 @@ const reportMessage = ref(null);
 const informOnMessage = (msgBody) => {
   reportMessage.value.alertReportMsgModal(msgBody);
 };
+const getMessagePinConversationId = (msgBody) => {
+  if (msgBody.chatType === CHAT_TYPE.SINGLE) return msgBody.from;
+  if (routeQueryData.value.isChatThread === true) {
+    return (
+      routeQueryData.value.groupId ||
+      msgBody.groupId ||
+      msgBody.chatThread?.parentId ||
+      ''
+    );
+  }
+  return msgBody.to;
+};
 // 消息置顶
 const pinMessage = async (msgBody) => {
   try {
     const options = {
       conversationType: msgBody.chatType,
-      conversationId: msgBody.chatType === 'singleChat' ? msgBody.from : msgBody.to,
+      conversationId: getMessagePinConversationId(msgBody),
       messageId: msgBody.id
     };
     await EMClient.pinMessage(options);
@@ -578,7 +598,7 @@ const unpinMessage = async (msgBody) => {
   try {
     const options = {
       conversationType: msgBody.chatType,
-      conversationId: msgBody.chatType === 'singleChat' ? msgBody.from : msgBody.to,
+      conversationId: getMessagePinConversationId(msgBody),
       messageId: msgBody.id
     };
     await EMClient.unpinMessage(options);

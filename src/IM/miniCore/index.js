@@ -876,7 +876,7 @@ if (Object.keys(miniCore).length) {
             // 调用原始方法
             try {
               const result = currentOriginalMethod.call(miniCore, params);
-              logEmClientSdkCall('recallMessage success', {
+              logEmClientSdkCall('recallMessage invoked', {
                 user: getSdkUser(miniCore),
                 params,
                 context: getRequestLogContext(params),

@@ -55,13 +55,18 @@ const normalizeThreadDetailResponse = (response) =>
 const normalizeThreadMembersResponse = (response) => {
   const entities =
     response?.entities ||
+    response?.data?.affiliations ||
     response?.data?.entities ||
     response?.data?.list ||
     response?.list ||
     [];
   return {
     list: Array.isArray(entities) ? entities : [],
-    cursor: response?.cursor || response?.data?.cursor || '',
+    cursor:
+      response?.cursor ||
+      response?.data?.cursor ||
+      response?.data?.properties?.cursor ||
+      '',
   };
 };
 

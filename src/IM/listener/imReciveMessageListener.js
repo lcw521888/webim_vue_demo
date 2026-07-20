@@ -1,5 +1,5 @@
 import { EMClient } from '../index';
-import { CHANGE_MESSAGE_BODAY_TYPE } from '@/constant';
+import { CHANGE_MESSAGE_BODAY_TYPE, CHAT_TYPE } from '@/constant';
 import { setMessageKey } from '@/utils/handleSomeData';
 import store from '@/store';
 import { safeSync, wrapImEventHandler } from '@/utils/safeCall';
@@ -109,6 +109,19 @@ export const imReviceMessageListener = () => {
       return;
     }
     const localMessage = store.getters.getMessageById?.(messageId);
+    if (!chatType && localMessage?.chatType === CHAT_TYPE.CHATROOM) {
+      console.error(
+        '[IM Recall] SDK 撤回事件缺少 chatType，聊天室消息未更新本地撤回状态',
+        {
+          messageId,
+          from: message.from,
+          to: message.to,
+          localMessage,
+          rawMessage: message,
+        },
+      );
+      return;
+    }
     const resolvedChatType = chatType || localMessage?.chatType;
     const resolvedMessage = {
       ...message,

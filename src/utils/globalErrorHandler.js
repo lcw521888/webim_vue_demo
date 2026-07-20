@@ -64,6 +64,20 @@ function isMiniCoreSendRuntimeFailure(reason) {
   );
 }
 
+function isSdkSubTypeRuntimeFailure(reason) {
+  const message = reason?.message || '';
+  const stack = reason?.stack || '';
+  return (
+    reason instanceof Error &&
+    isNullishPropertyTypeErrorText(message) &&
+    message.includes('subType') &&
+    (isEasemobSdkStack(reason) ||
+      stack.includes('__webpack_modules__.8579') ||
+      stack.includes('/js/307.') ||
+      stack.includes('/js/chunk-vendors'))
+  );
+}
+
 // 捕获阶段优先于 webpack-dev-server overlay 的冒泡监听，避免全屏 ERROR
 window.addEventListener(
   'error',
@@ -162,6 +176,19 @@ window.addEventListener(
     if (reason instanceof Error && isMiniCoreSendRuntimeFailure(reason)) {
       console.error('[IM send failure]', reason);
       if (reason.stack) console.error(reason.stack);
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    if (isSdkSubTypeRuntimeFailure(reason)) {
+      console.error(
+        '[IM SDK] 捕获到消息内容 subType 空引用异常，可能是 SDK 收到空 contents 或异常消息体:',
+        reason,
+      );
+      if (reason.stack) console.error(reason.stack);
+      notifyRuntimeError(reason);
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();

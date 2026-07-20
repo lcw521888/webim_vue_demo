@@ -139,6 +139,15 @@ EMClient.open({ username: '', password: '' });
 - [接收消息内容](./src/IM/listener/imReciveMessageListener.js)
 - [收发消息缓存数据](./src/store/modules/message.js)
 
+### 消息撤回事件说明
+
+> 该 Demo 用于验证真实 SDK / 服务端行为。撤回消息必须以 SDK 调用结果和 SDK 事件真实字段为准，不做客户端模拟成功或静默兜底。
+
+- 发起撤回时通过 `EMClient.recallMessage` 传入真实 `mid`、`to`、`chatType`；SDK 返回失败时保持失败提示和控制台错误，不把消息本地标记为已撤回。
+- 接收撤回事件时优先使用 SDK 事件中的真实字段。当前 Web SDK 的 `onRecallMessage` 回调体可能只有 `id`、`from`、`to`、`mid`、`ext` 等字段，未必包含 `chatType`。
+- 聊天室撤回事件缺少 `chatType` 时，Demo 只输出包含 `messageId`、`from`、`to`、`localMessage`、`rawMessage` 的错误日志，不使用本地原消息补全为 `chatRoom` 后更新本地撤回状态，避免服务端未真实撤回时页面显示“已撤回”。
+- 排查聊天室撤回问题时，建议同时保留 `EMClient.recallMessage` 入参、SDK Promise 成功或失败结果、`onRecallMessage` 原始回调、SDK 版本以及服务端对原消息 `mid` 的撤回状态确认。
+
 ### 消息上屏展示
 
 > 消息内容的上屏展示则是从`vuex`中缓存的消息数据进行响应式更新渲染。

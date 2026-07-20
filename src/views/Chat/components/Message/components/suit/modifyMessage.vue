@@ -37,6 +37,8 @@ const editMessageContent = reactive({
   id: '',
   mid: '',
   chatType: CHAT_TYPE.SINGLE,
+  isChatThread: false,
+  groupId: '',
 });
 const loading = ref(false);
 const saveEditedMessage = async () => {
@@ -64,19 +66,23 @@ const initModifyMessage = (msgBody) => {
   dialogVisible.value = true;
   nextTick(() => {
     if (msgBody) {
-      const { id, mid, msg, to, chatType } = msgBody;
+      const { id, mid, msg, to, chatType, isChatThread, groupId } = msgBody;
       //
       editMessageContent.msg = msg;
       editMessageContent.to = to;
       editMessageContent.id = id;
       editMessageContent.mid = mid || id;
       editMessageContent.chatType = chatType;
+      editMessageContent.isChatThread = isChatThread === true;
+      editMessageContent.groupId = groupId || '';
     } else {
       editMessageContent.msg = '';
       editMessageContent.to = '';
       editMessageContent.id = '';
       editMessageContent.mid = '';
       editMessageContent.chatType = CHAT_TYPE.SINGLE;
+      editMessageContent.isChatThread = false;
+      editMessageContent.groupId = '';
     }
   });
 };

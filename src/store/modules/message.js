@@ -857,6 +857,7 @@ const Message = {
       const { id, mid, to, chatType, msg } = params;
       const messageId = mid || id;
       const key = setMessageKey(params);
+      const isChatThread = params.isChatThread === true;
       if (!messageId) {
         console.error('modifyMessage 缺少可用的消息 ID:', params);
         return Promise.reject(new Error('缺少消息ID'));
@@ -868,6 +869,7 @@ const Message = {
           to: to,
           from: EMClient.user,
           chatType: chatType,
+          ...(isChatThread ? { isChatThread: true } : {}),
         });
 
         EMClient.modifyMessage({
@@ -904,6 +906,8 @@ const Message = {
               chatType,
               conversationKey: key,
               modifiedContent: msg,
+              isChatThread,
+              groupId: params.groupId,
               loginUser: EMClient.user,
             });
             reject(error);
