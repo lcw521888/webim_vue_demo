@@ -1,0 +1,138 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
+
+const repoRoot = path.resolve(__dirname, '../../..');
+
+function read(filePath) {
+  return fs.readFileSync(path.join(repoRoot, filePath), 'utf8');
+}
+
+test('message search entry exists in the current demo surface', () => {
+  const messageView = read('src/views/Chat/components/Message/index.vue');
+
+  assert.match(messageView, /MessageSearchDrawer/);
+  assert.match(messageView, /服务端消息搜索/);
+  assert.match(messageView, /messageSearchDrawer/);
+  assert.match(messageView, /CHAT_TYPE\.SINGLE[\s\S]*CHAT_TYPE\.GROUP[\s\S]*CHAT_TYPE\.CHATROOM/);
+  assert.match(messageView, /!routeQueryData\.value\.isChatThread/);
+});
+
+test('message search uses a date range picker for optional time filtering', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+
+  assert.match(content, /el-date-picker/);
+  assert.match(content, /datetimerange/);
+  assert.match(content, /value-format="x"/);
+  assert.match(content, /startTime/);
+  assert.match(content, /endTime/);
+  assert.match(content, /timeRange\.value\?\.length === 2/);
+});
+
+test('message search builds official searchMessages parameters', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+
+  assert.match(content, /EMClient\.searchMessages/);
+  assert.match(content, /searchApi\.call\(EMClient, params\)/);
+  assert.match(content, /keywordList/);
+  assert.match(content, /keywordListMatchType/);
+  assert.match(content, /conversationId/);
+  assert.match(content, /conversationType/);
+  assert.match(content, /msgTypes/);
+  assert.match(content, /searchScope/);
+  assert.match(content, /pageNum/);
+  assert.match(content, /pageSize/);
+});
+
+test('message search uses miniCore top-level plugin method first', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+
+  assert.match(content, /EMClient\.searchMessages/);
+  assert.match(content, /EMClient\.contact\?\.searchMessages/);
+  assert.match(content, /EMClient\.searchMessages \|\| EMClient\.contact\?\.searchMessages/);
+  assert.doesNotMatch(content, /当前 Web SDK 未提供 contact\.searchMessages/);
+});
+
+test('message search exposes only supported message type filters', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+  const optionsBlock = content.match(/const messageTypeOptions = \[[\s\S]*?\];/)?.[0] || '';
+
+  for (const type of ['txt', 'img', 'video', 'loc', 'file', 'combine']) {
+    assert.match(optionsBlock, new RegExp(`value: '${type}'`));
+  }
+  for (const unsupportedType of ['audio', 'cmd', 'custom']) {
+    assert.doesNotMatch(optionsBlock, new RegExp(`value: '${unsupportedType}'`));
+  }
+});
+
+test('message search message type selection shows every selected type label', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+  const messageTypeSelectBlock =
+    content.match(/<el-form-item label="消息类型">[\s\S]*?<\/el-form-item>/)?.[0] || '';
+
+  assert.match(messageTypeSelectBlock, /v-model="form\.msgTypes"/);
+  assert.match(messageTypeSelectBlock, /multiple/);
+  assert.doesNotMatch(messageTypeSelectBlock, /collapse-tags/);
+  assert.doesNotMatch(messageTypeSelectBlock, /collapse-tags-tooltip/);
+});
+
+test('message search keyword input stays multiline with square corners', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+  const keywordInputBlock =
+    content.match(/<el-form-item label="关键词">[\s\S]*?<\/el-form-item>/)?.[0] || '';
+
+  assert.match(keywordInputBlock, /type="textarea"/);
+  assert.match(keywordInputBlock, /class="message_search_keywords"/);
+  assert.match(content, /:deep\(\.message_search_keywords \.el-textarea__inner\)/);
+  assert.match(content, /border-radius:\s*0/);
+});
+
+test('message search does not intercept keyword count or length before server', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+
+  assert.doesNotMatch(content, /KEYWORD_COUNT_LIMIT_FOR_SERVER_BOUNDARY/);
+  assert.doesNotMatch(content, /KEYWORD_LENGTH_LIMIT_FOR_SERVER_BOUNDARY/);
+  assert.doesNotMatch(content, /KEYWORD_COMBINED_LENGTH_LIMIT_FOR_SERVER_BOUNDARY/);
+  assert.doesNotMatch(content, /keywordList\.length > KEYWORD/);
+  assert.doesNotMatch(content, /keyword\.length > KEYWORD/);
+  assert.doesNotMatch(content, /keywordCombinedLength/);
+  assert.doesNotMatch(content, /关键词最多支持/);
+  assert.doesNotMatch(content, /单个关键词最多支持/);
+  assert.match(content, /超出服务端限制时展示服务端返回的真实错误/);
+
+  assert.doesNotMatch(content, /maxlength="200"/);
+});
+
+test('message search surfaces service-not-enabled failures without fake success', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+
+  assert.match(content, /服务端消息搜索功能未开通，请联系环信商务开通后再试/);
+  assert.match(content, /isSearchServiceNotEnabledError/);
+  assert.match(content, /searchErrorType\.value = isSearchServiceNotEnabled \? 'warning' : 'error'/);
+  assert.match(content, /console\.error\('\[Message Search\] searchMessages failed'/);
+  assert.match(content, /ElMessage\[isSearchServiceNotEnabled \? 'warning' : 'error'\]\(errorTip\)/);
+  assert.doesNotMatch(content, /retry|模拟成功|mock success|fake success|fallback/i);
+});
+
+test('message search displays nested server validation errors directly', () => {
+  const content = read('src/views/Chat/components/Message/components/MessageSearchDrawer.vue');
+
+  assert.match(content, /parseSearchServerErrorData/);
+  assert.match(content, /getSearchServerDetailErrorText/);
+  assert.match(content, /details/);
+  assert.match(content, /detail\?\.error/);
+  assert.match(content, /getSearchServerDetailErrorText\(parsedServerErrorData\)/);
+  assert.doesNotMatch(content, /getErrorMessageText\(error\) \|\| '服务端消息搜索失败'/);
+  assert.doesNotMatch(content, /ElMessage\.error\('服务端消息搜索失败'\)/);
+});
+
+test('message search syncs documentation entries', () => {
+  const readme = read('README.md');
+  const casesList = read('cases_list.md');
+  const superpowers = read('.codex/prompts/superpowers.md');
+
+  assert.match(readme, /服务端消息搜索|消息搜索|searchMessages/);
+  assert.match(casesList, /消息搜索|服务端消息搜索/);
+  assert.match(superpowers, /消息搜索|服务端消息搜索/);
+});
