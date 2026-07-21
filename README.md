@@ -5,6 +5,7 @@
 `webim-vue3-demo` 是基于 Vue 3、Vuex、Element Plus 和 `easemob-websdk` 的环信 Web IM Demo。本项目当前定位是 Web 端真实能力验证工具：页面和控制台应直接暴露 SDK / 服务端的真实成功、失败、事件字段和错误信息，不通过客户端模拟成功、自动重试、静默降级或本地兜底来掩盖服务端行为。
 
 当前 Demo 覆盖单聊、群聊、聊天室、消息话题/群组子区、会话、联系人、群组管理、聊天室管理、消息收发、消息交互、Reaction、在线状态和音视频通话示例等能力。
+消息页还提供服务端消息搜索入口，用于验证 `EMClient.searchMessages` 的真实服务端搜索能力。
 
 ## 运行
 
@@ -197,6 +198,21 @@ npm run format
 
 - [只投在线参数工具](./src/utils/deliverOnlineOnly.js)
 - [消息输入栏开关](./src/views/Chat/components/Message/components/ChatInputBox/index.vue)
+
+### 服务端消息搜索
+
+消息页头部提供“服务端消息搜索”入口，当前支持单聊、群聊、聊天室会话内搜索，也可以切换为搜索当前用户全部可见会话。
+
+当前入口优先调用 `EMClient.searchMessages`，支持关键词、关键词关系、消息类型、搜索内容范围、可选日期时间范围、页码和每页条数。时间范围通过页面日期时间选择器选择；未选择时不传 `startTime` / `endTime`，选择后同时传入毫秒级开始和结束时间。
+
+服务端文档要求 Web SDK v4.24.1 或以上版本，且应用需开通消息搜索服务。Demo 按真实服务端结果展示：未开通时给出“服务端消息搜索功能未开通，请联系环信商务开通后再试”提示，同时在控制台保留完整错误、入参、当前用户和会话上下文；不做模拟结果、自动重试或本地成功兜底。
+
+消息类型筛选只开放服务端支持的 `txt`、`img`、`video`、`loc`、`file`、`combine`。Demo 不在端上拦截关键词个数或关键词长度，超出服务端限制时按服务端返回的真实错误提示展示并保留 console 日志。
+
+相关入口：
+
+- [消息主区域搜索入口](./src/views/Chat/components/Message/index.vue)
+- [服务端消息搜索抽屉](./src/views/Chat/components/Message/components/MessageSearchDrawer.vue)
 
 ### 展示与交互
 

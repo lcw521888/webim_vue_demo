@@ -7,7 +7,7 @@ import { useStore } from 'vuex';
 import { useRoute, onBeforeRouteLeave } from 'vue-router';
 import { EASEIM_HINT, SWINDLER_GO_DIE, WARM_TIP } from '@/constant';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { ChatLineSquare, Close } from '@element-plus/icons-vue';
+import { ChatLineSquare, Close, Search } from '@element-plus/icons-vue';
 import waterMark from '@/utils/waterMark';
 /* 组件 */
 import ChatMessageListItem from './components/ChatMessageListItem';
@@ -16,6 +16,7 @@ import GroupsDetails from '@/views/Chat/components/AboutGroups/GroupsDetails';
 import ChatContainerHeader from './components/ChatContainerHeader';
 import SingleChatDetails from './components/SingleChatDetails.vue';
 import MessageThreadListDrawer from './components/MessageThreadListDrawer.vue';
+import MessageSearchDrawer from './components/MessageSearchDrawer.vue';
 /* store */
 const store = useStore();
 /* route */
@@ -33,9 +34,22 @@ const blackListLoading = ref(false);
 const removingBlackListUserId = ref('');
 const friendBlackList = computed(() => store.state.Contacts.friendBlackList || []);
 const threadListDrawer = ref(false);
+const messageSearchDrawer = ref(false);
 const showThreadListDrawer = () => {
   threadListDrawer.value = true;
 };
+const showMessageSearchDrawer = () => {
+  messageSearchDrawer.value = true;
+};
+const isMessageSearchVisible = computed(() => {
+  return (
+    routeQueryData.value.id &&
+    !routeQueryData.value.isChatThread &&
+    [CHAT_TYPE.SINGLE, CHAT_TYPE.GROUP, CHAT_TYPE.CHATROOM].includes(
+      routeQueryData.value.chatType,
+    )
+  );
+});
 const refreshFriendBlackList = async () => {
   blackListLoading.value = true;
   try {
@@ -534,6 +548,22 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
     <ChatContainerHeader :routeQueryData="routeQueryData">
       <template v-slot:more>
         <div class="header_actions">
+          <el-tooltip
+            v-if="isMessageSearchVisible"
+            content="服务端消息搜索"
+            placement="top"
+            :show-after="200"
+          >
+            <div
+              class="more message_search_trigger"
+              aria-label="服务端消息搜索"
+              @click="showMessageSearchDrawer"
+            >
+              <el-icon>
+                <Search />
+              </el-icon>
+            </div>
+          </el-tooltip>
           <div
             class="more thread_list_trigger"
             v-if="routeQueryData.chatType === CHAT_TYPE.GROUP && !routeQueryData.isChatThread"
@@ -663,6 +693,10 @@ const messageQuote = (msg) => inputBoxComp.value?.handleQuoteMessage(msg);
     <MessageThreadListDrawer
       v-model="threadListDrawer"
       :group-id="routeQueryData.id"
+    />
+    <MessageSearchDrawer
+      v-model="messageSearchDrawer"
+      :route-query-data="routeQueryData"
     />
     
     <!-- 设置好友备注对话框 -->
