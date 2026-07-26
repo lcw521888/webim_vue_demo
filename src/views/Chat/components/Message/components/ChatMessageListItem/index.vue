@@ -27,6 +27,17 @@ import {
   isStreamMessage,
 } from '@/utils/streamMessageSupport';
 import { getThreadIdFromResponse } from '@/utils/messageThread';
+import {
+  DEFAULT_TRANSLATION_TARGET_LANGUAGE,
+  buildTranslateMessageParams,
+  canTranslateMessage,
+  getPrimaryTranslationText,
+} from '@/utils/messageTranslation';
+import {
+  buildVoiceToTextParams,
+  canConvertVoiceToText,
+  getVoiceToTextResultText,
+} from '@/utils/voiceToText';
 import router from '@/router';
 /* utils */
 import paseLink from '@/utils/paseLink';
@@ -558,6 +569,157 @@ const reportMessage = ref(null);
 const informOnMessage = (msgBody) => {
   reportMessage.value.alertReportMsgModal(msgBody);
 };
+const translationLoadingMap = ref({});
+const translationResultMap = ref({});
+const setTranslationLoading = (messageId, loading) => {
+  translationLoadingMap.value = {
+    ...translationLoadingMap.value,
+    [messageId]: loading,
+  };
+};
+const isTranslationLoading = (messageId) => {
+  return !!translationLoadingMap.value[messageId];
+};
+const getTranslationResult = (messageId) => {
+  return translationResultMap.value[messageId] || null;
+};
+const getMessageTranslationApi = () => {
+  if (typeof EMClient.translateMessage === 'function') {
+    return EMClient.translateMessage.bind(EMClient);
+  }
+  if (typeof EMClient.chatManager?.translateMessage === 'function') {
+    return EMClient.chatManager.translateMessage.bind(EMClient.chatManager);
+  }
+  return null;
+};
+const getMessageLogContext = (msgBody) => ({
+  messageId: msgBody?.id || msgBody?.mid || '',
+  targetId: routeQueryData.value?.id || msgBody?.to || '',
+  to: msgBody?.to || '',
+  from: msgBody?.from || '',
+  chatType: msgBody?.chatType || routeQueryData.value?.chatType || '',
+  currentUser: loginUserId,
+  targetLanguage: DEFAULT_TRANSLATION_TARGET_LANGUAGE,
+});
+const translateTextMessage = async (msgBody) => {
+  if (!canTranslateMessage(msgBody) || isTranslationLoading(msgBody.id)) return;
+  const translateMessageApi = getMessageTranslationApi();
+  const context = getMessageLogContext(msgBody);
+  const params = buildTranslateMessageParams(msgBody);
+  if (!translateMessageApi) {
+    const error = new Error('当前 Web SDK 未暴露 translateMessage 接口');
+    console.error('[Message Translation] translateMessage unavailable', {
+      ...context,
+      params,
+      error,
+    });
+    ElMessage.error(error.message);
+    return;
+  }
+
+  setTranslationLoading(msgBody.id, true);
+  console.log('[Message Translation] translateMessage request', {
+    ...context,
+    params,
+  });
+  try {
+    const result = await translateMessageApi(params);
+    console.log('[Message Translation] translateMessage success', {
+      ...context,
+      result,
+    });
+    translationResultMap.value = {
+      ...translationResultMap.value,
+      [msgBody.id]: result,
+    };
+    ElMessage({
+      type: 'success',
+      message: '翻译成功',
+      center: true,
+    });
+  } catch (error) {
+    console.error('[Message Translation] translateMessage failed', {
+      ...context,
+      params,
+      error,
+    });
+    ElMessage.error(error?.message || '消息翻译失败');
+  } finally {
+    setTranslationLoading(msgBody.id, false);
+  }
+};
+const voiceToTextLoadingMap = ref({});
+const voiceToTextResultMap = ref({});
+const setVoiceToTextLoading = (messageId, loading) => {
+  voiceToTextLoadingMap.value = {
+    ...voiceToTextLoadingMap.value,
+    [messageId]: loading,
+  };
+};
+const isVoiceToTextLoading = (messageId) => {
+  return !!voiceToTextLoadingMap.value[messageId];
+};
+const getVoiceToTextResult = (messageId) => {
+  return voiceToTextResultMap.value[messageId] || null;
+};
+const getVoiceToTextLogContext = (msgBody) => ({
+  messageId: msgBody?.id || msgBody?.mid || '',
+  targetId: routeQueryData.value?.id || msgBody?.to || '',
+  to: msgBody?.to || '',
+  from: msgBody?.from || '',
+  chatType: msgBody?.chatType || routeQueryData.value?.chatType || '',
+  currentUser: loginUserId,
+  url: msgBody?.url || '',
+  filetype: msgBody?.filetype || '',
+  filename: msgBody?.filename || msgBody?.file?.filename || '',
+});
+const convertVoiceMessageToText = async (msgBody) => {
+  if (!canConvertVoiceToText(msgBody) || isVoiceToTextLoading(msgBody.id)) {
+    return;
+  }
+  if (typeof EMClient.voiceMessageToText !== 'function') {
+    const error = new Error('当前 Web SDK 未暴露 voiceMessageToText 接口');
+    console.error('[Voice To Text] voiceMessageToText unavailable', {
+      ...getVoiceToTextLogContext(msgBody),
+      error,
+    });
+    ElMessage.error(error.message);
+    return;
+  }
+
+  const { messageBody, audioParams } = buildVoiceToTextParams(msgBody);
+  const voiceMessageToTextApi = EMClient.voiceMessageToText.bind(EMClient);
+  setVoiceToTextLoading(msgBody.id, true);
+  console.log('[Voice To Text] voiceMessageToText request', {
+    ...getVoiceToTextLogContext(msgBody),
+    audioParams,
+  });
+  try {
+    const result = await voiceMessageToTextApi(messageBody, audioParams);
+    console.log('[Voice To Text] voiceMessageToText success', {
+      ...getVoiceToTextLogContext(msgBody),
+      result,
+    });
+    voiceToTextResultMap.value = {
+      ...voiceToTextResultMap.value,
+      [msgBody.id]: result,
+    };
+    ElMessage({
+      type: 'success',
+      message: '语音转文字成功',
+      center: true,
+    });
+  } catch (error) {
+    console.error('[Voice To Text] voiceMessageToText failed', {
+      ...getVoiceToTextLogContext(msgBody),
+      audioParams,
+      error,
+    });
+    ElMessage.error(error?.message || '语音转文字失败');
+  } finally {
+    setVoiceToTextLoading(msgBody.id, false);
+  }
+};
 const getMessagePinConversationId = (msgBody) => {
   if (msgBody.chatType === CHAT_TYPE.SINGLE) return msgBody.from;
   if (routeQueryData.value.isChatThread === true) {
@@ -927,6 +1089,17 @@ const getReactionUserAvatar = (userId) => {
                   ext: {{ JSON.stringify(getDisplayableExt(msgBody.ext)) }}
                 </p>
                 <div
+                  v-if="
+                    msgBody.type === MESSAGE_TYPE.TEXT &&
+                    getPrimaryTranslationText(getTranslationResult(msgBody.id))
+                  "
+                  class="message_translation_result"
+                >
+                  {{
+                    getPrimaryTranslationText(getTranslationResult(msgBody.id))
+                  }}
+                </div>
+                <div
                   v-if="isStreamMessage(msgBody)"
                   class="message_stream_hint"
                 >
@@ -981,6 +1154,17 @@ const getReactionUserAvatar = (userId) => {
                     ]"
                     style="background-size: 100% 100%"
                   ></div>
+                </div>
+                <div
+                  v-if="
+                    msgBody.type === MESSAGE_TYPE.AUDIO &&
+                    getVoiceToTextResultText(getVoiceToTextResult(msgBody.id))
+                  "
+                  class="message_voice_to_text_result"
+                >
+                  {{
+                    getVoiceToTextResultText(getVoiceToTextResult(msgBody.id))
+                  }}
                 </div>
                 <div
                   v-if="msgBody.type === MESSAGE_TYPE.LOCAL"
@@ -1127,8 +1311,22 @@ const getReactionUserAvatar = (userId) => {
                   >
                     编辑
                   </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canTranslateMessage(msgBody)"
+                    :disabled="isTranslationLoading(msgBody.id)"
+                    @click="translateTextMessage(msgBody)"
+                  >
+                    翻译
+                  </el-dropdown-item>
                   <el-dropdown-item @click="onMsgQuote(msgBody)">
                     引用
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canConvertVoiceToText(msgBody)"
+                    :disabled="isVoiceToTextLoading(msgBody.id)"
+                    @click="convertVoiceMessageToText(msgBody)"
+                  >
+                    语音转文字
                   </el-dropdown-item>
                   <el-dropdown-item
                     v-if="canCreateMessageThread(msgBody)"
